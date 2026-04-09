@@ -108,6 +108,11 @@ export default function AdminCoursesClient() {
    */
   const [selectedDetailUnitId, setSelectedDetailUnitId] =
     useState<Id<"units"> | null>(null);
+  /**
+   * When a unit is selected, the library column can list that unit’s content or
+   * the full library (same pattern as cert + centre column).
+   */
+  const [libraryShowAll, setLibraryShowAll] = useState(false);
   const [certDetailsOpen, setCertDetailsOpen] = useState(false);
   const [addCertOpen, setAddCertOpen] = useState(false);
   const [addUnitOpen, setAddUnitOpen] = useState(false);
@@ -187,6 +192,14 @@ export default function AdminCoursesClient() {
     filterCertId ? { levelId: filterCertId } : "skip",
   );
 
+  /** All-units view + cert selected: which units are already in that cert (for row tint). */
+  const unitIdsInSelectedCertWhenBrowsingAll = useMemo(() => {
+    if (!filterCertId || !centreUnitsShowAll || unitsInFilteredCert === undefined) {
+      return null;
+    }
+    return new Set(unitsInFilteredCert.map((u) => u._id));
+  }, [filterCertId, centreUnitsShowAll, unitsInFilteredCert]);
+
   const certSearchLower = certSearch.trim().toLowerCase();
   const unitSearchLower = unitSearch.trim().toLowerCase();
   const contentSearchLower = contentSearch.trim().toLowerCase();
@@ -213,6 +226,7 @@ export default function AdminCoursesClient() {
       }
       return (
         u.title.toLowerCase().includes(unitSearchLower) ||
+        u.description.toLowerCase().includes(unitSearchLower) ||
         u.certificationSummary.toLowerCase().includes(unitSearchLower)
       );
     },
@@ -240,6 +254,15 @@ export default function AdminCoursesClient() {
     api.content.listByUnit,
     selectedDetailUnitId ? { unitId: selectedDetailUnitId } : "skip",
   );
+
+  /** All-content view + unit selected: which library items are already on that unit (for row tint). */
+  const contentIdsInSelectedUnitWhenBrowsingLibrary = useMemo(() => {
+    if (!selectedDetailUnitId || !libraryShowAll || detailContent === undefined) {
+      return null;
+    }
+    return new Set(detailContent.map((c) => c._id));
+  }, [selectedDetailUnitId, libraryShowAll, detailContent]);
+
   const detailAssignments = useQuery(
     api.assignments.listByUnit,
     selectedDetailUnitId ? { unitId: selectedDetailUnitId } : "skip",
@@ -265,6 +288,9 @@ export default function AdminCoursesClient() {
     if (!selectedDetailUnitId || selectedDetailUnit) {
       return false;
     }
+    if (libraryShowAll) {
+      return false;
+    }
     if (allUnits === undefined) {
       return true;
     }
@@ -279,6 +305,7 @@ export default function AdminCoursesClient() {
   }, [
     selectedDetailUnitId,
     selectedDetailUnit,
+    libraryShowAll,
     allUnits,
     filterCertId,
     centreUnitsShowAll,
@@ -298,6 +325,13 @@ export default function AdminCoursesClient() {
     }
     return levels.find((l) => l._id === filterCertId)?.name ?? null;
   }, [filterCertId, levels]);
+
+  const filterUnitTitle = useMemo(() => {
+    if (!selectedDetailUnitId || !selectedDetailUnit) {
+      return null;
+    }
+    return selectedDetailUnit.title;
+  }, [selectedDetailUnitId, selectedDetailUnit]);
 
   useEffect(() => {
     if (!selectedCert) {
@@ -429,10 +463,17 @@ export default function AdminCoursesClient() {
     }
   }, [filterCertId]);
 
-  /** ADMIN.md: unit row click toggles right-column content filter only. */
+  /** ADMIN.md: unit row click selects unit for library column; click again off. */
   function handleUnitRowClick(unitId: Id<"units">) {
     setSelectedDetailUnitId((prev) => (prev === unitId ? null : unitId));
+    setLibraryShowAll(false);
   }
+
+  useEffect(() => {
+    if (!selectedDetailUnitId) {
+      setLibraryShowAll(false);
+    }
+  }, [selectedDetailUnitId]);
 
   function openEditUnit(uid: Id<"units">) {
     const u =
@@ -633,7 +674,7 @@ export default function AdminCoursesClient() {
   }
 
   const cyanPlusBtn =
-    "h-8 w-8 shrink-0 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
+    "h-7 w-7 shrink-0 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
 
   return (
     <div className="min-h-0 space-y-4">
@@ -654,7 +695,11 @@ export default function AdminCoursesClient() {
           <div className="flex min-h-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] p-4 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
-                <GraduationCap className="h-5 w-5 shrink-0 text-brand-lime" />
+                <GraduationCap
+                  className="shrink-0 text-brand-lime"
+                  size={20}
+                  aria-hidden
+                />
                 <span className="truncate">
                   Certifications
                   <span className="ml-1 text-sm font-normal text-muted-foreground">
@@ -669,7 +714,7 @@ export default function AdminCoursesClient() {
                 aria-label="Add certification"
                 onClick={() => setAddCertOpen(true)}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
             <div className="mb-1 shrink-0">
@@ -735,7 +780,11 @@ export default function AdminCoursesClient() {
           <div className="flex min-h-0 flex-col rounded-2xl border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-brand-gold/[0.14] p-4 shadow-lg dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:bg-brand-gold/[0.12]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
-                <Layers className="h-5 w-5 shrink-0 text-brand-gold" />
+                <Layers
+                  className="shrink-0 text-brand-gold"
+                  size={20}
+                  aria-hidden
+                />
                 <span className="truncate">
                   {filterCertId && !centreUnitsShowAll
                     ? filterCertName
@@ -760,7 +809,7 @@ export default function AdminCoursesClient() {
                 aria-label="Add unit"
                 onClick={() => setAddUnitOpen(true)}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
             <div className="mb-1 shrink-0">
@@ -843,11 +892,17 @@ export default function AdminCoursesClient() {
                       >
                         <UnitRowContentDropTarget
                           unitId={u._id}
-                          disabled={Boolean(selectedDetailUnitId)}
+                          disabled={
+                            Boolean(selectedDetailUnitId) && !libraryShowAll
+                          }
                         >
                           <DraggableUnitPaletteItem
                             unit={u}
                             selected={selectedDetailUnitId === u._id}
+                            inSelectedCert={
+                              unitIdsInSelectedCertWhenBrowsingAll?.has(u._id) ??
+                              false
+                            }
                             onSelect={() => handleUnitRowClick(u._id)}
                             onEdit={() => openEditUnit(u._id)}
                             onDelete={() => {
@@ -879,29 +934,56 @@ export default function AdminCoursesClient() {
           <div className="flex min-h-0 flex-col rounded-2xl border border-brand-sky/40 border-l-4 border-r-4 border-l-brand-sky border-r-brand-sky bg-brand-sky/[0.10] p-4 shadow-lg dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky dark:bg-brand-sky/[0.12]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
-                <BookMarked className="h-5 w-5 shrink-0 text-brand-sky" />
+                <BookMarked
+                  className="shrink-0 text-brand-sky"
+                  size={20}
+                  aria-hidden
+                />
                 <span className="truncate">
-                  {selectedDetailUnit && selectedDetailUnitId
-                    ? `${selectedDetailUnit.title} — content`
-                    : "Library"}
+                  {selectedDetailUnitId &&
+                  selectedDetailUnit &&
+                  !libraryShowAll
+                    ? filterUnitTitle
+                      ? `${filterUnitTitle} Content`
+                      : "Content"
+                    : "All Content"}
                   <span className="ml-1 text-sm font-normal text-muted-foreground">
                     (
-                    {selectedDetailUnit && selectedDetailUnitId
-                      ? (detailContent ?? []).length
+                    {selectedDetailUnitId &&
+                    selectedDetailUnit &&
+                    !libraryShowAll
+                      ? detailContent === undefined
+                        ? "…"
+                        : detailContent.length
                       : (allLibraryContent?.length ?? 0)}
                     )
                   </span>
                 </span>
               </h2>
-              <Button
-                type="button"
-                size="icon"
-                className={cyanPlusBtn}
-                aria-label="Add content to library"
-                onClick={() => setAddLibraryOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                {selectedDetailUnitId &&
+                selectedDetailUnit &&
+                !libraryShowAll ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => openEditUnit(selectedDetailUnitId)}
+                  >
+                    Edit unit
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  size="icon"
+                  className={cyanPlusBtn}
+                  aria-label="Add content to library"
+                  onClick={() => setAddLibraryOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
             <div className="mb-1 shrink-0">
               <label
@@ -918,116 +1000,104 @@ export default function AdminCoursesClient() {
                 className="h-9 bg-card"
               />
             </div>
-            {selectedDetailUnitId && selectedDetailUnit ? (
+            {selectedDetailUnitId && filterUnitTitle ? (
               <button
                 type="button"
                 className="mb-1 inline-flex max-w-full items-center rounded-full border border-brand-sky/40 bg-brand-sky/15 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-sky/55 hover:bg-brand-sky/25 dark:bg-brand-sky/12 dark:hover:bg-brand-sky/22"
-                onClick={() => setSelectedDetailUnitId(null)}
+                onClick={() => setLibraryShowAll((v) => !v)}
               >
-                Show all library ({allLibraryContent?.length ?? 0})
+                {libraryShowAll
+                  ? `Show ${filterUnitTitle} content`
+                  : "Show all content"}
               </button>
             ) : null}
             <hr className="my-2 shrink-0 border-t border-brand-sky/35 dark:border-brand-sky/25" />
-            {!selectedDetailUnitId ? (
+            {!selectedDetailUnitId || libraryShowAll ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                 Drag an item from this list onto a unit in the centre to attach
                 it to that unit.
               </p>
-            ) : null}
+            ) : (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Publish new lessons below, or use{" "}
+                <span className="font-medium text-foreground">
+                  Show all content
+                </span>{" "}
+                to drag library items onto a unit in the centre column.
+              </p>
+            )}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
-              {selectedDetailUnitId && selectedDetailUnit ? (
+              {selectedDetailUnitId && unitSelectionResolving ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Loading…
+                </p>
+              ) : selectedDetailUnitId &&
+                selectedDetailUnit &&
+                !libraryShowAll ? (
                 <div className="space-y-6 pb-4 pr-1">
-                    <div>
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold">
-                          {selectedDetailUnit.title}
-                        </h3>
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="h-auto p-0 text-primary"
-                          onClick={() => openEditUnit(selectedDetailUnitId)}
-                        >
-                          Edit unit
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Click the unit in the centre again to return to the full
-                        library.
+                    {detailContent === undefined ? (
+                      <p className="py-6 text-center text-sm text-muted-foreground">
+                        Loading lessons…
                       </p>
-                    </div>
-                    <div className="space-y-3">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Lessons (content)
+                    ) : detailContent.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-6 border rounded-md text-center">
+                        No lessons attached. Publish below or use{" "}
+                        <span className="font-medium text-foreground">
+                          Show all content
+                        </span>{" "}
+                        to drag items onto this unit.
                       </p>
-                      {(detailContent ?? []).length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-4 border rounded-md text-center">
-                          No lessons attached. Publish below or drag from the
-                          library (clear unit selection first).
-                        </p>
-                      ) : (
-                        <ul className="border rounded-md divide-y max-h-52 overflow-y-auto text-sm">
-                          {(detailContent ?? []).map((item) => (
-                            <li
-                              key={item.unitContentId ?? `legacy-${item._id}`}
-                              className="flex items-center gap-2 px-3 py-2"
-                            >
-                              <span className="flex-1 min-w-0 truncate">
-                                <span className="font-medium">{item.title}</span>
-                                <span className="text-muted-foreground text-xs ml-2">
-                                  {item.type}
-                                </span>
-                              </span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setEditContentId(item._id);
-                                  setEditUnitContentLinkId(item.unitContentId);
-                                  setEditContentTitle(item.title);
-                                  setEditContentUrl(item.url);
-                                  setEditContentKind(item.type);
-                                  setEditContentOrder(String(item.order));
-                                  setEditContentStorageId(
-                                    item.storageId ?? null,
-                                  );
-                                  setEditContentOpen(true);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={async () => {
-                                  try {
-                                    if (item.unitContentId) {
-                                      await detachContentFromUnit({
-                                        unitContentId: item.unitContentId,
-                                      });
-                                    } else if (selectedDetailUnitId) {
-                                      await legacyDetachContentFromUnit({
-                                        unitId: selectedDetailUnitId,
-                                        contentId: item._id,
-                                      });
-                                    }
-                                    toast.success("Removed from unit");
-                                  } catch (e) {
-                                    toast.error(
-                                      e instanceof Error ? e.message : "Failed",
-                                    );
+                    ) : (
+                      <ul className="space-y-1">
+                        {detailContent.map((item) => (
+                          <li
+                            key={item.unitContentId ?? `legacy-${item._id}`}
+                          >
+                            <ContentLibraryDragRow
+                              item={item}
+                              selected={
+                                Boolean(editContentOpen) &&
+                                editContentId === item._id
+                              }
+                              onEdit={() => {
+                                setEditContentId(item._id);
+                                setEditUnitContentLinkId(item.unitContentId);
+                                setEditContentTitle(item.title);
+                                setEditContentUrl(item.url);
+                                setEditContentKind(item.type);
+                                setEditContentOrder(String(item.order));
+                                setEditContentStorageId(
+                                  item.storageId ?? null,
+                                );
+                                setEditContentOpen(true);
+                              }}
+                              onDelete={async () => {
+                                try {
+                                  if (item.unitContentId) {
+                                    await detachContentFromUnit({
+                                      unitContentId: item.unitContentId,
+                                    });
+                                  } else if (selectedDetailUnitId) {
+                                    await legacyDetachContentFromUnit({
+                                      unitId: selectedDetailUnitId,
+                                      contentId: item._id,
+                                    });
                                   }
-                                }}
-                              >
-                                Remove
-                              </Button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                                  toast.success("Removed from unit");
+                                } catch (e) {
+                                  toast.error(
+                                    e instanceof Error
+                                      ? e.message
+                                      : "Failed",
+                                  );
+                                }
+                              }}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="space-y-3 border-t border-border pt-3">
                       <div className="grid sm:grid-cols-2 gap-3 rounded-lg border p-4 bg-muted/25">
                         <p className="text-sm font-medium sm:col-span-2">
                           Add lesson to this unit
@@ -1162,7 +1232,7 @@ export default function AdminCoursesClient() {
                         </Button>
                       </div>
                     </div>
-                    <div>
+                    <div className="border-t border-border pt-3">
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                           Assignments
@@ -1239,10 +1309,6 @@ export default function AdminCoursesClient() {
                       />
                     </div>
                   </div>
-              ) : selectedDetailUnitId && unitSelectionResolving ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Loading…
-                </p>
               ) : (
                 <>
                   {!allLibraryContent?.length ? (
@@ -1260,6 +1326,27 @@ export default function AdminCoursesClient() {
                         >
                           <ContentLibraryDragRow
                             item={item}
+                            selected={
+                              Boolean(editContentOpen) &&
+                              editContentId === item._id
+                            }
+                            inSelectedUnit={
+                              contentIdsInSelectedUnitWhenBrowsingLibrary?.has(
+                                item._id,
+                              ) ?? false
+                            }
+                            onEdit={() => {
+                              setEditContentId(item._id);
+                              setEditUnitContentLinkId(null);
+                              setEditContentTitle(item.title);
+                              setEditContentUrl(item.url);
+                              setEditContentKind(item.type);
+                              setEditContentOrder(String(item.order ?? 0));
+                              setEditContentStorageId(
+                                item.storageId ?? null,
+                              );
+                              setEditContentOpen(true);
+                            }}
                             onDelete={() => {
                               if (
                                 !confirm(

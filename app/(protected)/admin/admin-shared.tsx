@@ -27,15 +27,43 @@ export type UnitAdminListRow = Doc<"units"> & {
   certificationLevelIds: Id<"certificationLevels">[];
 };
 
+/** Same brand-lime surface as the Certifications panel — selected cert + units-in-cert in All Units. */
+export const ADMIN_CERT_PANEL_ROW_HIGHLIGHT =
+  "border-brand-lime/40 bg-brand-lime/[0.11] dark:border-brand-lime/35 dark:bg-brand-lime/[0.14]";
+
+/**
+ * Units column (brand gold) — library “all content” + unit selected: items already on that unit.
+ * Mirrors {@link ADMIN_CERT_PANEL_ROW_HIGHLIGHT} for cert + all-units.
+ */
+export const ADMIN_UNIT_PANEL_CONTENT_IN_UNIT_HIGHLIGHT =
+  "border-brand-gold/45 bg-brand-gold/[0.16] dark:border-brand-gold/38 dark:bg-brand-gold/[0.13]";
+
+/** Strong outline for the active row in admin cert / unit / content lists (three columns). */
+export const ADMIN_LIST_ROW_SELECTED =
+  "border-2 border-primary z-[1] ring-2 ring-inset ring-primary/45";
+
+/** One-line secondary line for cert-scoped and all-units lists (same field, same rules). */
+function unitRowDescription(unit: { description?: string }): {
+  text: string;
+  show: boolean;
+} {
+  const text = unit.description?.trim() ?? "";
+  const show = Boolean(text && text !== "—");
+  return { text, show };
+}
+
 export function DraggableUnitPaletteItem({
   unit,
   selected,
+  /** When showing all units with a cert selected: units already in that cert. */
+  inSelectedCert,
   onSelect,
   onEdit,
   onDelete,
 }: {
   unit: UnitAdminListRow;
   selected?: boolean;
+  inSelectedCert?: boolean;
   onSelect?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -48,41 +76,49 @@ export function DraggableUnitPaletteItem({
       }
     : undefined;
   const hasActions = onEdit != null || onDelete != null;
+  const { text: descText, show: showDesc } = unitRowDescription(unit);
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
-        selected && "bg-muted/40 ring-1 ring-ring",
+        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border text-sm shadow-sm",
+        inSelectedCert && ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
+        !inSelectedCert && "border-border bg-card",
+        !inSelectedCert && selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
+        inSelectedCert && selected && ADMIN_LIST_ROW_SELECTED,
         isDragging && "opacity-70",
       )}
     >
       <button
         type="button"
-        className="cursor-grab touch-none shrink-0 p-2 text-muted-foreground"
+        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
         {...listeners}
         {...attributes}
       >
-        <GripVertical className="h-4 w-4" />
+        <GripVertical className="h-3.5 w-3.5" />
       </button>
       {onSelect ? (
         <button
           type="button"
-          className="min-w-0 flex-1 px-2 py-2 text-left"
+          className="min-w-0 flex-1 px-0 py-1.5 text-left leading-tight"
           onClick={onSelect}
         >
-          <div className="truncate font-medium">{unit.title}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {unit.certificationSummary}
-          </div>
+          <span className="block truncate font-medium">{unit.title}</span>
+          {showDesc ? (
+            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              {descText}
+            </span>
+          ) : null}
         </button>
       ) : (
-        <div className="min-w-0 flex-1 px-2 py-2">
-          <div className="truncate font-medium">{unit.title}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {unit.certificationSummary}
-          </div>
+        <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
+          <span className="block truncate font-medium">{unit.title}</span>
+          {showDesc ? (
+            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              {descText}
+            </span>
+          ) : null}
         </div>
       )}
       {hasActions ? (
@@ -99,14 +135,14 @@ export function DraggableUnitPaletteItem({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-none"
+              className="h-7 w-7 rounded-none"
               title="Edit unit"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit();
               }}
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="h-3 w-3" />
             </Button>
           ) : null}
           {onDelete ? (
@@ -114,14 +150,14 @@ export function DraggableUnitPaletteItem({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-none text-destructive hover:text-destructive"
+              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
               title="Delete unit"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-3 w-3" />
             </Button>
           ) : null}
         </div>
@@ -130,11 +166,57 @@ export function DraggableUnitPaletteItem({
   );
 }
 
+/**
+ * Strip curriculum-style prefixes (Deck:, Explainer —, …) so the list shows the
+ * human-facing name only.
+ */
+function libraryContentDisplayTitle(raw: string): string {
+  const trimmed = raw.trim();
+  const rest = trimmed
+    .replace(
+      /^(Deck|Explainer|Briefing|Reading|Reference|Walkthrough|Guidance|Scenario\s+replay|Toolbox\s+style|Short\s+talk)\s*[:：—–-]\s*/i,
+      "",
+    )
+    .trim();
+  return rest.length > 0 ? rest : trimmed;
+}
+
+function contentLibrarySubtitle(item: Doc<"contentItems">): string {
+  const typeLabel =
+    item.type === "video"
+      ? "Video"
+      : item.type === "pdf"
+        ? "PDF"
+        : item.type === "slideshow"
+          ? "Slideshow"
+          : "Link";
+  const parts: string[] = [typeLabel];
+  if (item.duration != null && item.duration > 0) {
+    parts.push(`${item.duration} min`);
+  }
+  if (item.type === "link") {
+    try {
+      parts.push(new URL(item.url).hostname.replace(/^www\./, ""));
+    } catch {
+      /* ignore invalid url */
+    }
+  }
+  return parts.join(" · ");
+}
+
 export function ContentLibraryDragRow({
   item,
+  selected,
+  /** All-content mode + unit selected: item is already attached to that unit (mirrors units-in-cert tint). */
+  inSelectedUnit,
+  onEdit,
   onDelete,
 }: {
   item: Doc<"contentItems">;
+  /** Highlights the row (e.g. item open in the edit dialog). */
+  selected?: boolean;
+  inSelectedUnit?: boolean;
+  onEdit?: () => void;
   onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -144,51 +226,75 @@ export function ContentLibraryDragRow({
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
       }
     : undefined;
+  const subtitle = contentLibrarySubtitle(item);
+  const displayTitle = libraryContentDisplayTitle(item.title);
+  const hasActions = onEdit != null || onDelete != null;
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border text-sm shadow-sm",
+        inSelectedUnit && ADMIN_UNIT_PANEL_CONTENT_IN_UNIT_HIGHLIGHT,
+        !inSelectedUnit && "border-border bg-card",
+        !inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
+        inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
         isDragging && "opacity-70",
       )}
     >
       <button
         type="button"
-        className="cursor-grab touch-none shrink-0 p-2 text-muted-foreground"
+        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
         {...listeners}
         {...attributes}
       >
-        <GripVertical className="h-4 w-4" />
+        <GripVertical className="h-3.5 w-3.5" />
       </button>
-      <div className="min-w-0 flex-1 truncate px-2 py-2">
-        <span className="font-medium">{item.title}</span>
-        <span className="ml-2 text-xs capitalize text-muted-foreground">
-          {item.type}
-        </span>
+      <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
+        <div className="truncate font-medium">{displayTitle}</div>
+        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+          {subtitle}
+        </div>
       </div>
-      {onDelete ? (
+      {hasActions ? (
         <div
           className={cn(
-            "flex shrink-0 border-l border-border transition-opacity duration-150 ease-out",
+            "flex shrink-0 flex-row border-l border-border transition-opacity duration-150 ease-out",
             isDragging
               ? "opacity-100"
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-none text-destructive hover:text-destructive"
-            title="Delete from library"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-none"
+              title="Edit content"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          ) : null}
+          {onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+              title="Delete from library"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -354,8 +460,10 @@ export function SortableLevelRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex items-center overflow-hidden rounded-lg border border-border bg-card shadow-sm",
-        selected && "bg-muted/40 ring-1 ring-ring",
+        "group flex items-center overflow-hidden rounded-lg border shadow-sm",
+        selected
+          ? cn(ADMIN_CERT_PANEL_ROW_HIGHLIGHT, ADMIN_LIST_ROW_SELECTED)
+          : "border-border bg-card",
       )}
     >
       <button
@@ -368,7 +476,7 @@ export function SortableLevelRow({
       </button>
       <button
         type="button"
-        className="min-w-0 flex-1 px-2 py-1.5 text-left leading-tight"
+        className="min-w-0 flex-1 px-0 py-1.5 text-left leading-tight"
         onClick={onSelect}
       >
         <span className="block truncate text-sm font-medium">{level.name}</span>
@@ -445,29 +553,36 @@ export function SortableUnitRow({
     transition,
     opacity: isDragging ? 0.85 : 1,
   };
+  const { text: descText, show: showDesc } = unitRowDescription(unit);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         "group flex items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
-        selected && "bg-muted/40 ring-1 ring-ring",
+        selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
       )}
     >
       <button
         type="button"
-        className="shrink-0 cursor-grab p-2 text-muted-foreground"
+        className="shrink-0 cursor-grab self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
         {...attributes}
         {...listeners}
       >
-        <GripVertical className="h-4 w-4" />
+        <GripVertical className="h-3.5 w-3.5" />
       </button>
       <button
         type="button"
-        className="min-w-0 flex-1 truncate px-2 py-2 text-left font-medium"
+        className="min-w-0 flex-1 px-0 py-1.5 text-left leading-tight"
         onClick={onSelect}
       >
-        {unit.title}
+        <span className="block truncate font-medium">{unit.title}</span>
+        {showDesc ? (
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+            {descText}
+          </span>
+        ) : null}
       </button>
       <div
         className={cn(
@@ -481,27 +596,27 @@ export function SortableUnitRow({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-none"
+          className="h-7 w-7 rounded-none"
           title="Edit unit"
           onClick={(e) => {
             e.stopPropagation();
             onEdit();
           }}
         >
-          <Pencil className="h-3.5 w-3.5" />
+          <Pencil className="h-3 w-3" />
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-none text-destructive hover:text-destructive"
+          className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
           title="Remove from this certification"
           onClick={(e) => {
             e.stopPropagation();
             onRemoveFromCert();
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3 w-3" />
         </Button>
       </div>
     </div>

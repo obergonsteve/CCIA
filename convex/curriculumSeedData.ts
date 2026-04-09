@@ -86,20 +86,20 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "video",
-            title: "Welcome — your role as a community manager",
+            title: "Your role as a community manager",
             url: DEMO_VIDEO,
             order: 0,
             duration: 180,
           },
           {
             type: "slideshow",
-            title: "Deck: site layout & stakeholder map",
+            title: "Site layout & stakeholder map",
             url: slideDeck(),
             order: 1,
           },
           {
             type: "link",
-            title: "Reading — CCIA land lease resources",
+            title: "CCIA land lease resources",
             url: "https://www.ccia.com.au/",
             order: 2,
           },
@@ -168,14 +168,14 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "video",
-            title: "Walkthrough — daily rounds and escalation paths",
+            title: "Daily rounds and escalation paths",
             url: DEMO_VIDEO,
             order: 0,
             duration: 240,
           },
           {
             type: "link",
-            title: "NSW Fair Trading — land lease communities hub",
+            title: "NSW Fair Trading land lease communities hub",
             url: "https://www.fairtrading.nsw.gov.au/housing-and-property/landlease-communities",
             order: 1,
           },
@@ -243,19 +243,19 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "slideshow",
-            title: "Deck: compliance pillars for operators",
+            title: "Compliance pillars for operators",
             url: slideDeck(),
             order: 0,
           },
           {
             type: "link",
-            title: "Reference — Residential (Land Lease) Communities Act (NSW)",
+            title: "Residential (Land Lease) Communities Act (NSW)",
             url: "https://legislation.nsw.gov.au/view/html/inforce/current/act-2013-0042",
             order: 1,
           },
           {
             type: "video",
-            title: "Briefing — proportionate compliance culture",
+            title: "Proportionate compliance culture",
             url: DEMO_VIDEO,
             order: 2,
             duration: 200,
@@ -324,13 +324,13 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "link",
-            title: "Guidance — disclosure themes (check your state rules)",
+            title: "Disclosure themes (check your state rules)",
             url: "https://www.fairtrading.nsw.gov.au/housing-and-property/landlease-communities",
             order: 0,
           },
           {
             type: "slideshow",
-            title: "Deck: disclosure checklist for onboarding teams",
+            title: "Disclosure checklist for onboarding teams",
             url: slideDeck(),
             order: 1,
           },
@@ -384,14 +384,14 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "video",
-            title: "Toolbox style — hazard scanning on a busy site",
+            title: "Hazard scanning on a busy site",
             url: DEMO_VIDEO,
             order: 0,
             duration: 220,
           },
           {
             type: "slideshow",
-            title: "Deck: photo examples — before & after controls",
+            title: "Photo examples — before & after controls",
             url: slideDeck(),
             order: 1,
           },
@@ -446,13 +446,13 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "link",
-            title: "Safe Work Australia — managing contractor risks",
+            title: "Managing contractor risks (Safe Work Australia)",
             url: "https://www.safeworkaustralia.gov.au/safety-topic/managing-risk/managing-risks-plant",
             order: 0,
           },
           {
             type: "video",
-            title: "Short talk — gates, speed limits, and heavy vehicles",
+            title: "Gates, speed limits, and heavy vehicles",
             url: DEMO_VIDEO,
             order: 1,
             duration: 160,
@@ -507,13 +507,13 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "slideshow",
-            title: "Deck: templates for notices and updates",
+            title: "Templates for notices and updates",
             url: slideDeck(),
             order: 0,
           },
           {
             type: "video",
-            title: "Scenario replay — delivering unwelcome fee news",
+            title: "Delivering unwelcome fee news",
             url: DEMO_VIDEO,
             order: 1,
             duration: 190,
@@ -555,13 +555,13 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "link",
-            title: "Reference — internal dispute handling themes",
+            title: "Internal dispute handling themes",
             url: "https://www.fairtrading.nsw.gov.au/",
             order: 0,
           },
           {
             type: "slideshow",
-            title: "Deck: complaint log fields & quality of notes",
+            title: "Complaint log fields & quality of notes",
             url: slideDeck(),
             order: 1,
           },
@@ -615,14 +615,14 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "video",
-            title: "Explainer — visible value from recurrent charges",
+            title: "Visible value from recurrent charges",
             url: DEMO_VIDEO,
             order: 0,
             duration: 210,
           },
           {
             type: "slideshow",
-            title: "Deck: sample fee breakdown visuals",
+            title: "Sample fee breakdown visuals",
             url: slideDeck(),
             order: 1,
           },
@@ -663,13 +663,13 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         content: [
           {
             type: "link",
-            title: "Asset management reading (general)",
+            title: "General asset management reading",
             url: "https://www.ipwea.org/",
             order: 0,
           },
           {
             type: "slideshow",
-            title: "Deck: 12-month works calendar template",
+            title: "12-month works calendar template",
             url: slideDeck(),
             order: 1,
           },
