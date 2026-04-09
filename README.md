@@ -2,16 +2,46 @@
 
 CCIA Land Lease Division operator training (Next.js app).
 
-## Getting started
+## Run it on your machine
+
+You need **two terminals**, both in this folder (`ccia-landlease` — same place as `package.json`).
+
+**Terminal 1 — database / backend**
 
 ```bash
 npm install
+npm run convex:dev
+```
+
+Leave it running. Wait until you see **Convex functions ready**.
+
+**Terminal 2 — website**
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Configure Convex and env per `.env.example` (copy to `.env.local`).
+Open **http://localhost:3000**.
+
+**First time only (sample users and companies):** stop nothing; in a **third** terminal run:
+
+```bash
+npm run seed:dev
+```
+
+**Login (after seed):** use the accounts created by the seed (see `convex/seed.ts` for emails,e.g. Steve’s address there).
+
+**If the site shows Convex errors:** your `.env.local` must list the same Convex URL as the project you’re syncing. Copy `.env.example` to `.env.local`, set `NEXT_PUBLIC_CONVEX_URL` and `CONVEX_DEPLOYMENT` to the **dev** deployment shown in the [Convex dashboard](https://dashboard.convex.dev) for this project. Always use `npm run convex:dev` (not plain `npx convex dev`) so those values are picked up.
+
+**If you run `vercel link`:** it can **overwrite `.env.local`** with only Vercel/Convex keys. **Put back** `NEXT_PUBLIC_CONVEX_URL`, `SESSION_COOKIE_SECRET`, etc. (see `.env.example`), then restart `npm run dev`.
+
+---
 
 ## Deploying on Vercel
+
+### If `ccia-landlease.vercel.app` shows plain “NOT_FOUND” (not your app’s HTML)
+
+That response comes from **Vercel before Next.js runs**: there is **no successful Production deployment** for that project, or the project’s **Root Directory / Git repo** does not point at this Next app. Fix it in the dashboard (steps below); changing Convex or `.env.local` will **not** fix that URL.
 
 ### Root Directory (important)
 
