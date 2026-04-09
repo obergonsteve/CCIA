@@ -95,10 +95,8 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
     companyIds: Object.fromEntries(companyByName),
     admins: admins.map((a) => a.email.toLowerCase()),
     adminUserIds,
-    /** Paste into Convex (Dashboard → Settings → Environment Variables), then redeploy or run `npx convex dev`. */
-    setConvexDevUserId: steveId
-      ? (`CONVEX_DEV_USER_ID=${steveId}` as const)
-      : ("(seed users missing — check adminUserIds)" as const),
+    /** Steve’s users id — set on the Convex deployment: npx convex env set CONVEX_DEV_USER_ID "<this>" */
+    convexDevUserId: steveId ?? null,
   };
 }
 

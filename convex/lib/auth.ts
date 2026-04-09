@@ -9,9 +9,9 @@ function deploymentUserId(): Id<"users"> {
   const raw = process.env.CONVEX_DEV_USER_ID;
   if (!raw?.trim()) {
     throw new Error(
-      "Convex env CONVEX_DEV_USER_ID is unset (not in .env.local — set it on the Convex deployment). " +
-        "Run: npx convex run seed:seedCommunityOperatorsAndAdmins — copy setConvexDevUserId from the output — " +
-        "then: npx convex env set CONVEX_DEV_USER_ID \"<that id>\" — then: npx convex dev (or deploy).",
+      "Convex env CONVEX_DEV_USER_ID is unset (set it on the Convex deployment, not only in .env.local). " +
+        "Run: npx convex run seed:seedCommunityOperatorsAndAdmins — use convexDevUserId from the JSON — " +
+        "then: npx convex env set CONVEX_DEV_USER_ID \"<that id>\" — then push with npx convex dev or deploy.",
     );
   }
   return raw as Id<"users">;
