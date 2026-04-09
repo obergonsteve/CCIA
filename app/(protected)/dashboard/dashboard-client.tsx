@@ -88,7 +88,7 @@ export default function DashboardClient() {
               <CardHeader>
                 <CardTitle className="text-lg">{level.name}</CardTitle>
                 <CardDescription className="line-clamp-2">
-                  {level.description}
+                  {level.summary?.trim() || level.description}
                 </CardDescription>
               </CardHeader>
               <CardContent>

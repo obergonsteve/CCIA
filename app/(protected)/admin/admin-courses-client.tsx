@@ -46,14 +46,13 @@ import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
   AssignmentBuilderFields,
-  CertUnitsAddDropZone,
   ContentLibraryDragRow,
   ContentOnUnitAdminList,
   DraggableUnitPaletteItem,
   LevelRowDroppable,
   SortableLevelRow,
   SortableUnitRow,
-  UnitContentDropZone,
+  UnitRowContentDropTarget,
   type Q,
   type UnitAdminListRow,
 } from "./admin-shared";
@@ -99,6 +98,11 @@ export default function AdminCoursesClient() {
   const [filterCertId, setFilterCertId] =
     useState<Id<"certificationLevels"> | null>(null);
   /**
+   * When a cert is selected, centre column can show that cert’s units or all
+   * units (Company Setup pattern); cert row stays highlighted either way.
+   */
+  const [centreUnitsShowAll, setCentreUnitsShowAll] = useState(false);
+  /**
    * ADMIN.md: clicking a unit filters the right column to that unit’s content;
    * click again for all-content (library) mode.
    */
@@ -114,8 +118,10 @@ export default function AdminCoursesClient() {
   const [contentSearch, setContentSearch] = useState("");
 
   const [levelName, setLevelName] = useState("");
+  const [levelSummary, setLevelSummary] = useState("");
   const [levelDesc, setLevelDesc] = useState("");
   const [certDetailName, setCertDetailName] = useState("");
+  const [certDetailSummary, setCertDetailSummary] = useState("");
   const [certDetailDesc, setCertDetailDesc] = useState("");
   const [certDetailTagline, setCertDetailTagline] = useState("");
   const [certDetailThumbnail, setCertDetailThumbnail] = useState("");
@@ -181,14 +187,6 @@ export default function AdminCoursesClient() {
     filterCertId ? { levelId: filterCertId } : "skip",
   );
 
-  const certPaletteUnits = useMemo(() => {
-    if (!allUnits || !filterCertId || !unitsInFilteredCert) {
-      return [];
-    }
-    const inCert = new Set(unitsInFilteredCert.map((u) => u._id));
-    return allUnits.filter((u) => !inCert.has(u._id));
-  }, [allUnits, filterCertId, unitsInFilteredCert]);
-
   const certSearchLower = certSearch.trim().toLowerCase();
   const unitSearchLower = unitSearch.trim().toLowerCase();
   const contentSearchLower = contentSearch.trim().toLowerCase();
@@ -200,7 +198,9 @@ export default function AdminCoursesClient() {
       }
       return (
         l.name.toLowerCase().includes(certSearchLower) ||
-        l.description.toLowerCase().includes(certSearchLower)
+        l.description.toLowerCase().includes(certSearchLower) ||
+        (l.summary?.toLowerCase().includes(certSearchLower) ?? false) ||
+        (l.tagline?.toLowerCase().includes(certSearchLower) ?? false)
       );
     },
     [certSearchLower],
@@ -268,7 +268,11 @@ export default function AdminCoursesClient() {
     if (allUnits === undefined) {
       return true;
     }
-    if (filterCertId != null && unitsInFilteredCert === undefined) {
+    if (
+      filterCertId != null &&
+      !centreUnitsShowAll &&
+      unitsInFilteredCert === undefined
+    ) {
       return true;
     }
     return false;
@@ -277,6 +281,7 @@ export default function AdminCoursesClient() {
     selectedDetailUnit,
     allUnits,
     filterCertId,
+    centreUnitsShowAll,
     unitsInFilteredCert,
   ]);
 
@@ -299,6 +304,7 @@ export default function AdminCoursesClient() {
       return;
     }
     setCertDetailName(selectedCert.name);
+    setCertDetailSummary(selectedCert.summary ?? "");
     setCertDetailDesc(selectedCert.description);
     setCertDetailTagline(selectedCert.tagline ?? "");
     setCertDetailThumbnail(selectedCert.thumbnailUrl ?? "");
@@ -414,7 +420,14 @@ export default function AdminCoursesClient() {
   /** ADMIN.md: cert row click toggles centre column unit filter only. */
   function handleCertFilterToggle(id: Id<"certificationLevels">) {
     setFilterCertId((prev) => (prev === id ? null : id));
+    setCentreUnitsShowAll(false);
   }
+
+  useEffect(() => {
+    if (!filterCertId) {
+      setCentreUnitsShowAll(false);
+    }
+  }, [filterCertId]);
 
   /** ADMIN.md: unit row click toggles right-column content filter only. */
   function handleUnitRowClick(unitId: Id<"units">) {
@@ -503,7 +516,12 @@ export default function AdminCoursesClient() {
         }
       }
 
-      if (filterCertId && unitsInFilteredCert && unitsInFilteredCert.length) {
+      if (
+        filterCertId &&
+        !centreUnitsShowAll &&
+        unitsInFilteredCert &&
+        unitsInFilteredCert.length
+      ) {
         if (active.id === over.id) {
           return;
         }
@@ -529,6 +547,7 @@ export default function AdminCoursesClient() {
     [
       levels,
       filterCertId,
+      centreUnitsShowAll,
       unitsInFilteredCert,
       attachContentToUnit,
       addUnitToLevel,
@@ -621,11 +640,7 @@ export default function AdminCoursesClient() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
         <p className="text-sm text-muted-foreground">
-          Same three-column pattern as{" "}
-          <span className="text-foreground">Company Setup</span> in GRIT Activate:
-          click a certification to filter units in the centre; click a unit to
-          focus content on the right; click again to show all. See{" "}
-          <span className="text-foreground">ADMIN.md</span>.
+          Construct and maintain Certifications, Units and Content.
         </p>
       </div>
 
@@ -635,14 +650,14 @@ export default function AdminCoursesClient() {
         onDragEnd={(e) => void onUnifiedDragEnd(e)}
       >
         {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
-        <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[1fr_1.15fr_1fr]">
-          <div className="flex min-h-0 flex-col rounded-2xl border border-sky-100 bg-sky-50 p-4 shadow-lg dark:border-sky-900/50 dark:bg-sky-950/35">
+        <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-3">
+          <div className="flex min-h-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] p-4 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
-                <GraduationCap className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                <GraduationCap className="h-5 w-5 shrink-0 text-brand-lime" />
                 <span className="truncate">
                   Certifications
-                  <span className="ml-1 font-normal text-muted-foreground">
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
                     ({levels?.length ?? 0})
                   </span>
                 </span>
@@ -672,16 +687,7 @@ export default function AdminCoursesClient() {
                 className="h-9 bg-card"
               />
             </div>
-            {filterCertId && filterCertName ? (
-              <button
-                type="button"
-                className="mt-1 inline-flex max-w-full items-center rounded-full border border-sky-200 bg-sky-100 px-3 py-1.5 text-left text-xs font-medium text-sky-900 transition-colors hover:border-sky-300 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/50"
-                onClick={() => setFilterCertId(null)}
-              >
-                Show all units (centre column)
-              </button>
-            ) : null}
-            <hr className="my-2 shrink-0 border-t border-sky-200 dark:border-sky-800" />
+            <hr className="my-2 shrink-0 border-t border-brand-lime/35 dark:border-brand-lime/25" />
             {!filterCertId ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                 Drop a unit from the centre onto a certification to add it to
@@ -726,15 +732,19 @@ export default function AdminCoursesClient() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col rounded-2xl border border-violet-200 border-l-4 border-r-4 border-l-violet-400 border-r-violet-400 bg-violet-100/90 p-4 shadow-lg dark:border-violet-800 dark:border-l-violet-500 dark:border-r-violet-500 dark:bg-violet-950/40">
+          <div className="flex min-h-0 flex-col rounded-2xl border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-brand-gold/[0.14] p-4 shadow-lg dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:bg-brand-gold/[0.12]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-bold text-foreground">
-                <Layers className="h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
+              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
+                <Layers className="h-5 w-5 shrink-0 text-brand-gold" />
                 <span className="truncate">
-                  Units
-                  <span className="ml-1 text-base font-normal text-muted-foreground">
+                  {filterCertId && !centreUnitsShowAll
+                    ? filterCertName
+                      ? `${filterCertName} Units`
+                      : "Units"
+                    : "All Units"}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
                     (
-                    {filterCertId
+                    {filterCertId && !centreUnitsShowAll
                       ? unitsInFilteredCert === undefined
                         ? "…"
                         : unitsInFilteredCert.length
@@ -768,6 +778,17 @@ export default function AdminCoursesClient() {
                 className="h-9 bg-card"
               />
             </div>
+            {filterCertId && filterCertName ? (
+              <button
+                type="button"
+                className="mb-1 inline-flex max-w-full items-center rounded-full border border-brand-gold/40 bg-brand-gold/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-gold/55 hover:bg-brand-gold/30 dark:bg-brand-gold/15 dark:hover:bg-brand-gold/25"
+                onClick={() => setCentreUnitsShowAll((v) => !v)}
+              >
+                {centreUnitsShowAll
+                  ? `Show ${filterCertName} units`
+                  : "Show all units"}
+              </button>
+            ) : null}
             <p className="mb-3 shrink-0 text-sm text-muted-foreground">
               Drag units onto certifications or library items onto units (when no
               unit is selected in this column).
@@ -778,50 +799,33 @@ export default function AdminCoursesClient() {
                   While Convex loads, unitsInFilteredCert is undefined — must not
                   fall through to “all units” or filtering looks broken.
                 */}
-                {filterCertId ? (
+                {filterCertId && !centreUnitsShowAll ? (
                   unitsInFilteredCert === undefined ? (
                     <p className="py-6 text-center text-sm text-muted-foreground">
                       Loading units…
                     </p>
                   ) : (
-                    <div className="space-y-2">
-                      <CertUnitsAddDropZone levelId={filterCertId} />
-                      <SortableContext
-                        items={unitsInFilteredCert.map((u) => u._id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <ul className="space-y-1">
-                          {unitsInFilteredCert.map((u) => (
-                            <li key={u._id}>
-                              <SortableUnitRow
-                                unit={u}
-                                selected={selectedDetailUnitId === u._id}
-                                onSelect={() => handleUnitRowClick(u._id)}
-                                onEdit={() => openEditUnit(u._id)}
-                                onRemoveFromCert={() => {
-                                  setDetachFromCertUnitId(u._id);
-                                  setDetachFromCertOpen(true);
-                                }}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      </SortableContext>
-                      <p className="text-[11px] text-muted-foreground">
-                        Other units — drag onto this certification or a cert row
-                      </p>
-                      <div className="space-y-1">
-                        {certPaletteUnits.length === 0 ? (
-                          <p className="py-3 text-center text-xs text-muted-foreground">
-                            All units are in this certification.
-                          </p>
-                        ) : (
-                          certPaletteUnits.map((u) => (
-                            <DraggableUnitPaletteItem key={u._id} unit={u} />
-                          ))
-                        )}
-                      </div>
-                    </div>
+                    <SortableContext
+                      items={unitsInFilteredCert.map((u) => u._id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <ul className="space-y-1">
+                        {unitsInFilteredCert.map((u) => (
+                          <li key={u._id}>
+                            <SortableUnitRow
+                              unit={u}
+                              selected={selectedDetailUnitId === u._id}
+                              onSelect={() => handleUnitRowClick(u._id)}
+                              onEdit={() => openEditUnit(u._id)}
+                              onRemoveFromCert={() => {
+                                setDetachFromCertUnitId(u._id);
+                                setDetachFromCertOpen(true);
+                              }}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </SortableContext>
                   )
                 ) : !allUnits?.length ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
@@ -837,19 +841,21 @@ export default function AdminCoursesClient() {
                           unitMatchesSearch(u) ? "" : "opacity-30",
                         )}
                       >
-                        <DraggableUnitPaletteItem
-                          unit={u}
-                          selected={selectedDetailUnitId === u._id}
-                          onSelect={() => handleUnitRowClick(u._id)}
-                          onEdit={() => openEditUnit(u._id)}
-                          onDelete={() => {
-                            setUnitDeleteId(u._id);
-                            setUnitDeleteOpen(true);
-                          }}
-                        />
-                        {!selectedDetailUnitId ? (
-                          <UnitContentDropZone unitId={u._id} />
-                        ) : null}
+                        <UnitRowContentDropTarget
+                          unitId={u._id}
+                          disabled={Boolean(selectedDetailUnitId)}
+                        >
+                          <DraggableUnitPaletteItem
+                            unit={u}
+                            selected={selectedDetailUnitId === u._id}
+                            onSelect={() => handleUnitRowClick(u._id)}
+                            onEdit={() => openEditUnit(u._id)}
+                            onDelete={() => {
+                              setUnitDeleteId(u._id);
+                              setUnitDeleteOpen(true);
+                            }}
+                          />
+                        </UnitRowContentDropTarget>
                       </li>
                     ))}
                   </ul>
@@ -870,15 +876,15 @@ export default function AdminCoursesClient() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-lg dark:border-amber-900/50 dark:bg-amber-950/30">
+          <div className="flex min-h-0 flex-col rounded-2xl border border-brand-sky/40 border-l-4 border-r-4 border-l-brand-sky border-r-brand-sky bg-brand-sky/[0.10] p-4 shadow-lg dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky dark:bg-brand-sky/[0.12]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
-                <BookMarked className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                <BookMarked className="h-5 w-5 shrink-0 text-brand-sky" />
                 <span className="truncate">
                   {selectedDetailUnit && selectedDetailUnitId
                     ? `${selectedDetailUnit.title} — content`
                     : "Library"}
-                  <span className="ml-1 font-normal text-muted-foreground">
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
                     (
                     {selectedDetailUnit && selectedDetailUnitId
                       ? (detailContent ?? []).length
@@ -915,13 +921,13 @@ export default function AdminCoursesClient() {
             {selectedDetailUnitId && selectedDetailUnit ? (
               <button
                 type="button"
-                className="mb-1 inline-flex max-w-full items-center rounded-full border border-amber-200 bg-amber-100 px-3 py-1.5 text-left text-xs font-medium text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-200 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100 dark:hover:bg-amber-900/50"
+                className="mb-1 inline-flex max-w-full items-center rounded-full border border-brand-sky/40 bg-brand-sky/15 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-sky/55 hover:bg-brand-sky/25 dark:bg-brand-sky/12 dark:hover:bg-brand-sky/22"
                 onClick={() => setSelectedDetailUnitId(null)}
               >
                 Show all library ({allLibraryContent?.length ?? 0})
               </button>
             ) : null}
-            <hr className="my-2 shrink-0 border-t border-amber-200 dark:border-amber-800" />
+            <hr className="my-2 shrink-0 border-t border-brand-sky/35 dark:border-brand-sky/25" />
             {!selectedDetailUnitId ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                 Drag an item from this list onto a unit in the centre to attach
@@ -1301,13 +1307,23 @@ export default function AdminCoursesClient() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="add-cert-desc">Description</Label>
+              <Label htmlFor="add-cert-summary">Short summary</Label>
+              <Textarea
+                id="add-cert-summary"
+                placeholder="One or two sentences for lists and cards"
+                value={levelSummary}
+                onChange={(e) => setLevelSummary(e.target.value)}
+                className="min-h-[60px]"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-cert-desc">Full description</Label>
               <Textarea
                 id="add-cert-desc"
-                placeholder="Description"
+                placeholder="Detailed overview (level page, catalog)"
                 value={levelDesc}
                 onChange={(e) => setLevelDesc(e.target.value)}
-                className="min-h-[72px]"
+                className="min-h-[100px]"
               />
             </div>
           </div>
@@ -1330,10 +1346,12 @@ export default function AdminCoursesClient() {
                 try {
                   const newId = await createLevel({
                     name: levelName.trim(),
+                    summary: levelSummary.trim() || undefined,
                     description: levelDesc.trim() || "—",
                     order: n,
                   });
                   setLevelName("");
+                  setLevelSummary("");
                   setLevelDesc("");
                   setAddCertOpen(false);
                   setEditCertId(newId);
@@ -1528,12 +1546,22 @@ export default function AdminCoursesClient() {
                   />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <Label htmlFor="cert-desc">Description</Label>
+                  <Label htmlFor="cert-summary">Short summary</Label>
+                  <Textarea
+                    id="cert-summary"
+                    value={certDetailSummary}
+                    onChange={(e) => setCertDetailSummary(e.target.value)}
+                    placeholder="For lists, cards, and the admin column preview"
+                    className="min-h-[72px]"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="cert-desc">Full description</Label>
                   <Textarea
                     id="cert-desc"
                     value={certDetailDesc}
                     onChange={(e) => setCertDetailDesc(e.target.value)}
-                    className="min-h-[100px]"
+                    className="min-h-[120px]"
                   />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
@@ -1613,6 +1641,7 @@ export default function AdminCoursesClient() {
                       await updateLevel({
                         levelId: editCertId,
                         name: certDetailName.trim(),
+                        summary: certDetailSummary.trim() || undefined,
                         description: certDetailDesc.trim() || "—",
                         order: orderNum,
                         companyId: certDetailCompanyId

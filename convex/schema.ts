@@ -40,8 +40,11 @@ export default defineSchema({
 
   certificationLevels: defineTable({
     name: v.string(),
+    /** Short summary for lists, admin rows, and card previews */
+    summary: v.optional(v.string()),
+    /** Long-form detail (level page, full catalog context) */
     description: v.string(),
-    /** Short line under the title on catalog cards */
+    /** Optional marketing line under the title on hero/catalog imagery */
     tagline: v.optional(v.string()),
     /** Hero / card image (HTTPS URL) */
     thumbnailUrl: v.optional(v.string()),

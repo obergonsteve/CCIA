@@ -132,6 +132,7 @@ export const get = query({
 export const create = mutation({
   args: {
     name: v.string(),
+    summary: v.optional(v.string()),
     description: v.string(),
     order: v.number(),
     companyId: v.optional(v.id("companies")),
@@ -148,6 +149,7 @@ export const update = mutation({
   args: {
     levelId: v.id("certificationLevels"),
     name: v.string(),
+    summary: v.optional(v.string()),
     description: v.string(),
     order: v.number(),
     companyId: v.optional(v.id("companies")),

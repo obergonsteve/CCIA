@@ -93,9 +93,16 @@ export default function CertificationLevelClient({
           ) : null}
         </div>
       )}
-      <p className="text-muted-foreground leading-relaxed max-w-3xl">
-        {level.description}
-      </p>
+      <div className="max-w-3xl space-y-4">
+        {level.summary?.trim() ? (
+          <p className="text-base font-medium text-foreground/90 leading-relaxed">
+            {level.summary}
+          </p>
+        ) : null}
+        <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+          {level.description}
+        </p>
+      </div>
 
       <ul className="space-y-3">
         {rows.map(({ unit, p, pct, unlocked }) => (

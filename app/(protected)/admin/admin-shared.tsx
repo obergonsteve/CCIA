@@ -27,27 +27,6 @@ export type UnitAdminListRow = Doc<"units"> & {
   certificationLevelIds: Id<"certificationLevels">[];
 };
 
-export function CertUnitsAddDropZone({
-  levelId,
-}: {
-  levelId: Id<"certificationLevels">;
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `level-units-add-${levelId}`,
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "rounded-md border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground transition-colors",
-        isOver ? "border-primary bg-muted/50" : "border-muted-foreground/25",
-      )}
-    >
-      Drop unit here to add to this certification
-    </div>
-  );
-}
-
 export function DraggableUnitPaletteItem({
   unit,
   selected,
@@ -74,7 +53,7 @@ export function DraggableUnitPaletteItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
         selected && "bg-muted/40 ring-1 ring-ring",
         isDragging && "opacity-70",
       )}
@@ -107,7 +86,14 @@ export function DraggableUnitPaletteItem({
         </div>
       )}
       {hasActions ? (
-        <div className="flex shrink-0 border-l border-border">
+        <div
+          className={cn(
+            "flex shrink-0 border-l border-border transition-opacity duration-150 ease-out",
+            isDragging
+              ? "opacity-100"
+              : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+          )}
+        >
           {onEdit ? (
             <Button
               type="button"
@@ -163,7 +149,7 @@ export function ContentLibraryDragRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
         isDragging && "opacity-70",
       )}
     >
@@ -182,7 +168,14 @@ export function ContentLibraryDragRow({
         </span>
       </div>
       {onDelete ? (
-        <div className="flex shrink-0 border-l border-border">
+        <div
+          className={cn(
+            "flex shrink-0 border-l border-border transition-opacity duration-150 ease-out",
+            isDragging
+              ? "opacity-100"
+              : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+          )}
+        >
           <Button
             type="button"
             variant="ghost"
@@ -202,19 +195,32 @@ export function ContentLibraryDragRow({
   );
 }
 
-export function UnitContentDropZone({ unitId }: { unitId: Id<"units"> }) {
+/** Library items drop onto the unit row (same id as before for attachContentToUnit). */
+export function UnitRowContentDropTarget({
+  unitId,
+  disabled,
+  children,
+}: {
+  unitId: Id<"units">;
+  /** When set (e.g. a unit is selected for detail), ignore drops here. */
+  disabled?: boolean;
+  children: ReactNode;
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: `unit-content-drop-${unitId}`,
+    disabled: Boolean(disabled),
   });
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-md border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground transition-colors",
-        isOver ? "border-primary bg-muted/50" : "border-muted-foreground/25",
+        "rounded-lg transition-shadow",
+        !disabled &&
+          isOver &&
+          "ring-2 ring-brand-sky/55 ring-offset-2 ring-offset-background",
       )}
     >
-      Drop library item here to attach to this unit
+      {children}
     </div>
   );
 }
@@ -335,61 +341,78 @@ export function SortableLevelRow({
     opacity: isDragging ? 0.85 : 1,
   };
 
+  const short =
+    level.summary?.trim() ||
+    level.tagline?.trim() ||
+    (level.description?.trim() && level.description !== "—"
+      ? level.description
+      : "");
+  const showShort = Boolean(short);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-stretch overflow-hidden rounded-lg border border-border bg-card shadow-sm",
+        "group flex items-center overflow-hidden rounded-lg border border-border bg-card shadow-sm",
         selected && "bg-muted/40 ring-1 ring-ring",
       )}
     >
       <button
         type="button"
-        className="cursor-grab touch-none shrink-0 p-2 text-muted-foreground"
+        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
         {...attributes}
         {...listeners}
       >
-        <GripVertical className="h-4 w-4" />
+        <GripVertical className="h-3.5 w-3.5" />
       </button>
       <button
         type="button"
-        className="min-w-0 flex-1 px-3 py-2 text-left"
+        className="min-w-0 flex-1 px-2 py-1.5 text-left leading-tight"
         onClick={onSelect}
       >
         <span className="block truncate text-sm font-medium">{level.name}</span>
+        {showShort ? (
+          <span className="mt-0.5 block line-clamp-2 text-[11px] text-muted-foreground">
+            {short}
+          </span>
+        ) : null}
       </button>
-      <div className="flex shrink-0 flex-col border-l border-border">
+      <div
+        className={cn(
+          "flex h-full shrink-0 flex-row items-center border-l border-border transition-opacity duration-150 ease-out",
+          isDragging
+            ? "opacity-100"
+            : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+        )}
+      >
         {onEdit ? (
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-none"
+            className="h-7 w-7 rounded-none"
             title="Edit certification"
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
             }}
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Pencil className="h-3 w-3" />
           </Button>
         ) : null}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className={cn(
-            "h-8 w-8 rounded-none text-destructive hover:text-destructive",
-            !onEdit && "h-10 w-10",
-          )}
+          className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
           title="Delete certification"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3 w-3" />
         </Button>
       </div>
     </div>
@@ -427,7 +450,7 @@ export function SortableUnitRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        "group flex items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
         selected && "bg-muted/40 ring-1 ring-ring",
       )}
     >
@@ -446,7 +469,14 @@ export function SortableUnitRow({
       >
         {unit.title}
       </button>
-      <div className="flex shrink-0 flex-col border-l border-border">
+      <div
+        className={cn(
+          "flex shrink-0 flex-col border-l border-border transition-opacity duration-150 ease-out",
+          isDragging
+            ? "opacity-100"
+            : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+        )}
+      >
         <Button
           type="button"
           variant="ghost"

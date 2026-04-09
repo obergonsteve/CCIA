@@ -45,6 +45,8 @@ export function seedUnitKey(courseName: string, unitTitle: string) {
 
 export type SeedCourse = {
   name: string;
+  /** Short summary for cards and lists (distinct from full description). */
+  summary: string;
   tagline: string;
   description: string;
   thumbnailUrl: string;
@@ -67,6 +69,8 @@ function slideDeck(): string {
 export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   {
     name: "Land Lease 101",
+    summary:
+      "How land lease communities work in Australia — sites, homes, charges, and operator roles.",
     tagline: "Start here — foundations for new managers",
     description:
       "Orientation to residential land lease communities in Australia: how sites work, who does what, and how legislation shapes daily operations. Includes video intros, reference decks, and short checkpoints.",
@@ -216,6 +220,8 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Compliance & the Act",
+    summary:
+      "Statutory duties, disclosure, and records that stand up to scrutiny under Australian land lease law themes.",
     tagline: "Rules, records, and home-site agreements",
     description:
       "Navigate statutory duties, disclosure expectations, and documentation that stands up to scrutiny — aligned with Australian land lease community law themes (state rules still apply in your jurisdiction).",
@@ -355,6 +361,8 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Site Safety & WHS",
+    summary:
+      "Practical WHS for shared roads, amenities, worksites, and emergencies on occupied communities.",
     tagline: "Hazards, contractors, and resident wellbeing",
     description:
       "Practical WHS habits for shared roads, amenities, worksites, and emergencies — tailored for managers coordinating teams and vendors on occupied land lease communities.",
@@ -476,6 +484,8 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Resident Experience & Fair Dealing",
+    summary:
+      "Communication, complaints, and fair dealing — the human side of compliant operations.",
     tagline: "Communication, complaints, and trust",
     description:
       "Professional tone, inclusive practice, de-escalation, and transparent complaint pathways — the human side of compliant operations.",
@@ -582,6 +592,8 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Commercials, Fees & Asset Care",
+    summary:
+      "Recurrent charges, reserves, and explaining value — keeping the community financially sustainable.",
     tagline: "Budgets, transparency, and sustainable upkeep",
     description:
       "Recurrent charges, reserves, capital planning, and explaining value to residents — keeping the asset and community financially sustainable.",

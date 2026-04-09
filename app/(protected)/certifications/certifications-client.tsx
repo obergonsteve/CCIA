@@ -112,7 +112,7 @@ export default function CertificationsClient() {
                   </div>
                   <div className="space-y-4 p-5 pt-4">
                     <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                      {level.description}
+                      {level.summary?.trim() || level.description}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <Badge

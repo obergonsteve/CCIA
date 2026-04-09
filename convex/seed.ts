@@ -119,8 +119,10 @@ export const bootstrapDemo = mutation({
           });
     const levelId = await ctx.db.insert("certificationLevels", {
       name: "Level 1 — Foundations",
-      description:
+      summary:
         "Introduction to residential land lease community operations in Australia.",
+      description:
+        "Introduction to residential land lease community operations in Australia — governance, site models, and how legislation shapes day-to-day management.",
       order: 0,
       companyId: undefined,
     });
@@ -173,6 +175,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
   for (const course of LAND_LEASE_CURRICULUM) {
     const levelId = await ctx.db.insert("certificationLevels", {
       name: course.name,
+      summary: course.summary,
       description: course.description,
       tagline: course.tagline,
       thumbnailUrl: course.thumbnailUrl,
