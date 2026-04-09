@@ -4,27 +4,34 @@ const JWKS_DATA_URI =
   "data:text/plain;charset=utf-8;base64,eyJrZXlzIjpbeyJrdHkiOiJSU0EiLCJuIjoieTdLeUdoQ3M1TEdfdDhFaVFNS05ocVFMX3NQYkhtemRwUWh6RDR3Z2tXTGoxcW5LZkExcE0ydVB6U1p5N3N0c2tWNVgxQmUwOVhETFpKd2w3VlY5MklFNENrbVFncTlOdVk3NXk4bVk5N0l0cGFSZ2VROGJjbnJpWmlqS29jbHhVWkJxdXRkeVZrTVc3NWhMV3cwdG5YUnBZMWJBTkY0aTB0V2RrTy1hMG5PakhqU3hGaUhVYTl4YXdIMFZiMDNfV3BjRnRaUVBUbTBoUEtLbHpKVWtmYXV6dHk4eFNiUVdNOHltQWxLNHMxaG9sRk9CNWNIZDBOYW9Rc1hqQzRsOWlkR3FoYlExdEZQQ3dQcEt5TTN6clFGTXVXRWUzMTY5X3VaRWhkUHR0SG1wbnluMzU0N09UZGt3QmhINlQ1RkxSbklBY1NWYmlRVi1rTWtSZHVXN0NRIiwiZSI6IkFRQUIiLCJ1c2UiOiJzaWciLCJhbGciOiJSUzI1NiIsImtpZCI6ImNjaWEtbGFuZGxlYXNlLTEifV19";
 
 /**
- * JWT `iss` claim from Next.js session tokens — must match `JWT_ISSUER` / `NEXT_PUBLIC_APP_URL` there.
- * Avoid `process.env.JWT_ISSUER` here: Convex requires that var on the deployment whenever it appears in this file,
- * even when `DISABLE_JWT_AUTH=true`. Change this string if your app URL differs (e.g. production).
+ * JWT `iss` on session tokens must match one of these issuers (same signing key / JWKS).
+ *
+ * - Local dev: include both `localhost` and `127.0.0.1` so tokens match `NEXT_PUBLIC_APP_URL`
+ *   whether you open the app as http://localhost:3000 or http://127.0.0.1:3000.
+ * - Production: add your public origin to `extraIssuers` (same value as `NEXT_PUBLIC_APP_URL` on the host).
+ *
+ * Do not use `process.env` here: Convex requires any referenced env vars to be set on the deployment,
+ * which breaks `npx convex dev` unless every developer configures them.
+ *
+ * Password-only mode (`DISABLE_JWT_AUTH=true` on Convex): Next sends no token; `requireUserId` uses
+ * `CONVEX_DEV_USER_ID` instead.
  */
-/** Must match `NEXT_PUBLIC_APP_URL` / signed JWT `iss` from Next (local dev defaults to localhost). */
-const ISSUER = "http://localhost:3000";
+const extraIssuers: string[] = [
+  "https://ccia-one.vercel.app",
+];
 
-/**
- * Always register the JWT provider. Convex rejects `auth.config.ts` if it references env vars
- * that are not set on the deployment (including `DISABLE_JWT_AUTH`).
- * Password-only mode (Next `DISABLE_JWT_AUTH`) sends no Convex token; `convex/lib/auth.ts` then
- * uses `CONVEX_DEV_USER_ID` when that flag is set on the deployment.
- */
+const issuers = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  ...extraIssuers,
+];
+
 export default {
-  providers: [
-    {
-      type: "customJwt" as const,
-      applicationID: "convex",
-      issuer: ISSUER,
-      jwks: JWKS_DATA_URI,
-      algorithm: "RS256" as const,
-    },
-  ],
+  providers: issuers.map((issuer) => ({
+    type: "customJwt" as const,
+    applicationID: "convex",
+    issuer,
+    jwks: JWKS_DATA_URI,
+    algorithm: "RS256" as const,
+  })),
 } satisfies AuthConfig;
