@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "node scripts/fix-workbox-tsconfigs.mjs",
+    "postinstall": "node scripts/fix-workbox-tsconfigs.mjs && node scripts/fix-next-themes-react19.mjs",
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
