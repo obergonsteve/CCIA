@@ -13,7 +13,7 @@ import { LAND_LEASE_CURRICULUM, seedUnitKey } from "./curriculumSeedData";
 export type PrerequisiteItem = {
   unitId: Id<"units">;
   title: string;
-  levelId: Id<"certificationLevels">;
+  levelId: Id<"certificationLevels"> | null;
   levelName: string;
   completed: boolean;
 };
@@ -36,7 +36,12 @@ export const statusForUnit = query({
       if (!u) {
         continue;
       }
-      const level = await ctx.db.get(u.levelId);
+      const link = await ctx.db
+        .query("certificationUnits")
+        .withIndex("by_unit", (q) => q.eq("unitId", u._id))
+        .first();
+      const levelId = link?.levelId ?? u.levelId;
+      const level = levelId ? await ctx.db.get(levelId) : null;
       const prog = await ctx.db
         .query("userProgress")
         .withIndex("by_user_unit", (q) =>
@@ -46,8 +51,8 @@ export const statusForUnit = query({
       prerequisites.push({
         unitId: u._id,
         title: u.title,
-        levelId: u.levelId,
-        levelName: level?.name ?? "Certification",
+        levelId: levelId ?? null,
+        levelName: level?.name ?? "Unit",
         completed: prog?.completed ?? false,
       });
     }
@@ -66,10 +71,18 @@ export const summariesForLevel = query({
     if (!levelOk) {
       return [];
     }
-    const units = await ctx.db
-      .query("units")
-      .filter((q) => q.eq(q.field("levelId"), levelId))
+    const cLinks = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level", (q) => q.eq("levelId", levelId))
       .collect();
+    cLinks.sort((a, b) => a.order - b.order);
+    const units = [];
+    for (const cl of cLinks) {
+      const u = await ctx.db.get(cl.unitId);
+      if (u) {
+        units.push(u);
+      }
+    }
     const results: Array<{
       unitId: Id<"units">;
       ready: boolean;
@@ -216,12 +229,15 @@ export const syncLandLeasePrerequisitesFromCurriculum = mutation({
     const globalLevels = levels.filter((l) => l.companyId == null);
     const idByKey = new Map<string, Id<"units">>();
     for (const level of globalLevels) {
-      const units = await ctx.db
-        .query("units")
-        .filter((q) => q.eq(q.field("levelId"), level._id))
+      const links = await ctx.db
+        .query("certificationUnits")
+        .withIndex("by_level", (q) => q.eq("levelId", level._id))
         .collect();
-      for (const u of units) {
-        idByKey.set(seedUnitKey(level.name, u.title), u._id);
+      for (const link of links) {
+        const u = await ctx.db.get(link.unitId);
+        if (u) {
+          idByKey.set(seedUnitKey(level.name, u.title), u._id);
+        }
       }
     }
     let inserted = 0;

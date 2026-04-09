@@ -125,17 +125,23 @@ export const bootstrapDemo = mutation({
       companyId: undefined,
     });
     const unitId = await ctx.db.insert("units", {
-      levelId,
       title: "Compliance orientation",
       description:
         "Key obligations under the Residential (Land Lease) Communities Act and operator duties.",
+    });
+    await ctx.db.insert("certificationUnits", {
+      levelId,
+      unitId,
       order: 0,
     });
-    await ctx.db.insert("contentItems", {
-      unitId,
+    const contentId = await ctx.db.insert("contentItems", {
       type: "link",
       title: "NSW Fair Trading — Land lease communities",
       url: "https://www.fairtrading.nsw.gov.au/",
+    });
+    await ctx.db.insert("unitContents", {
+      unitId,
+      contentId,
       order: 0,
     });
     await ctx.db.insert("assignments", {
@@ -177,20 +183,26 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
 
     for (const unit of course.units) {
       const unitId = await ctx.db.insert("units", {
-        levelId,
         title: unit.title,
         description: unit.description,
+      });
+      await ctx.db.insert("certificationUnits", {
+        levelId,
+        unitId,
         order: unit.order,
       });
       unitIdBySeedKey.set(seedUnitKey(course.name, unit.title), unitId);
       for (const c of unit.content) {
-        await ctx.db.insert("contentItems", {
-          unitId,
+        const contentId = await ctx.db.insert("contentItems", {
           type: c.type,
           title: c.title,
           url: c.url,
-          order: c.order,
           ...(c.duration !== undefined ? { duration: c.duration } : {}),
+        });
+        await ctx.db.insert("unitContents", {
+          unitId,
+          contentId,
+          order: c.order,
         });
       }
       await ctx.db.insert("assignments", {
@@ -280,6 +292,8 @@ export const adminClearTrainingData = mutation({
       testResults: 0,
       userProgress: 0,
       unitPrerequisites: 0,
+      unitContents: 0,
+      certificationUnits: 0,
       contentItems: 0,
       assignments: 0,
       units: 0,
@@ -296,6 +310,14 @@ export const adminClearTrainingData = mutation({
     for (const row of await ctx.db.query("unitPrerequisites").collect()) {
       await ctx.db.delete(row._id);
       counts.unitPrerequisites += 1;
+    }
+    for (const row of await ctx.db.query("unitContents").collect()) {
+      await ctx.db.delete(row._id);
+      counts.unitContents += 1;
+    }
+    for (const row of await ctx.db.query("certificationUnits").collect()) {
+      await ctx.db.delete(row._id);
+      counts.certificationUnits += 1;
     }
     for (const row of await ctx.db.query("contentItems").collect()) {
       await ctx.db.delete(row._id);

@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
   requireAdminOrCreator,
@@ -6,19 +7,63 @@ import {
   userCanAccessUnit,
 } from "./lib/auth";
 
+export type ContentInUnit = Doc<"contentItems"> & {
+  order: number;
+  /** Null when the row still uses legacy `contentItems.unitId` (no `unitContents` link). */
+  unitContentId: Id<"unitContents"> | null;
+};
+
 export const listByUnit = query({
   args: { unitId: v.id("units") },
-  handler: async (ctx, { unitId }) => {
+  handler: async (ctx, { unitId }): Promise<ContentInUnit[]> => {
     await requireUserId(ctx);
     const ok = await userCanAccessUnit(ctx, unitId);
     if (!ok) {
       return [];
     }
-    const items = await ctx.db
+    const links = await ctx.db
+      .query("unitContents")
+      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+      .collect();
+    links.sort((a, b) => a.order - b.order);
+    const out: ContentInUnit[] = [];
+    const linkedContentIds = new Set<Id<"contentItems">>();
+    for (const link of links) {
+      const doc = await ctx.db.get(link.contentId);
+      if (doc) {
+        linkedContentIds.add(doc._id);
+        out.push({
+          ...doc,
+          order: link.order,
+          unitContentId: link._id,
+        });
+      }
+    }
+    const legacyRows = await ctx.db
       .query("contentItems")
       .filter((q) => q.eq(q.field("unitId"), unitId))
       .collect();
-    return items.sort((a, b) => a.order - b.order);
+    for (const doc of legacyRows) {
+      if (linkedContentIds.has(doc._id)) {
+        continue;
+      }
+      out.push({
+        ...doc,
+        order: doc.order ?? 0,
+        unitContentId: null,
+      });
+    }
+    out.sort((a, b) => a.order - b.order);
+    return out;
+  },
+});
+
+export const listAllAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrCreator(ctx);
+    const all = await ctx.db.query("contentItems").collect();
+    return all.sort((a, b) => a.title.localeCompare(b.title));
   },
 });
 
@@ -38,9 +83,9 @@ export const generateUploadUrl = mutation({
   },
 });
 
+/** Create a reusable library item (attach to units with `attachToUnit`). */
 export const create = mutation({
   args: {
-    unitId: v.id("units"),
     type: v.union(
       v.literal("video"),
       v.literal("slideshow"),
@@ -51,7 +96,6 @@ export const create = mutation({
     url: v.string(),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
-    order: v.number(),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
@@ -72,7 +116,6 @@ export const update = mutation({
     ),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
-    order: v.number(),
   },
   handler: async (ctx, { contentId, ...fields }) => {
     await requireAdminOrCreator(ctx);
@@ -80,10 +123,136 @@ export const update = mutation({
   },
 });
 
+export const patchUnitContentOrder = mutation({
+  args: {
+    unitContentId: v.id("unitContents"),
+    order: v.number(),
+  },
+  handler: async (ctx, { unitContentId, order }) => {
+    await requireAdminOrCreator(ctx);
+    await ctx.db.patch(unitContentId, { order });
+  },
+});
+
+/** For items still using legacy `contentItems.unitId` / `order`. */
+export const patchLegacyContentOrder = mutation({
+  args: {
+    contentId: v.id("contentItems"),
+    order: v.number(),
+  },
+  handler: async (ctx, { contentId, order }) => {
+    await requireAdminOrCreator(ctx);
+    await ctx.db.patch(contentId, { order });
+  },
+});
+
+export const attachToUnit = mutation({
+  args: {
+    unitId: v.id("units"),
+    contentId: v.id("contentItems"),
+  },
+  handler: async (ctx, { unitId, contentId }) => {
+    await requireAdminOrCreator(ctx);
+    const doc = await ctx.db.get(contentId);
+    if (doc?.unitId !== undefined) {
+      await ctx.db.patch(contentId, {
+        unitId: undefined,
+        order: undefined,
+      });
+    }
+    const existing = await ctx.db
+      .query("unitContents")
+      .withIndex("by_unit_and_content", (q) =>
+        q.eq("unitId", unitId).eq("contentId", contentId),
+      )
+      .unique();
+    if (existing) {
+      throw new Error("This content is already on this unit");
+    }
+    const links = await ctx.db
+      .query("unitContents")
+      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+      .collect();
+    const nextOrder =
+      links.length === 0 ? 0 : Math.max(...links.map((l) => l.order)) + 1;
+    return await ctx.db.insert("unitContents", {
+      unitId,
+      contentId,
+      order: nextOrder,
+    });
+  },
+});
+
+export const legacyDetachFromUnit = mutation({
+  args: {
+    unitId: v.id("units"),
+    contentId: v.id("contentItems"),
+  },
+  handler: async (ctx, { unitId, contentId }) => {
+    await requireAdminOrCreator(ctx);
+    const doc = await ctx.db.get(contentId);
+    if (!doc || doc.unitId !== unitId) {
+      throw new Error("Content is not attached to this unit (legacy)");
+    }
+    await ctx.db.patch(contentId, {
+      unitId: undefined,
+      order: undefined,
+    });
+  },
+});
+
+export const detachFromUnit = mutation({
+  args: { unitContentId: v.id("unitContents") },
+  handler: async (ctx, { unitContentId }) => {
+    await requireAdminOrCreator(ctx);
+    const row = await ctx.db.get(unitContentId);
+    if (!row) {
+      return;
+    }
+    const unitId = row.unitId;
+    await ctx.db.delete(unitContentId);
+    const rest = await ctx.db
+      .query("unitContents")
+      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+      .collect();
+    rest.sort((a, b) => a.order - b.order);
+    for (let i = 0; i < rest.length; i++) {
+      await ctx.db.patch(rest[i]!._id, { order: i });
+    }
+  },
+});
+
+export const reorderInUnit = mutation({
+  args: {
+    unitId: v.id("units"),
+    orderedContentIds: v.array(v.id("contentItems")),
+  },
+  handler: async (ctx, { unitId, orderedContentIds }) => {
+    await requireAdminOrCreator(ctx);
+    const links = await ctx.db
+      .query("unitContents")
+      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+      .collect();
+    const byContent = new Map(links.map((l) => [l.contentId, l] as const));
+    for (let i = 0; i < orderedContentIds.length; i++) {
+      const link = byContent.get(orderedContentIds[i]!);
+      if (link) {
+        await ctx.db.patch(link._id, { order: i });
+      }
+    }
+  },
+});
+
 export const remove = mutation({
   args: { contentId: v.id("contentItems") },
   handler: async (ctx, { contentId }) => {
     await requireAdminOrCreator(ctx);
+    for (const row of await ctx.db
+      .query("unitContents")
+      .withIndex("by_content", (q) => q.eq("contentId", contentId))
+      .collect()) {
+      await ctx.db.delete(row._id);
+    }
     await ctx.db.delete(contentId);
   },
 });

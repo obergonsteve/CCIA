@@ -50,11 +50,25 @@ export default defineSchema({
   }).index("by_company", ["companyId"]),
 
   units: defineTable({
-    levelId: v.id("certificationLevels"),
     title: v.string(),
     description: v.string(),
-    order: v.number(),
+    /** Legacy (pre–junction table). Remove after migrating or clearing training data. */
+    levelId: v.optional(v.id("certificationLevels")),
+    order: v.optional(v.number()),
   }),
+
+  /**
+   * Associates a reusable unit with a certification track. `order` is scoped to that certification.
+   * A unit may appear in multiple certifications via separate rows.
+   */
+  certificationUnits: defineTable({
+    levelId: v.id("certificationLevels"),
+    unitId: v.id("units"),
+    order: v.number(),
+  })
+    .index("by_level", ["levelId"])
+    .index("by_unit", ["unitId"])
+    .index("by_level_and_unit", ["levelId", "unitId"]),
 
   /** `unitId` requires `prerequisiteUnitId` to be completed first (may be in another certification). */
   unitPrerequisites: defineTable({
@@ -64,8 +78,8 @@ export default defineSchema({
     .index("by_unit", ["unitId"])
     .index("by_prerequisite_unit", ["prerequisiteUnitId"]),
 
+  /** Reusable lesson / reference (attached to one or more units via `unitContents`). */
   contentItems: defineTable({
-    unitId: v.id("units"),
     type: v.union(
       v.literal("video"),
       v.literal("slideshow"),
@@ -76,8 +90,20 @@ export default defineSchema({
     url: v.string(),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
-    order: v.number(),
+    /** Legacy (pre–junction table). Remove after migrating or clearing training data. */
+    unitId: v.optional(v.id("units")),
+    order: v.optional(v.number()),
   }),
+
+  /** Content order within a specific unit (many-to-many link). */
+  unitContents: defineTable({
+    unitId: v.id("units"),
+    contentId: v.id("contentItems"),
+    order: v.number(),
+  })
+    .index("by_unit", ["unitId"])
+    .index("by_content", ["contentId"])
+    .index("by_unit_and_content", ["unitId", "contentId"]),
 
   assignments: defineTable({
     unitId: v.id("units"),

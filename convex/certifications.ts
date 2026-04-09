@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
@@ -61,27 +60,55 @@ export const listCatalogForUser = query({
       }
     > = [];
     for (const level of sorted) {
-      const units = await ctx.db
-        .query("units")
-        .filter((q) => q.eq(q.field("levelId"), level._id))
+      const links = await ctx.db
+        .query("certificationUnits")
+        .withIndex("by_level", (q) => q.eq("levelId", level._id))
         .collect();
+      const unitsOnLevel: Doc<"units">[] = [];
+      if (links.length > 0) {
+        for (const link of links) {
+          const u = await ctx.db.get(link.unitId);
+          if (u) {
+            unitsOnLevel.push(u);
+          }
+        }
+      } else {
+        const legacy = await ctx.db
+          .query("units")
+          .filter((q) => q.eq(q.field("levelId"), level._id))
+          .collect();
+        for (const u of legacy) {
+          unitsOnLevel.push(u);
+        }
+      }
       let lessonCount = 0;
       let assessmentCount = 0;
-      for (const u of units) {
-        const contents = await ctx.db
+      for (const u of unitsOnLevel) {
+        const uc = await ctx.db
+          .query("unitContents")
+          .withIndex("by_unit", (q) => q.eq("unitId", u._id))
+          .collect();
+        const linkedIds = new Set(uc.map((x) => x.contentId));
+        const legacyAttached = await ctx.db
           .query("contentItems")
           .filter((q) => q.eq(q.field("unitId"), u._id))
           .collect();
+        let lessons = uc.length;
+        for (const c of legacyAttached) {
+          if (!linkedIds.has(c._id)) {
+            lessons += 1;
+          }
+        }
         const assigns = await ctx.db
           .query("assignments")
           .filter((q) => q.eq(q.field("unitId"), u._id))
           .collect();
-        lessonCount += contents.length;
+        lessonCount += lessons;
         assessmentCount += assigns.length;
       }
       out.push({
         ...level,
-        unitCount: units.length,
+        unitCount: unitsOnLevel.length,
         lessonCount,
         assessmentCount,
       });
@@ -147,12 +174,12 @@ export const remove = mutation({
   args: { levelId: v.id("certificationLevels") },
   handler: async (ctx, { levelId }) => {
     await requireAdminOrCreator(ctx);
-    const units = await ctx.db
-      .query("units")
-      .filter((q) => q.eq(q.field("levelId"), levelId))
+    const links = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level", (q) => q.eq("levelId", levelId))
       .collect();
-    for (const u of units) {
-      await ctx.runMutation(internal.units.removeInternal, { unitId: u._id });
+    for (const link of links) {
+      await ctx.db.delete(link._id);
     }
     await ctx.db.delete(levelId);
   },

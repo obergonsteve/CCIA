@@ -1,11 +1,5 @@
-import AdminPageClient from "./admin-client";
+import { redirect } from "next/navigation";
 
-type PageProps = {
-  params: Promise<Record<string, string | string[] | undefined>>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function AdminPage({ params, searchParams }: PageProps) {
-  await Promise.all([params, searchParams]);
-  return <AdminPageClient />;
+export default function AdminIndexPage() {
+  redirect("/admin/users");
 }

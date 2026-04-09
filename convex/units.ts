@@ -41,11 +41,17 @@ async function deleteUnitCascade(ctx: MutationCtx, unitId: Id<"units">) {
     }
     await ctx.db.delete(a._id);
   }
-  for (const it of await ctx.db
-    .query("contentItems")
-    .filter((q) => q.eq(q.field("unitId"), unitId))
+  for (const row of await ctx.db
+    .query("unitContents")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
     .collect()) {
-    await ctx.db.delete(it._id);
+    await ctx.db.delete(row._id);
+  }
+  for (const row of await ctx.db
+    .query("certificationUnits")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+    .collect()) {
+    await ctx.db.delete(row._id);
   }
   for (const pr of await ctx.db
     .query("userProgress")
@@ -56,7 +62,7 @@ async function deleteUnitCascade(ctx: MutationCtx, unitId: Id<"units">) {
   await ctx.db.delete(unitId);
 }
 
-/** Cascade-delete a unit (no auth); used when removing a certification level. */
+/** Cascade-delete a unit (no auth); used internally. */
 export const removeInternal = internalMutation({
   args: { unitId: v.id("units") },
   handler: async (ctx, { unitId }) => {
@@ -68,12 +74,49 @@ export const removeInternal = internalMutation({
   },
 });
 
+export type UnitAdminListRow = {
+  _id: Id<"units">;
+  _creationTime: number;
+  title: string;
+  description: string;
+  certificationSummary: string;
+};
+
 export const listAllAdmin = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<UnitAdminListRow[]> => {
     await requireAdminOrCreator(ctx);
     const all = await ctx.db.query("units").collect();
-    return all.sort((a, b) => a.order - b.order);
+    const out: UnitAdminListRow[] = [];
+    for (const u of all) {
+      const links = await ctx.db
+        .query("certificationUnits")
+        .withIndex("by_unit", (q) => q.eq("unitId", u._id))
+        .collect();
+      const names: string[] = [];
+      for (const link of links) {
+        const lev = await ctx.db.get(link.levelId);
+        if (lev) {
+          names.push(lev.name);
+        }
+      }
+      if (links.length === 0 && u.levelId) {
+        const lev = await ctx.db.get(u.levelId);
+        if (lev) {
+          names.push(lev.name);
+        }
+      }
+      names.sort((a, b) => a.localeCompare(b));
+      out.push({
+        _id: u._id,
+        _creationTime: u._creationTime,
+        title: u.title,
+        description: u.description,
+        certificationSummary: names.length ? names.join(", ") : "—",
+      });
+    }
+    out.sort((a, b) => a.title.localeCompare(b.title));
+    return out;
   },
 });
 
@@ -85,11 +128,26 @@ export const listByLevel = query({
     if (!ok) {
       return [];
     }
-    const units = await ctx.db
+    const links = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level", (q) => q.eq("levelId", levelId))
+      .collect();
+    if (links.length > 0) {
+      links.sort((a, b) => a.order - b.order);
+      const units = [];
+      for (const link of links) {
+        const u = await ctx.db.get(link.unitId);
+        if (u) {
+          units.push(u);
+        }
+      }
+      return units;
+    }
+    const legacy = await ctx.db
       .query("units")
       .filter((q) => q.eq(q.field("levelId"), levelId))
       .collect();
-    return units.sort((a, b) => a.order - b.order);
+    return legacy.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   },
 });
 
@@ -107,10 +165,8 @@ export const get = query({
 
 export const create = mutation({
   args: {
-    levelId: v.id("certificationLevels"),
     title: v.string(),
     description: v.string(),
-    order: v.number(),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
@@ -123,7 +179,6 @@ export const update = mutation({
     unitId: v.id("units"),
     title: v.string(),
     description: v.string(),
-    order: v.number(),
   },
   handler: async (ctx, { unitId, ...fields }) => {
     await requireAdminOrCreator(ctx);
@@ -131,12 +186,83 @@ export const update = mutation({
   },
 });
 
-export const reorderUnits = mutation({
-  args: { orderedIds: v.array(v.id("units")) },
-  handler: async (ctx, { orderedIds }) => {
+export const addUnitToLevel = mutation({
+  args: {
+    levelId: v.id("certificationLevels"),
+    unitId: v.id("units"),
+  },
+  handler: async (ctx, { levelId, unitId }) => {
     await requireAdminOrCreator(ctx);
-    for (let i = 0; i < orderedIds.length; i++) {
-      await ctx.db.patch(orderedIds[i], { order: i });
+    const existing = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level_and_unit", (q) =>
+        q.eq("levelId", levelId).eq("unitId", unitId),
+      )
+      .unique();
+    if (existing) {
+      throw new Error("This unit is already in this certification");
+    }
+    const inLevel = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level", (q) => q.eq("levelId", levelId))
+      .collect();
+    const nextOrder =
+      inLevel.length === 0
+        ? 0
+        : Math.max(...inLevel.map((r) => r.order)) + 1;
+    return await ctx.db.insert("certificationUnits", {
+      levelId,
+      unitId,
+      order: nextOrder,
+    });
+  },
+});
+
+export const removeUnitFromLevel = mutation({
+  args: {
+    levelId: v.id("certificationLevels"),
+    unitId: v.id("units"),
+  },
+  handler: async (ctx, { levelId, unitId }) => {
+    await requireAdminOrCreator(ctx);
+    const row = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level_and_unit", (q) =>
+        q.eq("levelId", levelId).eq("unitId", unitId),
+      )
+      .unique();
+    if (!row) {
+      return;
+    }
+    await ctx.db.delete(row._id);
+    const rest = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level", (q) => q.eq("levelId", levelId))
+      .collect();
+    rest.sort((a, b) => a.order - b.order);
+    for (let i = 0; i < rest.length; i++) {
+      await ctx.db.patch(rest[i]!._id, { order: i });
+    }
+  },
+});
+
+export const reorderUnitsInLevel = mutation({
+  args: {
+    levelId: v.id("certificationLevels"),
+    orderedUnitIds: v.array(v.id("units")),
+  },
+  handler: async (ctx, { levelId, orderedUnitIds }) => {
+    await requireAdminOrCreator(ctx);
+    const links = await ctx.db
+      .query("certificationUnits")
+      .withIndex("by_level", (q) => q.eq("levelId", levelId))
+      .collect();
+    const byUnit = new Map(links.map((l) => [l.unitId, l] as const));
+    for (let i = 0; i < orderedUnitIds.length; i++) {
+      const link = byUnit.get(orderedUnitIds[i]!);
+      if (link) {
+        await ctx.db.patch(link._id, { order: i });
+      }
     }
   },
 });

@@ -21,10 +21,10 @@ import { toast } from "sonner";
 
 function DraggablePrereqSource({
   unit,
-  levelName,
+  certLabel,
 }: {
   unit: Doc<"units">;
-  levelName: string;
+  certLabel: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -53,7 +53,7 @@ function DraggablePrereqSource({
         <GripVertical className="h-4 w-4" />
       </button>
       <span className="truncate">
-        <span className="text-muted-foreground text-xs">{levelName} · </span>
+        <span className="text-muted-foreground text-xs">{certLabel} · </span>
         {unit.title}
       </span>
     </div>
@@ -79,23 +79,19 @@ function PrereqDropZone({ id, children }: { id: string; children: ReactNode }) {
 export function PrerequisiteDropEditor({
   targetUnitId,
   targetTitle,
-  levels,
   allUnits,
 }: {
   targetUnitId: Id<"units">;
   targetTitle: string;
-  levels: Doc<"certificationLevels">[] | undefined;
-  allUnits: Doc<"units">[] | undefined;
+  allUnits:
+    | (Doc<"units"> & { certificationSummary?: string })[]
+    | undefined;
 }) {
   const prereqs = useQuery(api.prerequisites.adminListForUnit, {
     unitId: targetUnitId,
   });
   const addPrereq = useMutation(api.prerequisites.adminAddPrerequisite);
   const removePrereq = useMutation(api.prerequisites.adminRemovePrerequisite);
-
-  const levelNameById = new Map(
-    (levels ?? []).map((l) => [l._id, l.name] as const),
-  );
 
   const existingIds = new Set(
     (prereqs ?? []).map((p) => p.prerequisiteUnitId),
@@ -201,7 +197,7 @@ export function PrerequisiteDropEditor({
                   <DraggablePrereqSource
                     key={u._id}
                     unit={u}
-                    levelName={levelNameById.get(u.levelId) ?? "Level"}
+                    certLabel={u.certificationSummary ?? "Certs"}
                   />
                 ))
               )}

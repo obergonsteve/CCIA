@@ -70,9 +70,29 @@ export async function userCanAccessUnit(
   ctx: QueryCtx | MutationCtx,
   unitId: Id<"units">,
 ): Promise<boolean> {
+  const userId = await requireUserId(ctx);
+  const user = await ctx.db.get(userId);
   const unit = await ctx.db.get(unitId);
-  if (!unit) {
+  if (!user || !unit) {
     return false;
   }
-  return userCanAccessLevel(ctx, unit.levelId);
+  if (user.role === "admin" || user.role === "content_creator") {
+    return true;
+  }
+  const links = await ctx.db
+    .query("certificationUnits")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+    .collect();
+  if (links.length === 0) {
+    if (unit.levelId) {
+      return userCanAccessLevel(ctx, unit.levelId);
+    }
+    return false;
+  }
+  for (const link of links) {
+    if (await userCanAccessLevel(ctx, link.levelId)) {
+      return true;
+    }
+  }
+  return false;
 }
