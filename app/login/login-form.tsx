@@ -24,12 +24,24 @@ type Values = z.infer<typeof schema>;
 
 const DEFAULT_AFTER_LOGIN = "/certifications";
 
+/** Only allow post-login redirects to routes that exist (avoid silent 404 after auth). */
+const ALLOWED_AFTER_LOGIN_PREFIXES = [
+  "/dashboard",
+  "/certifications",
+  "/units",
+  "/admin",
+] as const;
+
 function safeNextFromSearch(search: string): string {
   const nextRaw =
     new URLSearchParams(search).get("next") ?? DEFAULT_AFTER_LOGIN;
-  return nextRaw.startsWith("/") && !nextRaw.startsWith("//")
-    ? nextRaw
-    : DEFAULT_AFTER_LOGIN;
+  if (!nextRaw.startsWith("/") || nextRaw.startsWith("//")) {
+    return DEFAULT_AFTER_LOGIN;
+  }
+  const ok = ALLOWED_AFTER_LOGIN_PREFIXES.some(
+    (p) => nextRaw === p || nextRaw.startsWith(`${p}/`),
+  );
+  return ok ? nextRaw : DEFAULT_AFTER_LOGIN;
 }
 
 export function LoginForm() {
