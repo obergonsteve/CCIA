@@ -1,19 +1,20 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import type { PasswordSessionPayload } from "./password-session-edge";
+import { sessionCookieSigningSecret } from "./session-cookie-secret";
 
 export type { PasswordSessionPayload };
 
 function sessionSecret(): string {
-  const s = process.env.JWT_SECRET;
-  if (!s?.trim() || s.includes("replace_with")) {
+  const s = sessionCookieSigningSecret();
+  if (!s) {
     throw new Error(
-      "JWT_SECRET is required to sign the session cookie (HMAC, not RS256 JWT).",
+      "Missing session signing secret: set SESSION_COOKIE_SECRET or JWT_SECRET in .env.local, then restart `npm run dev`.",
     );
   }
   return s;
 }
 
-/** Signed cookie payload (HMAC); not an RS256 JWT. */
+/** Signed cookie: base64url JSON payload + HMAC-SHA256. */
 export function signPasswordSessionCookie(
   payload: Omit<PasswordSessionPayload, "exp">,
 ): string {

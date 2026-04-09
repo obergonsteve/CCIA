@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { AUTH_COOKIE } from "@/lib/jwt-constants";
+import { AUTH_COOKIE } from "@/lib/auth-cookie";
 import { verifyPasswordSessionCookie } from "@/lib/password-session";
 
 export async function GET() {

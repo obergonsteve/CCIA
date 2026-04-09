@@ -2,14 +2,16 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 /**
- * When `JWT_AUTH_ENABLED` is not true, every Convex function sees this user as `requireUserId()`.
- * Set `CONVEX_DEV_USER_ID` to a real `users` document id in this deployment (Convex dashboard → Data).
+ * Convex has no browser token: `requireUserId` uses `CONVEX_DEV_USER_ID` for this deployment.
+ * Set it to a real `users` document id (Convex dashboard → Data).
  */
-function devImpersonatedUserId(): Id<"users"> {
+function deploymentUserId(): Id<"users"> {
   const raw = process.env.CONVEX_DEV_USER_ID;
   if (!raw?.trim()) {
     throw new Error(
-      "Set CONVEX_DEV_USER_ID on this Convex deployment when JWT_AUTH_ENABLED is not true.",
+      "Convex env CONVEX_DEV_USER_ID is unset (not in .env.local — set it on the Convex deployment). " +
+        "Run: npx convex run seed:seedCommunityOperatorsAndAdmins — copy setConvexDevUserId from the output — " +
+        "then: npx convex env set CONVEX_DEV_USER_ID \"<that id>\" — then: npx convex dev (or deploy).",
     );
   }
   return raw as Id<"users">;
@@ -18,14 +20,8 @@ function devImpersonatedUserId(): Id<"users"> {
 export async function requireUserId(
   ctx: QueryCtx | MutationCtx,
 ): Promise<Id<"users">> {
-  if (process.env.JWT_AUTH_ENABLED !== "true") {
-    return devImpersonatedUserId();
-  }
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity?.subject) {
-    throw new Error("Unauthorized");
-  }
-  return identity.subject as Id<"users">;
+  void ctx;
+  return deploymentUserId();
 }
 
 export async function requireAdminOrCreator(

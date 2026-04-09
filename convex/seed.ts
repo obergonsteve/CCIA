@@ -75,10 +75,30 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
     }
   }
 
+  const adminUserIds = {} as Record<string, Id<"users">>;
+  for (const a of admins) {
+    const email = a.email.toLowerCase().trim();
+    const row = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (row) {
+      adminUserIds[email] = row._id;
+    }
+  }
+
+  const steveEmail = "steve.moore@ccia-landlease.com";
+  const steveId = adminUserIds[steveEmail];
+
   return {
     ok: true as const,
     companyIds: Object.fromEntries(companyByName),
     admins: admins.map((a) => a.email.toLowerCase()),
+    adminUserIds,
+    /** Paste into Convex (Dashboard → Settings → Environment Variables), then redeploy or run `npx convex dev`. */
+    setConvexDevUserId: steveId
+      ? (`CONVEX_DEV_USER_ID=${steveId}` as const)
+      : ("(seed users missing — check adminUserIds)" as const),
   };
 }
 

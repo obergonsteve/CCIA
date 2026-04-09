@@ -1,5 +1,7 @@
 /** Edge-safe verify for HMAC session cookies (matches `lib/password-session.ts` signing). */
 
+import { sessionCookieSigningSecret } from "./session-cookie-secret";
+
 export type PasswordSessionPayload = {
   userId: string;
   email: string;
@@ -40,8 +42,8 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 export async function verifyPasswordSessionCookieEdge(
   raw: string,
 ): Promise<PasswordSessionPayload | null> {
-  const secret = process.env.JWT_SECRET;
-  if (!secret?.trim() || secret.includes("replace_with")) {
+  const secret = sessionCookieSigningSecret();
+  if (!secret) {
     return null;
   }
   const i = raw.lastIndexOf(".");

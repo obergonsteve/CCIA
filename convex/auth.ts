@@ -85,20 +85,11 @@ export const adminCreateUser = action({
     ),
   },
   handler: async (ctx, args): Promise<Id<"users">> => {
-    let adminUserId: Id<"users">;
-    if (process.env.JWT_AUTH_ENABLED !== "true") {
-      const raw = process.env.CONVEX_DEV_USER_ID;
-      if (!raw?.trim()) {
-        throw new Error("Unauthorized");
-      }
-      adminUserId = raw as Id<"users">;
-    } else {
-      const identity = await ctx.auth.getUserIdentity();
-      if (!identity?.subject) {
-        throw new Error("Unauthorized");
-      }
-      adminUserId = identity.subject as Id<"users">;
+    const raw = process.env.CONVEX_DEV_USER_ID;
+    if (!raw?.trim()) {
+      throw new Error("Unauthorized");
     }
+    const adminUserId = raw as Id<"users">;
     const admin = await ctx.runQuery(internal.users.getByIdInternal, {
       userId: adminUserId,
     });

@@ -3,7 +3,7 @@ import type { FunctionReturnType } from "convex/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { api } from "@/convex/_generated/api";
-import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/jwt-constants";
+import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/auth-cookie";
 import { signPasswordSessionCookie } from "@/lib/password-session";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -57,13 +57,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const token = signPasswordSessionCookie({
-    userId: user.userId,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    companyId: user.companyId,
-  });
+  let token: string;
+  try {
+    token = signPasswordSessionCookie({
+      userId: user.userId,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      companyId: user.companyId,
+    });
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Could not create session cookie.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   try {
     await convex.mutation(api.users.recordLoginDev, {
@@ -73,7 +80,14 @@ export async function POST(request: Request) {
     /* optional */
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE, token, sessionCookieOptions());
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(AUTH_COOKIE, token, sessionCookieOptions());
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Could not set session cookie.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
   return NextResponse.json(jsonBody);
 }

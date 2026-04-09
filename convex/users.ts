@@ -71,13 +71,10 @@ export const recordLogin = mutation({
   },
 });
 
-/** Used by Next.js login when JWT to Convex is off (no Convex JWT). */
+/** Called from Next.js after login/register so `lastLogin` matches the signed-in user. */
 export const recordLoginDev = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
-    if (process.env.JWT_AUTH_ENABLED === "true") {
-      throw new Error("Forbidden");
-    }
     const row = await ctx.db.get(userId);
     if (!row) {
       throw new Error("Not found");

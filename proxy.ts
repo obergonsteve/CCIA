@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { verifyPasswordSessionCookieEdge } from "@/lib/password-session-edge";
-import { AUTH_COOKIE } from "@/lib/jwt-constants";
+import { AUTH_COOKIE } from "@/lib/auth-cookie";
 
 const protectedPrefixes = ["/dashboard", "/certifications", "/units", "/admin"];
 

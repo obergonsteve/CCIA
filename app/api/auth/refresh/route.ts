@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
-import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/jwt-constants";
+import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/auth-cookie";
 import {
   signPasswordSessionCookie,
   verifyPasswordSessionCookie,
@@ -36,13 +36,20 @@ export async function POST() {
     /* optional */
   }
 
-  const nextTok = signPasswordSessionCookie({
-    userId: session.userId,
-    email: session.email,
-    name: session.name,
-    role: session.role,
-    companyId: session.companyId,
-  });
+  let nextTok: string;
+  try {
+    nextTok = signPasswordSessionCookie({
+      userId: session.userId,
+      email: session.email,
+      name: session.name,
+      role: session.role,
+      companyId: session.companyId,
+    });
+  } catch (e) {
+    const message =
+      e instanceof Error ? e.message : "Could not refresh session cookie.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
   cookieStore.set(AUTH_COOKIE, nextTok, cookieOpts);
   return NextResponse.json({ ok: true });
 }

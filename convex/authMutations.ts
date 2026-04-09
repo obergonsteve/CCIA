@@ -2,7 +2,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 
-/** §4 — logout: server-side session acknowledgment (JWT cleared by Next.js). */
+/** §4 — logout: server-side session acknowledgment (cookie cleared by Next.js). */
 export const logout = mutation({
   args: {},
   handler: async (ctx) => {
@@ -11,7 +11,7 @@ export const logout = mutation({
   },
 });
 
-/** §4 — refresh: confirms the current Convex identity is still valid (caller re-issues JWT). */
+/** §4 — refresh: bumps lastLogin and returns the current user row for the deployment user. */
 export const refresh = mutation({
   args: {},
   handler: async (ctx) => {
