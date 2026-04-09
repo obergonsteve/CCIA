@@ -7,13 +7,13 @@ function sessionSecret(): string {
   const s = process.env.JWT_SECRET;
   if (!s?.trim() || s.includes("replace_with")) {
     throw new Error(
-      "JWT_SECRET is required when DISABLE_JWT_AUTH=true (used to sign the session cookie).",
+      "JWT_SECRET is required to sign the session cookie (HMAC, not RS256 JWT).",
     );
   }
   return s;
 }
 
-/** Signed cookie contents for DISABLE_JWT_AUTH mode (not a JWT). */
+/** Signed cookie payload (HMAC); not an RS256 JWT. */
 export function signPasswordSessionCookie(
   payload: Omit<PasswordSessionPayload, "exp">,
 ): string {

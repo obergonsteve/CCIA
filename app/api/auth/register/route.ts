@@ -3,9 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
-import { isJwtAuthDisabled } from "@/lib/auth-mode";
-import { AUTH_COOKIE, signSessionToken } from "@/lib/jwt";
-import { sessionCookieOptions } from "@/lib/jwt-constants";
+import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/jwt-constants";
 import { signPasswordSessionCookie } from "@/lib/password-session";
 
 export const dynamic = "force-dynamic";
@@ -65,46 +63,28 @@ export async function POST(request: Request) {
     },
   };
 
-  const cookieOpts = sessionCookieOptions();
-
-  if (isJwtAuthDisabled()) {
-    const devOnly = process.env.DEV_AUTH_USER_ID;
-    if (devOnly && user.userId !== devOnly) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-    const token = signPasswordSessionCookie({
-      userId: user.userId,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      companyId: user.companyId,
-    });
-    try {
-      await convex.mutation(api.users.recordLoginDev, { userId: user.userId });
-    } catch {
-      /* optional */
-    }
-    const cookieStore = await cookies();
-    cookieStore.set(AUTH_COOKIE, token, cookieOpts);
-    return NextResponse.json(jsonBody);
+  const devOnly = process.env.DEV_AUTH_USER_ID;
+  if (devOnly && user.userId !== devOnly) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  let token: string;
+  const token = signPasswordSessionCookie({
+    userId: user.userId,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    companyId: user.companyId,
+  });
+
   try {
-    token = await signSessionToken({
-      userId: user.userId,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      companyId: user.companyId,
+    await convex.mutation(api.users.recordLoginDev, {
+      userId: user.userId as Id<"users">,
     });
-  } catch (e) {
-    const message =
-      e instanceof Error ? e.message : "Could not create session (check JWT keys).";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    /* optional */
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE, token, cookieOpts);
+  cookieStore.set(AUTH_COOKIE, token, sessionCookieOptions());
   return NextResponse.json(jsonBody);
 }

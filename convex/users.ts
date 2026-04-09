@@ -71,11 +71,11 @@ export const recordLogin = mutation({
   },
 });
 
-/** Used by Next.js login when DISABLE_JWT_AUTH (no Convex JWT). Dev-only surface. */
+/** Used by Next.js login when JWT to Convex is off (no Convex JWT). */
 export const recordLoginDev = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
-    if (process.env.DISABLE_JWT_AUTH !== "true") {
+    if (process.env.JWT_AUTH_ENABLED === "true") {
       throw new Error("Forbidden");
     }
     const row = await ctx.db.get(userId);

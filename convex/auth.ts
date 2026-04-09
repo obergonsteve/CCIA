@@ -86,7 +86,7 @@ export const adminCreateUser = action({
   },
   handler: async (ctx, args): Promise<Id<"users">> => {
     let adminUserId: Id<"users">;
-    if (process.env.DISABLE_JWT_AUTH === "true") {
+    if (process.env.JWT_AUTH_ENABLED !== "true") {
       const raw = process.env.CONVEX_DEV_USER_ID;
       if (!raw?.trim()) {
         throw new Error("Unauthorized");

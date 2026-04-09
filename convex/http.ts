@@ -2,8 +2,7 @@ import { httpRouter } from "convex/server";
 
 /**
  * §4 — Convex HTTP surface (extend with routes as needed).
- * JWT verification for browser sessions is enforced by Next.js proxy and Convex `auth.config`.
- * Use `parseAuthCookieFromHeader` from `./lib/httpCookies` if an HTTP action must read the `auth` cookie.
+ * Browser sessions use an HMAC cookie via Next.js; Convex `auth.config` has no JWT providers by default.
  */
 const http = httpRouter();
 

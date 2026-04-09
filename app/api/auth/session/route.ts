@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { isJwtAuthDisabled } from "@/lib/auth-mode";
-import { AUTH_COOKIE, verifySessionToken } from "@/lib/jwt";
+import { AUTH_COOKIE } from "@/lib/jwt-constants";
 import { verifyPasswordSessionCookie } from "@/lib/password-session";
 
 export async function GET() {
@@ -10,33 +9,19 @@ export async function GET() {
   if (!raw) {
     return NextResponse.json({ user: null });
   }
-  if (isJwtAuthDisabled()) {
-    const payload = verifyPasswordSessionCookie(raw);
-    if (!payload) {
-      return NextResponse.json({ user: null });
-    }
-    return NextResponse.json({
-      user: {
-        userId: payload.userId,
-        email: payload.email,
-        name: payload.name,
-        role: payload.role,
-        companyId: payload.companyId,
-      },
-    });
-  }
-  try {
-    const payload = await verifySessionToken(raw);
-    return NextResponse.json({
-      user: {
-        userId: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        role: payload.role,
-        companyId: payload.companyId,
-      },
-    });
-  } catch {
+
+  const payload = verifyPasswordSessionCookie(raw);
+  if (!payload) {
     return NextResponse.json({ user: null });
   }
+
+  return NextResponse.json({
+    user: {
+      userId: payload.userId,
+      email: payload.email,
+      name: payload.name,
+      role: payload.role,
+      companyId: payload.companyId,
+    },
+  });
 }

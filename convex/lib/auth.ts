@@ -1,11 +1,15 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
+/**
+ * When `JWT_AUTH_ENABLED` is not true, every Convex function sees this user as `requireUserId()`.
+ * Set `CONVEX_DEV_USER_ID` to a real `users` document id in this deployment (Convex dashboard → Data).
+ */
 function devImpersonatedUserId(): Id<"users"> {
   const raw = process.env.CONVEX_DEV_USER_ID;
   if (!raw?.trim()) {
     throw new Error(
-      "Set CONVEX_DEV_USER_ID on this Convex deployment when DISABLE_JWT_AUTH=true.",
+      "Set CONVEX_DEV_USER_ID on this Convex deployment when JWT_AUTH_ENABLED is not true.",
     );
   }
   return raw as Id<"users">;
@@ -14,7 +18,7 @@ function devImpersonatedUserId(): Id<"users"> {
 export async function requireUserId(
   ctx: QueryCtx | MutationCtx,
 ): Promise<Id<"users">> {
-  if (process.env.DISABLE_JWT_AUTH === "true") {
+  if (process.env.JWT_AUTH_ENABLED !== "true") {
     return devImpersonatedUserId();
   }
   const identity = await ctx.auth.getUserIdentity();
