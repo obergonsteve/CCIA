@@ -22,7 +22,10 @@ import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-export type UnitAdminListRow = Doc<"units"> & { certificationSummary: string };
+export type UnitAdminListRow = Doc<"units"> & {
+  certificationSummary: string;
+  certificationLevelIds: Id<"certificationLevels">[];
+};
 
 export function CertUnitsAddDropZone({
   levelId,
@@ -36,18 +39,28 @@ export function CertUnitsAddDropZone({
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-lg border-2 border-dashed px-3 py-3 text-center text-xs text-muted-foreground transition-colors",
-        isOver
-          ? "border-brand-lime bg-brand-lime/10"
-          : "border-muted-foreground/30",
+        "rounded-md border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground transition-colors",
+        isOver ? "border-primary bg-muted/50" : "border-muted-foreground/25",
       )}
     >
-      Drop a unit here to add it to this certification
+      Drop unit here to add to this certification
     </div>
   );
 }
 
-export function DraggableUnitPaletteItem({ unit }: { unit: UnitAdminListRow }) {
+export function DraggableUnitPaletteItem({
+  unit,
+  selected,
+  onSelect,
+  onEdit,
+  onDelete,
+}: {
+  unit: UnitAdminListRow;
+  selected?: boolean;
+  onSelect?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `palette-unit:${unit._id}` });
   const style = transform
@@ -55,34 +68,89 @@ export function DraggableUnitPaletteItem({ unit }: { unit: UnitAdminListRow }) {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
       }
     : undefined;
+  const hasActions = onEdit != null || onDelete != null;
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-sm",
-        isDragging ? "opacity-60 ring-2 ring-brand-lime/50" : "",
+        "flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        selected && "bg-muted/40 ring-1 ring-ring",
+        isDragging && "opacity-70",
       )}
     >
       <button
         type="button"
-        className="cursor-grab touch-none p-0.5 text-muted-foreground"
+        className="cursor-grab touch-none shrink-0 p-2 text-muted-foreground"
         {...listeners}
         {...attributes}
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <div className="min-w-0 flex-1">
-        <div className="font-medium truncate">{unit.title}</div>
-        <div className="text-xs text-muted-foreground truncate">
-          {unit.certificationSummary}
+      {onSelect ? (
+        <button
+          type="button"
+          className="min-w-0 flex-1 px-2 py-2 text-left"
+          onClick={onSelect}
+        >
+          <div className="truncate font-medium">{unit.title}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {unit.certificationSummary}
+          </div>
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1 px-2 py-2">
+          <div className="truncate font-medium">{unit.title}</div>
+          <div className="truncate text-xs text-muted-foreground">
+            {unit.certificationSummary}
+          </div>
         </div>
-      </div>
+      )}
+      {hasActions ? (
+        <div className="flex shrink-0 border-l border-border">
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-none"
+              title="Edit unit"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
+          {onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-none text-destructive hover:text-destructive"
+              title="Delete unit"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export function ContentLibraryDragRow({ item }: { item: Doc<"contentItems"> }) {
+export function ContentLibraryDragRow({
+  item,
+  onDelete,
+}: {
+  item: Doc<"contentItems">;
+  onDelete?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `palette-content:${item._id}` });
   const style = transform
@@ -95,24 +163,41 @@ export function ContentLibraryDragRow({ item }: { item: Doc<"contentItems"> }) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-sm",
-        isDragging ? "opacity-60 ring-2 ring-brand-lime/50" : "",
+        "flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        isDragging && "opacity-70",
       )}
     >
       <button
         type="button"
-        className="cursor-grab touch-none p-0.5 text-muted-foreground"
+        className="cursor-grab touch-none shrink-0 p-2 text-muted-foreground"
         {...listeners}
         {...attributes}
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <div className="min-w-0 flex-1 truncate">
+      <div className="min-w-0 flex-1 truncate px-2 py-2">
         <span className="font-medium">{item.title}</span>
-        <span className="text-muted-foreground text-xs ml-2 capitalize">
+        <span className="ml-2 text-xs capitalize text-muted-foreground">
           {item.type}
         </span>
       </div>
+      {onDelete ? (
+        <div className="flex shrink-0 border-l border-border">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-none text-destructive hover:text-destructive"
+            title="Delete from library"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -125,13 +210,11 @@ export function UnitContentDropZone({ unitId }: { unitId: Id<"units"> }) {
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-lg border-2 border-dashed px-3 py-3 text-center text-xs text-muted-foreground transition-colors",
-        isOver
-          ? "border-brand-lime bg-brand-lime/10"
-          : "border-muted-foreground/30",
+        "rounded-md border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground transition-colors",
+        isOver ? "border-primary bg-muted/50" : "border-muted-foreground/25",
       )}
     >
-      Drop library content here to add to this unit
+      Drop library item here to attach to this unit
     </div>
   );
 }
@@ -152,9 +235,7 @@ export function LevelRowDroppable({
       ref={setNodeRef}
       className={cn(
         "rounded-md",
-        isOver
-          ? "ring-2 ring-brand-lime/60 ring-offset-1 ring-offset-background"
-          : "",
+        isOver ? "ring-1 ring-primary ring-offset-1 ring-offset-background" : "",
       )}
     >
       {children}
@@ -259,13 +340,13 @@ export function SortableLevelRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-stretch rounded-md border bg-card overflow-hidden",
-        selected && "ring-2 ring-brand-lime/60 border-brand-lime/40",
+        "flex items-stretch overflow-hidden rounded-lg border border-border bg-card shadow-sm",
+        selected && "bg-muted/40 ring-1 ring-ring",
       )}
     >
       <button
         type="button"
-        className="cursor-grab touch-none p-2 text-muted-foreground shrink-0"
+        className="cursor-grab touch-none shrink-0 p-2 text-muted-foreground"
         {...attributes}
         {...listeners}
       >
@@ -273,12 +354,12 @@ export function SortableLevelRow({
       </button>
       <button
         type="button"
-        className="flex-1 text-left min-w-0 px-3 py-2.5"
+        className="min-w-0 flex-1 px-3 py-2 text-left"
         onClick={onSelect}
       >
-        <span className="text-sm font-medium block truncate">{level.name}</span>
+        <span className="block truncate text-sm font-medium">{level.name}</span>
       </button>
-      <div className="flex flex-col border-l shrink-0">
+      <div className="flex shrink-0 flex-col border-l border-border">
         {onEdit ? (
           <Button
             type="button"
@@ -346,13 +427,13 @@ export function SortableUnitRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-stretch rounded-md border text-sm overflow-hidden",
-        selected && "ring-2 ring-brand-lime/60 border-brand-lime/40",
+        "flex items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        selected && "bg-muted/40 ring-1 ring-ring",
       )}
     >
       <button
         type="button"
-        className="cursor-grab p-2 text-muted-foreground shrink-0"
+        className="shrink-0 cursor-grab p-2 text-muted-foreground"
         {...attributes}
         {...listeners}
       >
@@ -360,12 +441,12 @@ export function SortableUnitRow({
       </button>
       <button
         type="button"
-        className="flex-1 text-left font-medium truncate px-2 py-2 min-w-0"
+        className="min-w-0 flex-1 truncate px-2 py-2 text-left font-medium"
         onClick={onSelect}
       >
         {unit.title}
       </button>
-      <div className="flex flex-col border-l shrink-0">
+      <div className="flex shrink-0 flex-col border-l border-border">
         <Button
           type="button"
           variant="ghost"

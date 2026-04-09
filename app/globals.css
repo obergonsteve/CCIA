@@ -183,3 +183,22 @@
     @apply text-brand-sky underline-offset-4 hover:underline;
   }
 }
+
+/* Panel list scrollbars — matches GRIT Company Setup / company-maintenance */
+.scrollbar-panel {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 35%, transparent) transparent;
+}
+.scrollbar-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-panel::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--foreground) 35%, transparent);
+  border-radius: 3px;
+}
+.scrollbar-panel::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--foreground) 50%, transparent);
+}

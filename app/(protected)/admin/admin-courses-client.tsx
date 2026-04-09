@@ -89,14 +89,25 @@ export default function AdminCoursesClient() {
   const deleteCertificationLevel = useMutation(api.certifications.remove);
   const deleteUnit = useMutation(api.units.remove);
 
-  /** Certification selected for editing (left column details). */
+  /** Certification chosen in the edit dialog or delete confirmation. */
   const [editCertId, setEditCertId] =
     useState<Id<"certificationLevels"> | null>(null);
-  /** When set, centre column lists units in this cert; when null, all units. */
+  /**
+   * ADMIN.md: clicking a certification filters the centre column to that cert’s
+   * units; click again to show all units.
+   */
   const [filterCertId, setFilterCertId] =
     useState<Id<"certificationLevels"> | null>(null);
+  /**
+   * ADMIN.md: clicking a unit filters the right column to that unit’s content;
+   * click again for all-content (library) mode.
+   */
   const [selectedDetailUnitId, setSelectedDetailUnitId] =
     useState<Id<"units"> | null>(null);
+  const [certDetailsOpen, setCertDetailsOpen] = useState(false);
+  const [addCertOpen, setAddCertOpen] = useState(false);
+  const [addUnitOpen, setAddUnitOpen] = useState(false);
+  const [addLibraryOpen, setAddLibraryOpen] = useState(false);
 
   const [certSearch, setCertSearch] = useState("");
   const [unitSearch, setUnitSearch] = useState("");
@@ -245,12 +256,43 @@ export default function AdminCoursesClient() {
     );
   }, [selectedDetailUnitId, allUnits, unitsInFilteredCert]);
 
+  /**
+   * ADMIN.md: unit click filters the right column to that unit’s content.
+   * While `allUnits` / `unitsInFilteredCert` are still loading, avoid treating
+   * the selection as “cleared” and flashing the full library.
+   */
+  const unitSelectionResolving = useMemo(() => {
+    if (!selectedDetailUnitId || selectedDetailUnit) {
+      return false;
+    }
+    if (allUnits === undefined) {
+      return true;
+    }
+    if (filterCertId != null && unitsInFilteredCert === undefined) {
+      return true;
+    }
+    return false;
+  }, [
+    selectedDetailUnitId,
+    selectedDetailUnit,
+    allUnits,
+    filterCertId,
+    unitsInFilteredCert,
+  ]);
+
   const selectedCert = useMemo(() => {
     if (!editCertId || !levels) {
       return null;
     }
     return levels.find((l) => l._id === editCertId) ?? null;
   }, [editCertId, levels]);
+
+  const filterCertName = useMemo(() => {
+    if (!filterCertId || !levels) {
+      return null;
+    }
+    return levels.find((l) => l._id === filterCertId)?.name ?? null;
+  }, [filterCertId, levels]);
 
   useEffect(() => {
     if (!selectedCert) {
@@ -364,11 +406,17 @@ export default function AdminCoursesClient() {
     resetToNewAssignment();
   }, [selectedDetailUnitId, resetToNewAssignment]);
 
-  function handleCertRowClick(id: Id<"certificationLevels">) {
+  function openCertificationEditor(id: Id<"certificationLevels">) {
     setEditCertId(id);
+    setCertDetailsOpen(true);
+  }
+
+  /** ADMIN.md: cert row click toggles centre column unit filter only. */
+  function handleCertFilterToggle(id: Id<"certificationLevels">) {
     setFilterCertId((prev) => (prev === id ? null : id));
   }
 
+  /** ADMIN.md: unit row click toggles right-column content filter only. */
   function handleUnitRowClick(unitId: Id<"units">) {
     setSelectedDetailUnitId((prev) => (prev === unitId ? null : unitId));
   }
@@ -565,13 +613,19 @@ export default function AdminCoursesClient() {
     }
   }
 
+  const cyanPlusBtn =
+    "h-8 w-8 shrink-0 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
+
   return (
-    <div className="space-y-4 min-h-0">
+    <div className="min-h-0 space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
         <p className="text-sm text-muted-foreground">
-          Certifications → units → content. Seed or reset data from{" "}
-          <strong className="text-foreground">Training data</strong> in the menu.
+          Same three-column pattern as{" "}
+          <span className="text-foreground">Company Setup</span> in GRIT Activate:
+          click a certification to filter units in the centre; click a unit to
+          focus content on the right; click again to show all. See{" "}
+          <span className="text-foreground">ADMIN.md</span>.
         </p>
       </div>
 
@@ -580,322 +634,165 @@ export default function AdminCoursesClient() {
         collisionDetection={closestCenter}
         onDragEnd={(e) => void onUnifiedDragEnd(e)}
       >
-        {/* Fixed-height panes with internal scroll (same idea as GritHub company-maintenance). */}
-        <div className="grid min-h-0 grid-cols-1 gap-2 md:grid-cols-[1fr_1.15fr_1fr] md:h-[min(calc((100dvh-11rem)*1.35),1080px)]">
-          <div
-            className={cn(
-              "flex min-h-0 flex-col rounded-2xl border p-4 shadow-sm",
-              "bg-brand-lime/[0.05] border-brand-lime/20 dark:bg-brand-lime/[0.07] dark:border-brand-lime/25",
-            )}
-          >
+        {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
+        <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[1fr_1.15fr_1fr]">
+          <div className="flex min-h-0 flex-col rounded-2xl border border-sky-100 bg-sky-50 p-4 shadow-lg dark:border-sky-900/50 dark:bg-sky-950/35">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <GraduationCap className="h-4 w-4 shrink-0 text-brand-lime" />
-                Certifications
-                <span className="font-normal text-muted-foreground">
-                  ({levels?.length ?? 0})
+              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
+                <GraduationCap className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                <span className="truncate">
+                  Certifications
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    ({levels?.length ?? 0})
+                  </span>
                 </span>
               </h2>
+              <Button
+                type="button"
+                size="icon"
+                className={cyanPlusBtn}
+                aria-label="Add certification"
+                onClick={() => setAddCertOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-            <p className="mb-3 shrink-0 text-xs text-muted-foreground">
-              Click a row to select and filter the centre column; click again to
-              clear. Drag units onto a row when the centre shows all units.
-            </p>
-            <div className="shrink-0 space-y-2">
+            <div className="mb-1 shrink-0">
+              <label
+                htmlFor="admin-cert-search"
+                className="mb-0.5 block text-xs text-muted-foreground"
+              >
+                Search
+              </label>
               <Input
-                placeholder="Search certifications…"
+                id="admin-cert-search"
+                placeholder="Filter list…"
                 value={certSearch}
                 onChange={(e) => setCertSearch(e.target.value)}
+                className="h-9 bg-card"
               />
-              <div className="space-y-2 rounded-lg border border-border/60 bg-background/60 p-3">
-                <Input
-                  placeholder="New certification name"
-                  value={levelName}
-                  onChange={(e) => setLevelName(e.target.value)}
-                />
-                <Textarea
-                  placeholder="Description"
-                  value={levelDesc}
-                  onChange={(e) => setLevelDesc(e.target.value)}
-                  className="min-h-[56px]"
-                />
-                <Button
-                  size="sm"
-                  type="button"
-                  className="w-full"
-                  onClick={async () => {
-                    if (!levelName.trim()) {
-                      toast.error("Enter a name");
-                      return;
-                    }
-                    const n = levels?.length ?? 0;
-                    try {
-                      const newId = await createLevel({
-                        name: levelName.trim(),
-                        description: levelDesc.trim() || "—",
-                        order: n,
-                      });
-                      setLevelName("");
-                      setLevelDesc("");
-                      setEditCertId(newId);
-                      setFilterCertId(newId);
-                      toast.success("Certification created");
-                    } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "Failed");
-                    }
-                  }}
-                >
-                  <Plus className="mr-1 h-4 w-4" />
-                  Add certification
-                </Button>
-              </div>
             </div>
-            <hr className="my-3 shrink-0 border-border/60" />
-            {filterCertId ? (
+            {filterCertId && filterCertName ? (
               <button
                 type="button"
-                className="mb-2 inline-flex max-w-full shrink-0 items-center rounded-full border border-brand-lime/30 bg-brand-lime/10 px-3 py-1 text-left text-xs font-medium text-foreground transition-colors hover:bg-brand-lime/15"
+                className="mt-1 inline-flex max-w-full items-center rounded-full border border-sky-200 bg-sky-100 px-3 py-1.5 text-left text-xs font-medium text-sky-900 transition-colors hover:border-sky-300 hover:bg-sky-200 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-100 dark:hover:bg-sky-900/50"
                 onClick={() => setFilterCertId(null)}
               >
-                Showing one certification — click to show all units
+                Show all units (centre column)
               </button>
-            ) : (
-              <p className="mb-2 shrink-0 text-xs text-muted-foreground">
-                Centre column lists <span className="font-medium text-foreground">all</span>{" "}
-                units.
+            ) : null}
+            <hr className="my-2 shrink-0 border-t border-sky-200 dark:border-sky-800" />
+            {!filterCertId ? (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Drop a unit from the centre onto a certification to add it to
+                that track.
               </p>
-            )}
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            ) : null}
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto scrollbar-panel">
               {(levels ?? []).length === 0 ? (
-                <p className="rounded-md border py-8 text-center text-sm text-muted-foreground">
-                  No certifications yet. Add one above.
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  No certifications. Use +.
                 </p>
               ) : (
-                <div className="rounded-md border border-border/60 bg-background/40 p-1">
-                  <SortableContext
-                    items={(levels ?? []).map((l) => l._id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <ul className="space-y-1">
-                      {(levels ?? []).map((l) => (
-                        <li
-                          key={l._id}
-                          className={cn(
-                            "p-0.5",
-                            levelMatchesSearch(l) ? "" : "opacity-35",
-                          )}
-                        >
-                          <LevelRowDroppable levelId={l._id}>
-                            <SortableLevelRow
-                              level={l}
-                              selected={editCertId === l._id}
-                              onSelect={() => handleCertRowClick(l._id)}
-                              onDelete={() => {
-                                setEditCertId(l._id);
-                                setLevelDeleteOpen(true);
-                              }}
-                            />
-                          </LevelRowDroppable>
-                        </li>
-                      ))}
-                    </ul>
-                  </SortableContext>
-                </div>
-              )}
-              {editCertId && selectedCert ? (
-                <div className="space-y-4 border-t border-border/60 pt-4">
-                  <p className="text-sm font-medium">Certification details</p>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor="cert-name">Name</Label>
-                      <Input
-                        id="cert-name"
-                        value={certDetailName}
-                        onChange={(e) => setCertDetailName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor="cert-desc">Description</Label>
-                      <Textarea
-                        id="cert-desc"
-                        value={certDetailDesc}
-                        onChange={(e) => setCertDetailDesc(e.target.value)}
-                        className="min-h-[100px]"
-                      />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor="cert-tag">Tagline</Label>
-                      <Input
-                        id="cert-tag"
-                        value={certDetailTagline}
-                        onChange={(e) => setCertDetailTagline(e.target.value)}
-                        placeholder="Short line on catalog cards"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="cert-order">Display order</Label>
-                      <Input
-                        id="cert-order"
-                        type="number"
-                        value={certDetailOrder}
-                        onChange={(e) => setCertDetailOrder(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor="cert-thumb">Thumbnail URL</Label>
-                      <Input
-                        id="cert-thumb"
-                        value={certDetailThumbnail}
-                        onChange={(e) => setCertDetailThumbnail(e.target.value)}
-                        placeholder="https://…"
-                      />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label>Company scope</Label>
-                      <Select
-                        value={certDetailCompanyId || "__global__"}
-                        onValueChange={(v) =>
-                          setCertDetailCompanyId(
-                            v === "__global__" ? "" : (v ?? ""),
-                          )
-                        }
+                <SortableContext
+                  items={(levels ?? []).map((l) => l._id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ul className="space-y-1">
+                    {(levels ?? []).map((l) => (
+                      <li
+                        key={l._id}
+                        className={cn(
+                          levelMatchesSearch(l) ? "" : "opacity-30",
+                        )}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__global__">
-                            All companies (global)
-                          </SelectItem>
-                          {(companies ?? []).map((c) => (
-                            <SelectItem key={c._id} value={c._id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={async () => {
-                      if (!editCertId || !certDetailName.trim()) {
-                        toast.error("Name is required");
-                        return;
-                      }
-                      const orderNum = Number.parseInt(certDetailOrder, 10);
-                      if (Number.isNaN(orderNum)) {
-                        toast.error("Display order must be a number");
-                        return;
-                      }
-                      try {
-                        await updateLevel({
-                          levelId: editCertId,
-                          name: certDetailName.trim(),
-                          description: certDetailDesc.trim() || "—",
-                          order: orderNum,
-                          companyId: certDetailCompanyId
-                            ? (certDetailCompanyId as Id<"companies">)
-                            : undefined,
-                          tagline: certDetailTagline.trim() || undefined,
-                          thumbnailUrl:
-                            certDetailThumbnail.trim() || undefined,
-                        });
-                        toast.success("Certification saved");
-                      } catch (e) {
-                        toast.error(e instanceof Error ? e.message : "Failed");
-                      }
-                    }}
-                  >
-                    Save certification
-                  </Button>
-                </div>
-              ) : null}
+                        <LevelRowDroppable levelId={l._id}>
+                          <SortableLevelRow
+                            level={l}
+                            selected={filterCertId === l._id}
+                            onSelect={() => handleCertFilterToggle(l._id)}
+                            onEdit={() => openCertificationEditor(l._id)}
+                            onDelete={() => {
+                              setEditCertId(l._id);
+                              setLevelDeleteOpen(true);
+                            }}
+                          />
+                        </LevelRowDroppable>
+                      </li>
+                    ))}
+                  </ul>
+                </SortableContext>
+              )}
             </div>
           </div>
 
-          <div
-            className={cn(
-              "flex min-h-0 flex-col rounded-2xl border border-l-4 border-r-4 p-4 shadow-sm",
-              "border-brand-gold/25 border-l-brand-gold/45 border-r-brand-gold/45 bg-muted/20",
-            )}
-          >
+          <div className="flex min-h-0 flex-col rounded-2xl border border-violet-200 border-l-4 border-r-4 border-l-violet-400 border-r-violet-400 bg-violet-100/90 p-4 shadow-lg dark:border-violet-800 dark:border-l-violet-500 dark:border-r-violet-500 dark:bg-violet-950/40">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-base font-semibold">
-                <Layers className="h-5 w-5 shrink-0 text-brand-gold" />
-                Units
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({allUnits?.length ?? 0})
+              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-bold text-foreground">
+                <Layers className="h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
+                <span className="truncate">
+                  Units
+                  <span className="ml-1 text-base font-normal text-muted-foreground">
+                    (
+                    {filterCertId
+                      ? unitsInFilteredCert === undefined
+                        ? "…"
+                        : unitsInFilteredCert.length
+                      : (allUnits?.length ?? 0)}
+                    )
+                  </span>
                 </span>
               </h2>
+              <Button
+                type="button"
+                size="icon"
+                className={cyanPlusBtn}
+                aria-label="Add unit"
+                onClick={() => setAddUnitOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-            <p className="mb-3 shrink-0 text-xs text-muted-foreground">
-              Drag onto a certification when all units are visible here. Select a
-              unit to edit lessons and assessments in the right column.
-            </p>
-            <div className="shrink-0 space-y-3">
+            <div className="mb-1 shrink-0">
+              <label
+                htmlFor="admin-unit-search"
+                className="mb-0.5 block text-xs text-muted-foreground"
+              >
+                Search
+              </label>
               <Input
-                placeholder="Search units…"
+                id="admin-unit-search"
+                placeholder="Filter list…"
                 value={unitSearch}
                 onChange={(e) => setUnitSearch(e.target.value)}
+                className="h-9 bg-card"
               />
-              <div className="grid gap-2 rounded-lg border border-border/60 bg-background/60 p-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  New unit
-                </p>
-                <Input
-                  placeholder="Title"
-                  value={unitTitle}
-                  onChange={(e) => setUnitTitle(e.target.value)}
-                />
-                <Textarea
-                  placeholder="Description"
-                  value={unitDesc}
-                  onChange={(e) => setUnitDesc(e.target.value)}
-                  className="min-h-[64px]"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full"
-                  onClick={async () => {
-                    if (!unitTitle.trim()) {
-                      toast.error("Title required");
-                      return;
-                    }
-                    try {
-                      await createUnit({
-                        title: unitTitle.trim(),
-                        description: unitDesc.trim() || "—",
-                      });
-                      setUnitTitle("");
-                      setUnitDesc("");
-                      toast.success("Unit created");
-                    } catch (e) {
-                      toast.error(e instanceof Error ? e.message : "Failed");
-                    }
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Create unit
-                </Button>
-              </div>
             </div>
-
-            <hr className="my-3 shrink-0 border-border/60" />
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-                {filterCertId && unitsInFilteredCert ? (
-                  <div className="space-y-3">
-                    <CertUnitsAddDropZone levelId={filterCertId} />
-                    <div className="rounded-md border border-border/60 bg-background/40 p-1">
+            <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+              Drag units onto certifications or library items onto units (when no
+              unit is selected in this column).
+            </p>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
+                {/*
+                  ADMIN.md: cert click filters centre to that cert’s units.
+                  While Convex loads, unitsInFilteredCert is undefined — must not
+                  fall through to “all units” or filtering looks broken.
+                */}
+                {filterCertId ? (
+                  unitsInFilteredCert === undefined ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      Loading units…
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <CertUnitsAddDropZone levelId={filterCertId} />
                       <SortableContext
                         items={unitsInFilteredCert.map((u) => u._id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        <ul className="space-y-1 p-1">
+                        <ul className="space-y-1">
                           {unitsInFilteredCert.map((u) => (
-                            <li key={u._id} className="p-0.5">
+                            <li key={u._id}>
                               <SortableUnitRow
                                 unit={u}
                                 selected={selectedDetailUnitId === u._id}
@@ -910,93 +807,59 @@ export default function AdminCoursesClient() {
                           ))}
                         </ul>
                       </SortableContext>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        Not in this certification — drag up or onto a cert row
+                      <p className="text-[11px] text-muted-foreground">
+                        Other units — drag onto this certification or a cert row
                       </p>
-                      <div className="rounded-md border border-border/60 bg-background/40 p-2">
-                        <div className="space-y-1.5">
-                          {certPaletteUnits.length === 0 ? (
-                            <p className="py-4 text-center text-sm text-muted-foreground">
-                              Every unit is already in this certification.
-                            </p>
-                          ) : (
-                            certPaletteUnits.map((u) => (
-                              <DraggableUnitPaletteItem key={u._id} unit={u} />
-                            ))
-                          )}
-                        </div>
+                      <div className="space-y-1">
+                        {certPaletteUnits.length === 0 ? (
+                          <p className="py-3 text-center text-xs text-muted-foreground">
+                            All units are in this certification.
+                          </p>
+                        ) : (
+                          certPaletteUnits.map((u) => (
+                            <DraggableUnitPaletteItem key={u._id} unit={u} />
+                          ))
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )
+                ) : !allUnits?.length ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">
+                    No units. Use +.
+                  </p>
                 ) : (
-                  <div className="rounded-md border border-border/60 bg-background/40 p-1">
-                    {!allUnits?.length ? (
-                      <p className="py-8 text-center text-sm text-muted-foreground">
-                        No units yet. Create one above.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-border/60 p-1">
-                        {allUnits.map((u) => (
-                          <li
-                            key={u._id}
-                            className={cn(
-                              "space-y-2 px-2 py-2",
-                              unitMatchesSearch(u) ? "" : "opacity-35",
-                            )}
-                          >
-                            <div className="flex flex-wrap items-start gap-2">
-                              <DraggableUnitPaletteItem unit={u} />
-                              <button
-                                type="button"
-                                className={cn(
-                                  "-m-1 min-w-[120px] flex-1 rounded-md px-2 py-1 text-left text-sm transition-colors",
-                                  selectedDetailUnitId === u._id
-                                    ? "bg-brand-lime/15 ring-1 ring-brand-lime/40"
-                                    : "hover:bg-muted/60",
-                                )}
-                                onClick={() => handleUnitRowClick(u._id)}
-                              >
-                                <div className="font-medium">{u.title}</div>
-                                <div className="truncate text-xs text-muted-foreground">
-                                  {u.certificationSummary}
-                                </div>
-                              </button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openEditUnit(u._id)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => {
-                                  setUnitDeleteId(u._id);
-                                  setUnitDeleteOpen(true);
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                            {!selectedDetailUnitId ? (
-                              <UnitContentDropZone unitId={u._id} />
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                  <ul className="space-y-2">
+                    {allUnits.map((u) => (
+                      <li
+                        key={u._id}
+                        className={cn(
+                          "space-y-1",
+                          unitMatchesSearch(u) ? "" : "opacity-30",
+                        )}
+                      >
+                        <DraggableUnitPaletteItem
+                          unit={u}
+                          selected={selectedDetailUnitId === u._id}
+                          onSelect={() => handleUnitRowClick(u._id)}
+                          onEdit={() => openEditUnit(u._id)}
+                          onDelete={() => {
+                            setUnitDeleteId(u._id);
+                            setUnitDeleteOpen(true);
+                          }}
+                        />
+                        {!selectedDetailUnitId ? (
+                          <UnitContentDropZone unitId={u._id} />
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
                 )}
 
                 {selectedDetailUnitId && selectedDetailUnit ? (
-                  <div className="space-y-2 border-t border-border/60 pt-4">
-                    <p className="text-sm font-medium">Prerequisites</p>
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Prerequisites for selected unit
+                    </p>
                     <PrerequisiteDropEditor
                       targetUnitId={selectedDetailUnitId}
                       targetTitle={selectedDetailUnit.title}
@@ -1004,153 +867,69 @@ export default function AdminCoursesClient() {
                     />
                   </div>
                 ) : null}
-              </div>
             </div>
+          </div>
 
-          <div
-            className={cn(
-              "flex min-h-0 flex-col rounded-2xl border p-4 shadow-sm",
-              "border-brand-sky/25 bg-brand-sky/[0.04] dark:bg-brand-sky/[0.06]",
-            )}
-          >
+          <div className="flex min-h-0 flex-col rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-lg dark:border-amber-900/50 dark:bg-amber-950/30">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <BookMarked className="h-4 w-4 shrink-0 text-brand-sky" />
-                Content
-                <span className="font-normal text-muted-foreground">
-                  ({allLibraryContent?.length ?? 0} in library)
+              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
+                <BookMarked className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                <span className="truncate">
+                  {selectedDetailUnit && selectedDetailUnitId
+                    ? `${selectedDetailUnit.title} — content`
+                    : "Library"}
+                  <span className="ml-1 font-normal text-muted-foreground">
+                    (
+                    {selectedDetailUnit && selectedDetailUnitId
+                      ? (detailContent ?? []).length
+                      : (allLibraryContent?.length ?? 0)}
+                    )
+                  </span>
                 </span>
               </h2>
+              <Button
+                type="button"
+                size="icon"
+                className={cyanPlusBtn}
+                aria-label="Add content to library"
+                onClick={() => setAddLibraryOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
-            <p className="mb-3 shrink-0 text-xs text-muted-foreground">
-              No unit selected: build the shared library and drag into units in
-              the centre. With a unit selected, manage that unit&apos;s lessons
-              here.
-            </p>
-            <div className="shrink-0">
+            <div className="mb-1 shrink-0">
+              <label
+                htmlFor="admin-content-search"
+                className="mb-0.5 block text-xs text-muted-foreground"
+              >
+                Search
+              </label>
               <Input
-                placeholder="Search library…"
+                id="admin-content-search"
+                placeholder="Filter list…"
                 value={contentSearch}
                 onChange={(e) => setContentSearch(e.target.value)}
+                className="h-9 bg-card"
               />
             </div>
-            <hr className="my-3 shrink-0 border-border/60" />
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-              {!selectedDetailUnitId || !selectedDetailUnit ? (
-                <>
-                  <div className="space-y-3 rounded-lg border border-border/60 bg-background/60 p-4">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Add to library
-                    </p>
-                    <Input
-                      placeholder="Title"
-                      value={contentTitle}
-                      onChange={(e) => setContentTitle(e.target.value)}
-                    />
-                    <Select
-                      value={contentKind}
-                      onValueChange={(v) =>
-                        setContentKind((v ?? "link") as typeof contentKind)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="link">link</SelectItem>
-                        <SelectItem value="video">video</SelectItem>
-                        <SelectItem value="pdf">pdf</SelectItem>
-                        <SelectItem value="slideshow">slideshow</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Textarea
-                      placeholder="URL(s)"
-                      value={contentUrl}
-                      onChange={(e) => setContentUrl(e.target.value)}
-                      className="min-h-[72px]"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={async () => {
-                        if (!contentTitle.trim()) {
-                          toast.error("Title required");
-                          return;
-                        }
-                        try {
-                          await createContent({
-                            type: contentKind,
-                            title: contentTitle.trim(),
-                            url: contentUrl.trim() || "#",
-                          });
-                          setContentTitle("");
-                          setContentUrl("");
-                          toast.success("Saved to library");
-                        } catch (e) {
-                          toast.error(
-                            e instanceof Error ? e.message : "Failed",
-                          );
-                        }
-                      }}
-                    >
-                      Save to library
-                    </Button>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                      Library (drag to a unit in the centre →)
-                    </p>
-                    {!allLibraryContent?.length ? (
-                      <p className="rounded-md border border-border/60 py-8 text-center text-sm text-muted-foreground">
-                        No content yet.
-                      </p>
-                    ) : (
-                      <div className="space-y-1.5 rounded-md border border-border/60 bg-background/40 p-2">
-                        {allLibraryContent.map((item) => (
-                          <div
-                            key={item._id}
-                            className={cn(
-                              "flex items-stretch gap-1 overflow-hidden rounded-md border bg-card/50",
-                              contentMatchesSearch(item) ? "" : "opacity-35",
-                            )}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <ContentLibraryDragRow item={item} />
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              className="shrink-0 rounded-none text-destructive hover:text-destructive"
-                              onClick={async () => {
-                                if (
-                                  !confirm(
-                                    "Delete this item from the library and remove it from all units?",
-                                  )
-                                ) {
-                                  return;
-                                }
-                                try {
-                                  await removeContent({
-                                    contentId: item._id,
-                                  });
-                                  toast.success("Deleted");
-                                } catch (e) {
-                                  toast.error(
-                                    e instanceof Error ? e.message : "Failed",
-                                  );
-                                }
-                              }}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
+            {selectedDetailUnitId && selectedDetailUnit ? (
+              <button
+                type="button"
+                className="mb-1 inline-flex max-w-full items-center rounded-full border border-amber-200 bg-amber-100 px-3 py-1.5 text-left text-xs font-medium text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-200 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100 dark:hover:bg-amber-900/50"
+                onClick={() => setSelectedDetailUnitId(null)}
+              >
+                Show all library ({allLibraryContent?.length ?? 0})
+              </button>
+            ) : null}
+            <hr className="my-2 shrink-0 border-t border-amber-200 dark:border-amber-800" />
+            {!selectedDetailUnitId ? (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Drag an item from this list onto a unit in the centre to attach
+                it to that unit.
+              </p>
+            ) : null}
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
+              {selectedDetailUnitId && selectedDetailUnit ? (
                 <div className="space-y-6 pb-4 pr-1">
                     <div>
                       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -1454,11 +1233,409 @@ export default function AdminCoursesClient() {
                       />
                     </div>
                   </div>
+              ) : selectedDetailUnitId && unitSelectionResolving ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Loading…
+                </p>
+              ) : (
+                <>
+                  {!allLibraryContent?.length ? (
+                    <p className="py-10 text-center text-sm text-muted-foreground">
+                      No library items. Use +.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {allLibraryContent.map((item) => (
+                        <li
+                          key={item._id}
+                          className={cn(
+                            contentMatchesSearch(item) ? "" : "opacity-30",
+                          )}
+                        >
+                          <ContentLibraryDragRow
+                            item={item}
+                            onDelete={() => {
+                              if (
+                                !confirm(
+                                  "Delete this item from the library and remove it from all units?",
+                                )
+                              ) {
+                                return;
+                              }
+                              void removeContent({ contentId: item._id })
+                                .then(() => toast.success("Deleted"))
+                                .catch((e) =>
+                                  toast.error(
+                                    e instanceof Error ? e.message : "Failed",
+                                  ),
+                                );
+                            }}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
       </DndContext>
+
+      <Dialog open={addCertOpen} onOpenChange={setAddCertOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New certification</DialogTitle>
+            <DialogDescription>
+              Add a certification track. You can edit full details after saving.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="add-cert-name">Name</Label>
+              <Input
+                id="add-cert-name"
+                placeholder="Name"
+                value={levelName}
+                onChange={(e) => setLevelName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-cert-desc">Description</Label>
+              <Textarea
+                id="add-cert-desc"
+                placeholder="Description"
+                value={levelDesc}
+                onChange={(e) => setLevelDesc(e.target.value)}
+                className="min-h-[72px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAddCertOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                if (!levelName.trim()) {
+                  toast.error("Enter a name");
+                  return;
+                }
+                const n = levels?.length ?? 0;
+                try {
+                  const newId = await createLevel({
+                    name: levelName.trim(),
+                    description: levelDesc.trim() || "—",
+                    order: n,
+                  });
+                  setLevelName("");
+                  setLevelDesc("");
+                  setAddCertOpen(false);
+                  setEditCertId(newId);
+                  setCertDetailsOpen(true);
+                  toast.success("Certification created");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed");
+                }
+              }}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addUnitOpen} onOpenChange={setAddUnitOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>New unit</DialogTitle>
+            <DialogDescription>
+              Units can belong to certifications and hold lessons and
+              assessments.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="add-unit-title">Title</Label>
+              <Input
+                id="add-unit-title"
+                placeholder="Title"
+                value={unitTitle}
+                onChange={(e) => setUnitTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-unit-desc">Description</Label>
+              <Textarea
+                id="add-unit-desc"
+                placeholder="Description"
+                value={unitDesc}
+                onChange={(e) => setUnitDesc(e.target.value)}
+                className="min-h-[72px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAddUnitOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                if (!unitTitle.trim()) {
+                  toast.error("Title required");
+                  return;
+                }
+                try {
+                  await createUnit({
+                    title: unitTitle.trim(),
+                    description: unitDesc.trim() || "—",
+                  });
+                  setUnitTitle("");
+                  setUnitDesc("");
+                  setAddUnitOpen(false);
+                  toast.success("Unit created");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed");
+                }
+              }}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addLibraryOpen} onOpenChange={setAddLibraryOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add to library</DialogTitle>
+            <DialogDescription>
+              Shared content you can drag onto units in the centre column.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="add-lib-title">Title</Label>
+              <Input
+                id="add-lib-title"
+                placeholder="Title"
+                value={contentTitle}
+                onChange={(e) => setContentTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Type</Label>
+              <Select
+                value={contentKind}
+                onValueChange={(v) =>
+                  setContentKind((v ?? "link") as typeof contentKind)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="link">link</SelectItem>
+                  <SelectItem value="video">video</SelectItem>
+                  <SelectItem value="pdf">pdf</SelectItem>
+                  <SelectItem value="slideshow">slideshow</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-lib-url">URL(s)</Label>
+              <Textarea
+                id="add-lib-url"
+                placeholder="URL(s)"
+                value={contentUrl}
+                onChange={(e) => setContentUrl(e.target.value)}
+                className="min-h-[72px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAddLibraryOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                if (!contentTitle.trim()) {
+                  toast.error("Title required");
+                  return;
+                }
+                try {
+                  await createContent({
+                    type: contentKind,
+                    title: contentTitle.trim(),
+                    url: contentUrl.trim() || "#",
+                  });
+                  setContentTitle("");
+                  setContentUrl("");
+                  setAddLibraryOpen(false);
+                  toast.success("Saved to library");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed");
+                }
+              }}
+            >
+              Save to library
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={certDetailsOpen}
+        onOpenChange={(o) => {
+          setCertDetailsOpen(o);
+          if (!o) {
+            setEditCertId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit certification</DialogTitle>
+            <DialogDescription>
+              Catalog fields and company scope. Click the certification in the
+              list (not the pencil) to filter the centre to its units.
+            </DialogDescription>
+          </DialogHeader>
+          {editCertId && selectedCert ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="cert-name">Name</Label>
+                  <Input
+                    id="cert-name"
+                    value={certDetailName}
+                    onChange={(e) => setCertDetailName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="cert-desc">Description</Label>
+                  <Textarea
+                    id="cert-desc"
+                    value={certDetailDesc}
+                    onChange={(e) => setCertDetailDesc(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="cert-tag">Tagline</Label>
+                  <Input
+                    id="cert-tag"
+                    value={certDetailTagline}
+                    onChange={(e) => setCertDetailTagline(e.target.value)}
+                    placeholder="Short line on catalog cards"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="cert-order">Display order</Label>
+                  <Input
+                    id="cert-order"
+                    type="number"
+                    value={certDetailOrder}
+                    onChange={(e) => setCertDetailOrder(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="cert-thumb">Thumbnail URL</Label>
+                  <Input
+                    id="cert-thumb"
+                    value={certDetailThumbnail}
+                    onChange={(e) => setCertDetailThumbnail(e.target.value)}
+                    placeholder="https://…"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label>Company scope</Label>
+                  <Select
+                    value={certDetailCompanyId || "__global__"}
+                    onValueChange={(v) =>
+                      setCertDetailCompanyId(
+                        v === "__global__" ? "" : (v ?? ""),
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__global__">
+                        All companies (global)
+                      </SelectItem>
+                      {(companies ?? []).map((c) => (
+                        <SelectItem key={c._id} value={c._id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCertDetailsOpen(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    if (!editCertId || !certDetailName.trim()) {
+                      toast.error("Name is required");
+                      return;
+                    }
+                    const orderNum = Number.parseInt(certDetailOrder, 10);
+                    if (Number.isNaN(orderNum)) {
+                      toast.error("Display order must be a number");
+                      return;
+                    }
+                    try {
+                      await updateLevel({
+                        levelId: editCertId,
+                        name: certDetailName.trim(),
+                        description: certDetailDesc.trim() || "—",
+                        order: orderNum,
+                        companyId: certDetailCompanyId
+                          ? (certDetailCompanyId as Id<"companies">)
+                          : undefined,
+                        tagline: certDetailTagline.trim() || undefined,
+                        thumbnailUrl:
+                          certDetailThumbnail.trim() || undefined,
+                      });
+                      toast.success("Certification saved");
+                      setCertDetailsOpen(false);
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Failed");
+                    }
+                  }}
+                >
+                  Save
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={editContentOpen}
@@ -1656,7 +1833,15 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={detachFromCertOpen} onOpenChange={setDetachFromCertOpen}>
+      <Dialog
+        open={detachFromCertOpen}
+        onOpenChange={(o) => {
+          setDetachFromCertOpen(o);
+          if (!o) {
+            setDetachFromCertUnitId(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove from certification?</DialogTitle>

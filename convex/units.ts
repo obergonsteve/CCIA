@@ -80,6 +80,8 @@ export type UnitAdminListRow = {
   title: string;
   description: string;
   certificationSummary: string;
+  /** Certification levels this unit belongs to (links + legacy levelId). */
+  certificationLevelIds: Id<"certificationLevels">[];
 };
 
 export const listAllAdmin = query({
@@ -94,16 +96,21 @@ export const listAllAdmin = query({
         .withIndex("by_unit", (q) => q.eq("unitId", u._id))
         .collect();
       const names: string[] = [];
+      const levelIds: Id<"certificationLevels">[] = [];
       for (const link of links) {
         const lev = await ctx.db.get(link.levelId);
         if (lev) {
           names.push(lev.name);
+          levelIds.push(link.levelId);
         }
       }
       if (links.length === 0 && u.levelId) {
         const lev = await ctx.db.get(u.levelId);
         if (lev) {
           names.push(lev.name);
+          if (!levelIds.includes(u.levelId)) {
+            levelIds.push(u.levelId);
+          }
         }
       }
       names.sort((a, b) => a.localeCompare(b));
@@ -113,6 +120,7 @@ export const listAllAdmin = query({
         title: u.title,
         description: u.description,
         certificationSummary: names.length ? names.join(", ") : "—",
+        certificationLevelIds: levelIds,
       });
     }
     out.sort((a, b) => a.title.localeCompare(b.title));
