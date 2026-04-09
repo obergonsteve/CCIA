@@ -114,3 +114,36 @@ export const adminCreateUser = action({
     });
   },
 });
+
+export const adminSetPassword = action({
+  args: { userId: v.id("users"), password: v.string() },
+  handler: async (ctx, { userId, password }): Promise<void> => {
+    const adminUserId = await ctx.runQuery(
+      internal.users.resolveDeploymentUserIdInternal,
+      {},
+    );
+    const admin = await ctx.runQuery(internal.users.getByIdInternal, {
+      userId: adminUserId,
+    });
+    if (
+      !admin ||
+      (admin.role !== "admin" && admin.role !== "content_creator")
+    ) {
+      throw new Error("Forbidden");
+    }
+    const target = await ctx.runQuery(internal.users.getByIdInternal, {
+      userId,
+    });
+    if (!target) {
+      throw new Error("User not found");
+    }
+    if (password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    await ctx.runMutation(internal.users.patchPasswordInternal, {
+      userId,
+      passwordHash,
+    });
+  },
+});

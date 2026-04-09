@@ -103,3 +103,92 @@ export const listAll = query({
     });
   },
 });
+
+export const listByCompany = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, { companyId }) => {
+    await requireAdminOrCreator(ctx);
+    const rows = await ctx.db
+      .query("users")
+      .withIndex("by_company", (q) => q.eq("companyId", companyId))
+      .collect();
+    return rows
+      .map(({ passwordHash, ...u }) => {
+        void passwordHash;
+        return u;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+export const adminUpdateProfile = mutation({
+  args: {
+    userId: v.id("users"),
+    name: v.string(),
+    email: v.string(),
+    role: v.union(
+      v.literal("operator"),
+      v.literal("supervisor"),
+      v.literal("admin"),
+      v.literal("content_creator"),
+    ),
+    companyId: v.id("companies"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminOrCreator(ctx);
+    const row = await ctx.db.get(args.userId);
+    if (!row) {
+      throw new Error("User not found");
+    }
+    const email = args.email.toLowerCase().trim();
+    if (email !== row.email) {
+      const clash = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .unique();
+      if (clash && clash._id !== args.userId) {
+        throw new Error("Another user already uses that email");
+      }
+    }
+    await ctx.db.patch(args.userId, {
+      name: args.name.trim(),
+      email,
+      role: args.role,
+      companyId: args.companyId,
+    });
+  },
+});
+
+export const patchPasswordInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    passwordHash: v.string(),
+  },
+  handler: async (ctx, { userId, passwordHash }) => {
+    await ctx.db.patch(userId, { passwordHash });
+  },
+});
+
+export const adminDelete = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await requireAdminOrCreator(ctx);
+    const row = await ctx.db.get(userId);
+    if (!row) {
+      throw new Error("User not found");
+    }
+    for (const p of await ctx.db
+      .query("userProgress")
+      .withIndex("by_user_unit", (q) => q.eq("userId", userId))
+      .collect()) {
+      await ctx.db.delete(p._id);
+    }
+    for (const t of await ctx.db
+      .query("testResults")
+      .withIndex("by_user_assignment", (q) => q.eq("userId", userId))
+      .collect()) {
+      await ctx.db.delete(t._id);
+    }
+    await ctx.db.delete(userId);
+  },
+});

@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
@@ -151,21 +152,7 @@ export const remove = mutation({
       .filter((q) => q.eq(q.field("levelId"), levelId))
       .collect();
     for (const u of units) {
-      const items = await ctx.db
-        .query("contentItems")
-        .filter((q) => q.eq(q.field("unitId"), u._id))
-        .collect();
-      for (const it of items) {
-        await ctx.db.delete(it._id);
-      }
-      const assigns = await ctx.db
-        .query("assignments")
-        .filter((q) => q.eq(q.field("unitId"), u._id))
-        .collect();
-      for (const a of assigns) {
-        await ctx.db.delete(a._id);
-      }
-      await ctx.db.delete(u._id);
+      await ctx.runMutation(internal.units.removeInternal, { unitId: u._id });
     }
     await ctx.db.delete(levelId);
   },

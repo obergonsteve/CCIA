@@ -5,6 +5,20 @@ export default defineSchema({
   companies: defineTable({
     name: v.string(),
     logoUrl: v.optional(v.string()),
+    /** Mailing / street block — admin-editable */
+    address: v.optional(v.string()),
+    /** Primary company contact email (not a user login) */
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    status: v.optional(
+      v.union(
+        v.literal("active"),
+        v.literal("inactive"),
+        v.literal("pending"),
+      ),
+    ),
+    /** Agreement / onboarding date (ms since epoch) */
+    joinedAt: v.optional(v.union(v.number(), v.null())),
   }).index("by_name", ["name"]),
 
   users: defineTable({

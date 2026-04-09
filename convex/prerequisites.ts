@@ -1,7 +1,12 @@
 import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireUserId, userCanAccessLevel } from "./lib/auth";
+import {
+  requireAdminOrCreator,
+  requireUserId,
+  userCanAccessLevel,
+} from "./lib/auth";
 import { userCanAccessUnit } from "./lib/auth";
 import { LAND_LEASE_CURRICULUM, seedUnitKey } from "./curriculumSeedData";
 
@@ -108,6 +113,102 @@ export const summariesForLevel = query({
  * Safe to run after `seedLandLeaseCurriculum`; resolves units by level name + unit title.
  */
 /** No user auth — same as `seed:seedLandLeaseCurriculum`; run only from trusted environments. */
+async function prerequisiteWouldCreateCycle(
+  ctx: MutationCtx,
+  unitId: Id<"units">,
+  prerequisiteUnitId: Id<"units">,
+): Promise<boolean> {
+  if (unitId === prerequisiteUnitId) {
+    return true;
+  }
+  const stack: Id<"units">[] = [prerequisiteUnitId];
+  const seen = new Set<string>();
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    if (seen.has(current)) {
+      continue;
+    }
+    seen.add(current);
+    const dependents = await ctx.db
+      .query("unitPrerequisites")
+      .withIndex("by_prerequisite_unit", (q) =>
+        q.eq("prerequisiteUnitId", current),
+      )
+      .collect();
+    for (const d of dependents) {
+      if (d.unitId === unitId) {
+        return true;
+      }
+      stack.push(d.unitId);
+    }
+  }
+  return false;
+}
+
+/** Admin: prerequisite edges for a unit (titles for display). */
+export const adminListForUnit = query({
+  args: { unitId: v.id("units") },
+  handler: async (ctx, { unitId }) => {
+    await requireAdminOrCreator(ctx);
+    const rows = await ctx.db
+      .query("unitPrerequisites")
+      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+      .collect();
+    const out: Array<{
+      edgeId: Id<"unitPrerequisites">;
+      prerequisiteUnitId: Id<"units">;
+      title: string;
+    }> = [];
+    for (const row of rows) {
+      const u = await ctx.db.get(row.prerequisiteUnitId);
+      if (u) {
+        out.push({
+          edgeId: row._id,
+          prerequisiteUnitId: u._id,
+          title: u.title,
+        });
+      }
+    }
+    return out;
+  },
+});
+
+export const adminAddPrerequisite = mutation({
+  args: {
+    unitId: v.id("units"),
+    prerequisiteUnitId: v.id("units"),
+  },
+  handler: async (ctx, { unitId, prerequisiteUnitId }) => {
+    await requireAdminOrCreator(ctx);
+    if (unitId === prerequisiteUnitId) {
+      throw new Error("A unit cannot be its own prerequisite");
+    }
+    if (await prerequisiteWouldCreateCycle(ctx, unitId, prerequisiteUnitId)) {
+      throw new Error("That prerequisite would create a cycle");
+    }
+    const existing = await ctx.db
+      .query("unitPrerequisites")
+      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+      .collect();
+    if (existing.some((e) => e.prerequisiteUnitId === prerequisiteUnitId)) {
+      return { ok: true as const, duplicate: true };
+    }
+    await ctx.db.insert("unitPrerequisites", {
+      unitId,
+      prerequisiteUnitId,
+    });
+    return { ok: true as const, duplicate: false };
+  },
+});
+
+export const adminRemovePrerequisite = mutation({
+  args: { edgeId: v.id("unitPrerequisites") },
+  handler: async (ctx, { edgeId }) => {
+    await requireAdminOrCreator(ctx);
+    await ctx.db.delete(edgeId);
+  },
+});
+
 export const syncLandLeasePrerequisitesFromCurriculum = mutation({
   args: {},
   handler: async (ctx) => {

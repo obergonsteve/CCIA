@@ -74,6 +74,12 @@ export const remove = mutation({
   args: { assignmentId: v.id("assignments") },
   handler: async (ctx, { assignmentId }) => {
     await requireAdminOrCreator(ctx);
+    for (const t of await ctx.db
+      .query("testResults")
+      .filter((q) => q.eq(q.field("assignmentId"), assignmentId))
+      .collect()) {
+      await ctx.db.delete(t._id);
+    }
     await ctx.db.delete(assignmentId);
   },
 });
