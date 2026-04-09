@@ -33,8 +33,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0f766e" },
-    { media: "(prefers-color-scheme: dark)", color: "#115e59" },
+    { media: "(prefers-color-scheme: light)", color: "#9bc353" },
+    { media: "(prefers-color-scheme: dark)", color: "#2c2c2c" },
   ],
 };
 
@@ -47,10 +47,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="font-sans antialiased min-h-svh">
         <ThemeProvider>
-          <ConvexClientProvider>
-            {children}
-            <Toaster richColors position="top-center" />
-          </ConvexClientProvider>
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+          <Toaster richColors position="top-center" />
         </ThemeProvider>
       </body>
     </html>

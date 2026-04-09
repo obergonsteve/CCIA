@@ -27,6 +27,10 @@ export default defineSchema({
   certificationLevels: defineTable({
     name: v.string(),
     description: v.string(),
+    /** Short line under the title on catalog cards */
+    tagline: v.optional(v.string()),
+    /** Hero / card image (HTTPS URL) */
+    thumbnailUrl: v.optional(v.string()),
     order: v.number(),
     companyId: v.optional(v.id("companies")),
   }).index("by_company", ["companyId"]),

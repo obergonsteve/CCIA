@@ -1,5 +1,6 @@
 import { mutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { LAND_LEASE_CURRICULUM } from "./curriculumSeedData";
 import { requireAdminOrCreator } from "./lib/auth";
 
 /** bcrypt cost 10 via bcryptjs — hashes for stevemoore / gillmoore (must match `auth.login`). */
@@ -134,5 +135,77 @@ export const bootstrapDemo = mutation({
       ],
     });
     return { companyId, levelId, unitId };
+  },
+});
+
+const CURRICULUM_MARKER = "Land Lease 101";
+
+/**
+ * Dummy certifications, units, lessons (video/slideshow/link), and quizzes for land lease managers.
+ * Idempotent: skips if a global level named «Land Lease 101» already exists.
+ * Run: `npx convex run seed:seedLandLeaseCurriculum` (and `--prod` for production).
+ */
+export const seedLandLeaseCurriculum = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allLevels = await ctx.db.query("certificationLevels").collect();
+    const exists = allLevels.some(
+      (l) => l.name === CURRICULUM_MARKER && l.companyId === undefined,
+    );
+    if (exists) {
+      return {
+        ok: true as const,
+        skipped: true as const,
+        message:
+          "Already seeded (global «Land Lease 101» exists). Remove those levels in dashboard to re-run.",
+      };
+    }
+
+    const levelIds: Id<"certificationLevels">[] = [];
+
+    for (const course of LAND_LEASE_CURRICULUM) {
+      const levelId = await ctx.db.insert("certificationLevels", {
+        name: course.name,
+        description: course.description,
+        tagline: course.tagline,
+        thumbnailUrl: course.thumbnailUrl,
+        order: course.order,
+        companyId: undefined,
+      });
+      levelIds.push(levelId);
+
+      for (const unit of course.units) {
+        const unitId = await ctx.db.insert("units", {
+          levelId,
+          title: unit.title,
+          description: unit.description,
+          order: unit.order,
+        });
+        for (const c of unit.content) {
+          await ctx.db.insert("contentItems", {
+            unitId,
+            type: c.type,
+            title: c.title,
+            url: c.url,
+            order: c.order,
+            ...(c.duration !== undefined ? { duration: c.duration } : {}),
+          });
+        }
+        await ctx.db.insert("assignments", {
+          unitId,
+          title: unit.assignment.title,
+          description: unit.assignment.description,
+          passingScore: unit.assignment.passingScore,
+          questions: unit.assignment.questions,
+        });
+      }
+    }
+
+    return {
+      ok: true as const,
+      skipped: false as const,
+      levelCount: levelIds.length,
+      unitCount: LAND_LEASE_CURRICULUM.reduce((n, c) => n + c.units.length, 0),
+    };
   },
 });

@@ -9,23 +9,37 @@ import { Award, BookOpen, Shield, Tablet } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export default function LandingPage() {
+type PageProps = {
+  params: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function LandingPage({ params, searchParams }: PageProps) {
+  await Promise.all([params, searchParams]);
   return (
-    <div className="min-h-svh flex flex-col">
-      <header className="border-b bg-card">
+    <div className="min-h-svh flex flex-col bg-gradient-to-b from-background via-brand-gold/[0.07] to-brand-sky/[0.1]">
+      <header className="relative border-b border-white/10 bg-brand-charcoal pt-1 text-white shadow-md">
+        <div
+          className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
+          aria-hidden
+        />
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold text-primary">
-            <Award className="h-7 w-7" />
-            CCIA Land Lease Division
+          <div className="flex items-center gap-2 font-semibold">
+            <Award className="h-7 w-7 shrink-0 text-brand-lime" />
+            <span>
+              CCIA{" "}
+              <span className="text-brand-sky">Land Lease</span>{" "}
+              <span className="text-brand-gold">Division</span>
+            </span>
           </div>
           <div className="flex gap-2">
             <Link
               href="/register"
-              className={cn(buttonVariants({ variant: "ghost" }))}
+              className={cn(buttonVariants({ variant: "secondary" }))}
             >
               Register
             </Link>
-            <Link href="/login" className={cn(buttonVariants())}>
+            <Link href="/login" className={cn(buttonVariants({ variant: "lime" }))}>
               Sign in
             </Link>
           </div>
@@ -33,59 +47,63 @@ export default function LandingPage() {
       </header>
 
       <main className="flex-1">
-        <section className="max-w-5xl mx-auto px-4 py-16 md:py-24 text-center space-y-6">
-          <p className="text-sm font-medium text-primary uppercase tracking-wide">
+        <section className="max-w-5xl mx-auto px-4 py-16 md:py-24 text-center space-y-6 relative">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-8 mx-auto h-40 max-w-lg rounded-full bg-gradient-to-r from-brand-lime/15 via-brand-gold/12 to-brand-sky/15 blur-3xl"
+            aria-hidden
+          />
+          <p className="relative text-sm font-medium text-brand-gold uppercase tracking-wide drop-shadow-sm">
             Operator training — Australia
           </p>
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-balance">
+          <h1 className="relative text-3xl md:text-5xl font-bold tracking-tight text-balance bg-gradient-to-br from-brand-lime via-brand-gold to-brand-sky bg-clip-text text-transparent">
             Certification pathways for land lease community operations
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
+          <p className="relative text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
             Structured units, assessments, and realtime progress for staff
             working in residential land lease communities — aligned with
             industry compliance and safety expectations under legislation such as
             the Residential (Land Lease) Communities Act.
           </p>
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="relative flex flex-wrap justify-center gap-3">
             <Link href="/login" className={cn(buttonVariants({ size: "lg" }))}>
               Access training
             </Link>
             <Link
               href="/register"
-              className={cn(buttonVariants({ size: "lg", variant: "outline" }))}
+              className={cn(buttonVariants({ size: "lg", variant: "secondary" }))}
             >
               Create an account
             </Link>
           </div>
         </section>
 
-        <section className="bg-muted/40 border-y">
+        <section className="border-y border-white/10 bg-brand-charcoal text-white">
           <div className="max-w-5xl mx-auto px-4 py-12 grid md:grid-cols-3 gap-6">
-            <Card className="border-none shadow-none bg-transparent">
+            <Card className="border border-white/12 bg-white/5 shadow-none backdrop-blur-sm">
               <CardHeader>
-                <BookOpen className="h-8 w-8 text-primary mb-2" />
-                <CardTitle className="text-lg">Level-based learning</CardTitle>
-                <CardDescription>
+                <BookOpen className="h-8 w-8 text-brand-lime mb-2" />
+                <CardTitle className="text-lg text-white">Level-based learning</CardTitle>
+                <CardDescription className="text-white/75">
                   Certification levels and units with videos, documents, and
                   supporting links.
                 </CardDescription>
               </CardHeader>
             </Card>
-            <Card className="border-none shadow-none bg-transparent">
+            <Card className="border border-white/12 bg-white/5 shadow-none backdrop-blur-sm">
               <CardHeader>
-                <Shield className="h-8 w-8 text-primary mb-2" />
-                <CardTitle className="text-lg">Assessments</CardTitle>
-                <CardDescription>
+                <Shield className="h-8 w-8 text-brand-gold mb-2" />
+                <CardTitle className="text-lg text-white">Assessments</CardTitle>
+                <CardDescription className="text-white/75">
                   Auto-graded quizzes with clear pass criteria and instant
                   feedback on results.
                 </CardDescription>
               </CardHeader>
             </Card>
-            <Card className="border-none shadow-none bg-transparent">
+            <Card className="border border-white/12 bg-white/5 shadow-none backdrop-blur-sm">
               <CardHeader>
-                <Tablet className="h-8 w-8 text-primary mb-2" />
-                <CardTitle className="text-lg">Field-ready PWA</CardTitle>
-                <CardDescription>
+                <Tablet className="h-8 w-8 text-brand-sky mb-2" />
+                <CardTitle className="text-lg text-white">Field-ready PWA</CardTitle>
+                <CardDescription className="text-white/75">
                   Install on tablet or phone; train on site with offline-aware
                   viewing.
                 </CardDescription>

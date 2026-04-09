@@ -1,12 +1,9 @@
 "use client";
 
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
-
-const convex = new ConvexReactClient(convexUrl);
 
 function useCookieConvexAuth() {
   const [isLoading, setIsLoading] = useState(true);
@@ -64,8 +61,27 @@ function useCookieConvexAuth() {
 }
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
+  const client = useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
+    if (!url) {
+      return null;
+    }
+    return new ConvexReactClient(url);
+  }, []);
+
+  // Avoid `new ConvexReactClient()` at module scope: `next build` prerenders
+  // routes (e.g. /_not-found) where CI may not inject NEXT_PUBLIC_* yet.
+  if (client === null) {
+    if (typeof window !== "undefined") {
+      console.error(
+        "[convex] NEXT_PUBLIC_CONVEX_URL is not set. Add it in .env.local or your host (e.g. Vercel) Environment Variables.",
+      );
+    }
+    return <>{children}</>;
+  }
+
   return (
-    <ConvexProviderWithAuth client={convex} useAuth={useCookieConvexAuth}>
+    <ConvexProviderWithAuth client={client} useAuth={useCookieConvexAuth}>
       {children}
     </ConvexProviderWithAuth>
   );

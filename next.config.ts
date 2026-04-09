@@ -7,6 +7,16 @@ const withPWA = withPWAInit({
   register: true,
 });
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+    ],
+  },
+};
 
 export default withPWA(nextConfig);

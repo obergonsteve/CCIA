@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Training portal for residential land lease community operators (Australia).",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8fafc",
-    theme_color: "#0f766e",
+    background_color: "#faf9f5",
+    theme_color: "#9bc353",
     orientation: "portrait-primary",
     icons: [
       {

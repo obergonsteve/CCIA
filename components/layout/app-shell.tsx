@@ -23,8 +23,18 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/certifications", label: "Certifications", icon: GraduationCap },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    accent: "lime" as const,
+  },
+  {
+    href: "/certifications",
+    label: "Certifications",
+    icon: GraduationCap,
+    accent: "sky" as const,
+  },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -45,33 +55,53 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-svh flex flex-col md:flex-row">
-      <aside className="hidden md:flex w-60 flex-col border-r bg-sidebar text-sidebar-foreground shrink-0">
-        <div className="p-4 font-semibold text-sidebar-primary flex items-center gap-2">
-          <Award className="h-6 w-6 text-sidebar-primary" />
-          <span className="leading-tight">CCIA Land Lease Training</span>
+      <aside className="hidden md:flex w-60 flex-col border-r bg-sidebar text-sidebar-foreground shrink-0 relative pt-1">
+        <div
+          className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
+          aria-hidden
+        />
+        <div className="p-4 font-semibold flex items-center gap-2 text-white">
+          <Award className="h-6 w-6 shrink-0 text-brand-lime" />
+          <span className="leading-tight">
+            CCIA Land Lease{" "}
+            <span className="text-brand-sky/95">Training</span>
+          </span>
         </div>
         <Separator />
         <ScrollArea className="flex-1 px-2 py-4">
           <nav className="space-y-1">
-            {nav.map(({ href, label, icon: Icon }) => (
+            {nav.map(({ href, label, icon: Icon, accent }) => (
               <div key={href} className="space-y-0.5">
                 <Link href={href}>
                   <span
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-2 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors",
                       pathname === href || pathname.startsWith(`${href}/`)
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "hover:bg-sidebar-accent/60",
+                        ? accent === "lime"
+                          ? "border-brand-lime bg-brand-lime/15 text-white"
+                          : "border-brand-sky bg-brand-sky/18 text-white"
+                        : "border-transparent text-white/72 hover:bg-white/8 hover:text-white",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        pathname === href || pathname.startsWith(`${href}/`)
+                          ? accent === "lime"
+                            ? "text-brand-lime"
+                            : "text-brand-sky"
+                          : accent === "lime"
+                            ? "text-brand-lime/85"
+                            : "text-brand-sky/85",
+                      )}
+                    />
                     {label}
                   </span>
                 </Link>
                 {href === "/certifications" &&
                   certificationLevels &&
                   certificationLevels.length > 0 && (
-                    <ul className="space-y-0.5 pl-2 border-l border-sidebar-border ml-3">
+                    <ul className="space-y-0.5 pl-2 border-l border-brand-gold/35 ml-3">
                       {certificationLevels.map((level) => {
                         const levelPath = `/certifications/${level._id}`;
                         const active =
@@ -82,10 +112,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                             <Link href={levelPath}>
                               <span
                                 className={cn(
-                                  "block rounded-md px-2 py-1.5 text-xs font-medium transition-colors line-clamp-2",
+                                  "block rounded-md border-l-2 border-transparent px-2 py-1.5 text-xs font-medium transition-colors line-clamp-2",
                                   active
-                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60",
+                                    ? "border-brand-gold bg-brand-gold/20 text-white"
+                                    : "text-white/70 hover:border-white/15 hover:bg-white/6",
                                 )}
                               >
                                 {level.name}
@@ -102,13 +132,20 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/admin">
                 <span
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-2 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors",
                     pathname.startsWith("/admin")
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "hover:bg-sidebar-accent/60",
+                      ? "border-brand-gold bg-brand-gold/18 text-white"
+                      : "border-transparent text-white/72 hover:bg-white/8 hover:text-white",
                   )}
                 >
-                  <Settings2 className="h-4 w-4" />
+                  <Settings2
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      pathname.startsWith("/admin")
+                        ? "text-brand-gold"
+                        : "text-brand-gold/85",
+                    )}
+                  />
                   Admin
                 </span>
               </Link>
@@ -118,7 +155,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="p-2 border-t space-y-1">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2"
+            className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-white/10"
             onClick={() =>
               setTheme(resolvedTheme === "dark" ? "light" : "dark")
             }
@@ -132,7 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2"
+            className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-white/10"
             onClick={() => void logout()}
           >
             <LogOut className="h-4 w-4" />
@@ -142,11 +179,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
-        <header className="md:hidden border-b px-4 py-3 flex items-center justify-between bg-card">
-          <span className="font-semibold text-primary">CCIA Training</span>
+        <header className="md:hidden relative border-b border-white/10 px-4 py-3 pt-4 flex items-center justify-between bg-sidebar text-sidebar-foreground">
+          <div
+            className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
+            aria-hidden
+          />
+          <span className="font-semibold text-white">CCIA Training</span>
           <Button
             size="icon"
             variant="ghost"
+            className="text-sidebar-foreground hover:bg-white/10"
             onClick={() =>
               setTheme(resolvedTheme === "dark" ? "light" : "dark")
             }
@@ -158,7 +200,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </Button>
         </header>
-        <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-4">
+        <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-4 md:border-l md:border-border/60 md:shadow-[inset_1px_0_0_0_oklch(1_0_0/6%)] dark:md:shadow-[inset_1px_0_0_0_oklch(1_0_0/8%)]">
           <PwaInstallPrompt />
           <OfflineTrainingBanner />
           {children}
@@ -169,30 +211,36 @@ export function AppShell({ children }: { children: ReactNode }) {
         </footer>
       </div>
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t bg-card flex justify-around py-2 z-50 safe-area-pb">
-        {nav.map(({ href, label, icon: Icon }) => (
+      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t border-white/10 bg-sidebar text-sidebar-foreground flex justify-around py-2 z-50 safe-area-pb">
+        {nav.map(({ href, label, icon: Icon, accent }) => {
+          const active =
+            pathname === href || pathname.startsWith(`${href}/`);
+          return (
           <Link
             key={href}
             href={href}
             className={cn(
               "flex flex-col items-center text-[10px] gap-0.5 px-2 py-1",
-              pathname === href || pathname.startsWith(`${href}/`)
-                ? "text-primary"
-                : "text-muted-foreground",
+              active
+                ? accent === "lime"
+                  ? "text-brand-lime"
+                  : "text-brand-sky"
+                : "text-white/55",
             )}
           >
             <Icon className="h-5 w-5" />
             {label}
           </Link>
-        ))}
+          );
+        })}
         {showAdmin && (
           <Link
             href="/admin"
             className={cn(
               "flex flex-col items-center text-[10px] gap-0.5 px-2 py-1",
               pathname.startsWith("/admin")
-                ? "text-primary"
-                : "text-muted-foreground",
+                ? "text-brand-gold"
+                : "text-white/55",
             )}
           >
             <Settings2 className="h-5 w-5" />

@@ -14,6 +14,7 @@ import type * as authMutations from "../authMutations.js";
 import type * as certifications from "../certifications.js";
 import type * as companies from "../companies.js";
 import type * as content from "../content.js";
+import type * as curriculumSeedData from "../curriculumSeedData.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_httpCookies from "../lib/httpCookies.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   certifications: typeof certifications;
   companies: typeof companies;
   content: typeof content;
+  curriculumSeedData: typeof curriculumSeedData;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/httpCookies": typeof lib_httpCookies;

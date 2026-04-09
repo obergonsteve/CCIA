@@ -3,7 +3,13 @@ import Link from "next/link";
 import { RegisterForm } from "./register-form";
 import { cn } from "@/lib/utils";
 
-export default function RegisterPage() {
+type PageProps = {
+  params: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function RegisterPage({ params, searchParams }: PageProps) {
+  await Promise.all([params, searchParams]);
   return (
     <div className="min-h-svh flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md space-y-6">
