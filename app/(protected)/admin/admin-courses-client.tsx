@@ -279,6 +279,29 @@ export default function AdminCoursesClient() {
     );
   }, [selectedDetailUnitId, allUnits, unitsInFilteredCert]);
 
+  /** Prerequisites only when a unit row is actually shown as selected in this column. */
+  const selectedUnitShownInCentreColumn = useMemo(() => {
+    if (!selectedDetailUnitId) {
+      return false;
+    }
+    if (filterCertId && !centreUnitsShowAll) {
+      if (unitsInFilteredCert === undefined) {
+        return false;
+      }
+      return unitsInFilteredCert.some((u) => u._id === selectedDetailUnitId);
+    }
+    if (allUnits === undefined) {
+      return false;
+    }
+    return allUnits.some((u) => u._id === selectedDetailUnitId);
+  }, [
+    selectedDetailUnitId,
+    filterCertId,
+    centreUnitsShowAll,
+    unitsInFilteredCert,
+    allUnits,
+  ]);
+
   /**
    * ADMIN.md: unit click filters the right column to that unit’s content.
    * While `allUnits` / `unitsInFilteredCert` are still loading, avoid treating
@@ -916,7 +939,9 @@ export default function AdminCoursesClient() {
                   </ul>
                 )}
 
-                {selectedDetailUnitId && selectedDetailUnit ? (
+                {selectedDetailUnitId &&
+                selectedDetailUnit &&
+                selectedUnitShownInCentreColumn ? (
                   <div className="space-y-2 border-t border-border pt-3">
                     <p className="text-xs font-medium text-muted-foreground">
                       Prerequisites for selected unit
