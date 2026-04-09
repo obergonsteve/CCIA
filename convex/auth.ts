@@ -85,11 +85,10 @@ export const adminCreateUser = action({
     ),
   },
   handler: async (ctx, args): Promise<Id<"users">> => {
-    const raw = process.env.CONVEX_DEV_USER_ID;
-    if (!raw?.trim()) {
-      throw new Error("Unauthorized");
-    }
-    const adminUserId = raw as Id<"users">;
+    const adminUserId = await ctx.runQuery(
+      internal.users.resolveDeploymentUserIdInternal,
+      {},
+    );
     const admin = await ctx.runQuery(internal.users.getByIdInternal, {
       userId: adminUserId,
     });

@@ -95,7 +95,7 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
     companyIds: Object.fromEntries(companyByName),
     admins: admins.map((a) => a.email.toLowerCase()),
     adminUserIds,
-    /** Steve’s users id — set on the Convex deployment: npx convex env set CONVEX_DEV_USER_ID "<this>" */
+    /** Optional: npx convex env set CONVEX_DEV_USER_ID "<id>" to pin identity; otherwise seed admin is used. */
     convexDevUserId: steveId ?? null,
   };
 }

@@ -2,26 +2,38 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 /**
- * Convex has no browser token: `requireUserId` uses `CONVEX_DEV_USER_ID` for this deployment.
- * Set it to a real `users` document id (Convex dashboard → Data).
+ * Default Convex “acting user” when there is no browser token.
+ * 1) `CONVEX_DEV_USER_ID` if set on the deployment (pins user in prod / multi-account).
+ * 2) Else the seeded admin `steve.moore@ccia-landlease.com` (must match `seed.ts`).
  */
-function deploymentUserId(): Id<"users"> {
-  const raw = process.env.CONVEX_DEV_USER_ID;
-  if (!raw?.trim()) {
-    throw new Error(
-      "Convex env CONVEX_DEV_USER_ID is unset (set it on the Convex deployment, not only in .env.local). " +
-        "Run: npx convex run seed:seedCommunityOperatorsAndAdmins — use convexDevUserId from the JSON — " +
-        "then: npx convex env set CONVEX_DEV_USER_ID \"<that id>\" — then push with npx convex dev or deploy.",
-    );
+const FALLBACK_ADMIN_EMAIL = "steve.moore@ccia-landlease.com";
+
+export async function resolveDeploymentUserId(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Id<"users">> {
+  const raw = process.env.CONVEX_DEV_USER_ID?.trim();
+  if (raw) {
+    return raw as Id<"users">;
   }
-  return raw as Id<"users">;
+  const seeded = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) =>
+      q.eq("email", FALLBACK_ADMIN_EMAIL.toLowerCase()),
+    )
+    .unique();
+  if (seeded) {
+    return seeded._id;
+  }
+  throw new Error(
+    "No Convex user identity: run `npx convex run seed:seedCommunityOperatorsAndAdmins`, " +
+      "or set deployment env CONVEX_DEV_USER_ID to a `users` document id.",
+  );
 }
 
 export async function requireUserId(
   ctx: QueryCtx | MutationCtx,
 ): Promise<Id<"users">> {
-  void ctx;
-  return deploymentUserId();
+  return resolveDeploymentUserId(ctx);
 }
 
 export async function requireAdminOrCreator(

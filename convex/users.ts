@@ -5,7 +5,16 @@ import {
   mutation,
   query,
 } from "./_generated/server";
-import { requireAdminOrCreator, requireUserId } from "./lib/auth";
+import {
+  requireAdminOrCreator,
+  requireUserId,
+  resolveDeploymentUserId,
+} from "./lib/auth";
+
+export const resolveDeploymentUserIdInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => resolveDeploymentUserId(ctx),
+});
 
 export const getByEmailInternal = internalQuery({
   args: { email: v.string() },
