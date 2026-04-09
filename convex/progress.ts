@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
 import { userCanAccessUnit } from "./lib/auth";
+import { getIncompletePrerequisites } from "./lib/prerequisites";
 
 function normalize(s: string) {
   return s.trim().toLowerCase();
@@ -43,6 +44,12 @@ export const markUnitComplete = mutation({
     if (!ok) {
       throw new Error("Forbidden");
     }
+    const missing = await getIncompletePrerequisites(ctx, userId, unitId);
+    if (missing.length > 0) {
+      throw new Error(
+        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+      );
+    }
     const now = Date.now();
     const existing = await ctx.db
       .query("userProgress")
@@ -75,6 +82,12 @@ export const touchUnit = mutation({
     const ok = await userCanAccessUnit(ctx, unitId);
     if (!ok) {
       return;
+    }
+    const missing = await getIncompletePrerequisites(ctx, userId, unitId);
+    if (missing.length > 0) {
+      throw new Error(
+        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+      );
     }
     const now = Date.now();
     const existing = await ctx.db
@@ -115,6 +128,16 @@ export const submitAssignment = mutation({
     const ok = await userCanAccessUnit(ctx, assignment.unitId);
     if (!ok) {
       throw new Error("Forbidden");
+    }
+    const missing = await getIncompletePrerequisites(
+      ctx,
+      userId,
+      assignment.unitId,
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+      );
     }
 
     let correct = 0;

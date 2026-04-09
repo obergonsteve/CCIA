@@ -18,6 +18,8 @@ import type * as curriculumSeedData from "../curriculumSeedData.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_httpCookies from "../lib/httpCookies.js";
+import type * as lib_prerequisites from "../lib/prerequisites.js";
+import type * as prerequisites from "../prerequisites.js";
 import type * as progress from "../progress.js";
 import type * as seed from "../seed.js";
 import type * as units from "../units.js";
@@ -40,6 +42,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/httpCookies": typeof lib_httpCookies;
+  "lib/prerequisites": typeof lib_prerequisites;
+  prerequisites: typeof prerequisites;
   progress: typeof progress;
   seed: typeof seed;
   units: typeof units;

@@ -23,13 +23,25 @@ export type SeedContent = {
   duration?: number;
 };
 
+/** References another unit in the seeded curriculum (by course name + unit title). */
+export type SeedPrerequisiteRef = {
+  courseName: string;
+  unitTitle: string;
+};
+
 export type SeedUnit = {
   title: string;
   description: string;
   order: number;
   content: SeedContent[];
   assignment: SeedAssignment;
+  prerequisites?: SeedPrerequisiteRef[];
 };
+
+/** Stable key for wiring prerequisites in seed / sync mutations. */
+export function seedUnitKey(courseName: string, unitTitle: string) {
+  return `${courseName}::${unitTitle}`;
+}
 
 export type SeedCourse = {
   name: string;
@@ -143,6 +155,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "Routines for inspections, amenities, contractor coordination, and resident communications.",
         order: 1,
+        prerequisites: [
+          {
+            courseName: "Land Lease 101",
+            unitTitle: "Understanding the land lease model",
+          },
+        ],
         content: [
           {
             type: "video",
@@ -210,6 +228,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "High-level obligations: community rules, site costs, sales pathways, and working with fair trading frameworks.",
         order: 0,
+        prerequisites: [
+          {
+            courseName: "Land Lease 101",
+            unitTitle: "Understanding the land lease model",
+          },
+        ],
         content: [
           {
             type: "slideshow",
@@ -285,6 +309,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "What belongs in disclosure packs, schedules of fees, and clear communication before residents commit.",
         order: 1,
+        prerequisites: [
+          {
+            courseName: "Compliance & the Act",
+            unitTitle: "Statutory framework & operator duties",
+          },
+        ],
         content: [
           {
             type: "link",
@@ -337,6 +367,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "From trip hazards to pool fencing and vehicle movements — scanning the site methodically.",
         order: 0,
+        prerequisites: [
+          {
+            courseName: "Compliance & the Act",
+            unitTitle: "Statutory framework & operator duties",
+          },
+        ],
         content: [
           {
             type: "video",
@@ -393,6 +429,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "Checking insurances, safe work methods, and site rules — without becoming the contractor’s safety officer.",
         order: 1,
+        prerequisites: [
+          {
+            courseName: "Site Safety & WHS",
+            unitTitle: "Risk identification and common hazards",
+          },
+        ],
         content: [
           {
             type: "link",
@@ -446,6 +488,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "Newsletters, notice boards, digital channels, and difficult conversations with clarity and respect.",
         order: 0,
+        prerequisites: [
+          {
+            courseName: "Land Lease 101",
+            unitTitle: "Day-to-day operations on site",
+          },
+        ],
         content: [
           {
             type: "slideshow",
@@ -488,6 +536,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "Fair internal processes, timelines, notes, and when to escalate externally.",
         order: 1,
+        prerequisites: [
+          {
+            courseName: "Resident Experience & Fair Dealing",
+            unitTitle: "Resident communications that work",
+          },
+        ],
         content: [
           {
             type: "link",
@@ -540,6 +594,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "Plain-language breakdowns, what pays for what, and how indexation works in practice.",
         order: 0,
+        prerequisites: [
+          {
+            courseName: "Land Lease 101",
+            unitTitle: "Understanding the land lease model",
+          },
+        ],
         content: [
           {
             type: "video",
@@ -582,6 +642,12 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
         description:
           "Scheduling amenities, roads, and open space so the community feels cared for year-round.",
         order: 1,
+        prerequisites: [
+          {
+            courseName: "Commercials, Fees & Asset Care",
+            unitTitle: "Fee structures residents can understand",
+          },
+        ],
         content: [
           {
             type: "link",

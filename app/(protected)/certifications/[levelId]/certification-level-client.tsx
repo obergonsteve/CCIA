@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "convex/react";
-import { CheckCircle2, ChevronRight, Circle } from "lucide-react";
+import { CheckCircle2, ChevronRight, Circle, Lock } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
+import { cn } from "@/lib/utils";
 
 export default function CertificationLevelClient({
   levelId: levelIdRaw,
@@ -25,19 +26,30 @@ export default function CertificationLevelClient({
   const level = useQuery(api.certifications.get, { levelId });
   const units = useQuery(api.units.listByLevel, { levelId });
   const progressList = useQuery(api.progress.listForUser);
+  const prereqSummaries = useQuery(api.prerequisites.summariesForLevel, {
+    levelId,
+  });
 
   const rows = useMemo(() => {
     if (!units || !progressList) {
       return [];
     }
+    const readyMap = new Map(
+      (prereqSummaries ?? []).map((s) => [s.unitId, s.ready]),
+    );
     return units.map((unit) => {
       const p = progressList.find((x) => x.unitId === unit._id);
       const pct = p?.completed ? 100 : p ? 45 : 0;
-      return { unit, p, pct };
+      const unlocked = readyMap.get(unit._id) ?? true;
+      return { unit, p, pct, unlocked };
     });
-  }, [units, progressList]);
+  }, [units, progressList, prereqSummaries]);
 
-  if (level === undefined || units === undefined) {
+  if (
+    level === undefined ||
+    units === undefined ||
+    prereqSummaries === undefined
+  ) {
     return <div className="animate-pulse h-48 bg-muted rounded" />;
   }
 
@@ -86,24 +98,38 @@ export default function CertificationLevelClient({
       </p>
 
       <ul className="space-y-3">
-        {rows.map(({ unit, p, pct }) => (
+        {rows.map(({ unit, p, pct, unlocked }) => (
           <li key={unit._id}>
             <Link href={`/units/${unit._id}`}>
-              <Card className="transition-colors hover:bg-muted/40">
+              <Card
+                className={cn(
+                  "transition-colors hover:bg-muted/40",
+                  !unlocked && "opacity-80 border-dashed",
+                )}
+              >
                 <CardHeader className="space-y-3">
                   <div className="flex flex-row items-start gap-3">
                     {p?.completed ? (
                       <CheckCircle2 className="h-5 w-5 text-brand-lime shrink-0 mt-0.5" />
+                    ) : !unlocked ? (
+                      <Lock className="h-5 w-5 text-brand-gold shrink-0 mt-0.5" />
                     ) : (
                       <Circle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg">{unit.title}</CardTitle>
-                      <CardDescription>{unit.description}</CardDescription>
+                      <CardDescription>
+                        {unit.description}
+                        {!unlocked && prereqSummaries ? (
+                          <span className="mt-2 block text-xs font-medium text-brand-gold">
+                            Prerequisites required — open unit to see details.
+                          </span>
+                        ) : null}
+                      </CardDescription>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
                   </div>
-                  <Progress value={pct} className="h-2" />
+                  <Progress value={unlocked ? pct : 0} className="h-2" />
                 </CardHeader>
               </Card>
             </Link>

@@ -42,6 +42,14 @@ export default defineSchema({
     order: v.number(),
   }),
 
+  /** `unitId` requires `prerequisiteUnitId` to be completed first (may be in another certification). */
+  unitPrerequisites: defineTable({
+    unitId: v.id("units"),
+    prerequisiteUnitId: v.id("units"),
+  })
+    .index("by_unit", ["unitId"])
+    .index("by_prerequisite_unit", ["prerequisiteUnitId"]),
+
   contentItems: defineTable({
     unitId: v.id("units"),
     type: v.union(

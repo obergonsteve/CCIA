@@ -72,6 +72,10 @@ export default function CertificationsClient() {
           <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
             npx convex run seed:seedLandLeaseCurriculum
           </code>
+          . If levels exist but unit prerequisites are missing, run{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
+            npx convex run prerequisites:syncLandLeasePrerequisitesFromCurriculum
+          </code>
           .
         </p>
       ) : (
