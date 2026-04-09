@@ -1,30 +1,35 @@
 "use client";
 
 import { WifiOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+function subscribeOnline(cb: () => void) {
+  window.addEventListener("online", cb);
+  window.addEventListener("offline", cb);
+  return () => {
+    window.removeEventListener("online", cb);
+    window.removeEventListener("offline", cb);
+  };
+}
+
+function getOnlineSnapshot() {
+  return navigator.onLine;
+}
+
+/** SSR + first client paint must match; real `navigator.onLine` only after hydrate. */
+function getServerOnlineSnapshot() {
+  return true;
+}
 
 /**
  * §5 — offline-aware training surface: cached shell may load; remind users connectivity for fresh progress sync.
  */
 export function OfflineTrainingBanner() {
-  const [online, setOnline] = useState(
-    typeof navigator === "undefined" ? true : navigator.onLine,
+  const online = useSyncExternalStore(
+    subscribeOnline,
+    getOnlineSnapshot,
+    getServerOnlineSnapshot,
   );
-
-  useEffect(() => {
-    function up() {
-      setOnline(true);
-    }
-    function down() {
-      setOnline(false);
-    }
-    window.addEventListener("online", up);
-    window.addEventListener("offline", down);
-    return () => {
-      window.removeEventListener("online", up);
-      window.removeEventListener("offline", down);
-    };
-  }, []);
 
   if (online) {
     return null;

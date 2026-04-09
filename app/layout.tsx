@@ -2,18 +2,20 @@ import { ConvexClientProvider } from "@/components/convex-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const fontSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
+  variable: "--font-app-sans",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fontMono = JetBrains_Mono({
   subsets: ["latin"],
+  variable: "--font-app-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -38,10 +40,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-AU" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-svh`}
-      >
+    <html
+      lang="en-AU"
+      className={`${fontSans.variable} ${fontMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="font-sans antialiased min-h-svh">
         <ThemeProvider>
           <ConvexClientProvider>
             {children}
