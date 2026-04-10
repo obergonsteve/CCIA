@@ -286,3 +286,33 @@ export const remove = mutation({
     await deleteUnitCascade(ctx, unitId);
   },
 });
+
+/** Admin Courses: prerequisite and assignment counts per unit (unit row chips). */
+export const adminPrereqAndAssignmentCounts = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrCreator(ctx);
+    const units = await ctx.db.query("units").collect();
+    const out: Array<{
+      unitId: Id<"units">;
+      prereqCount: number;
+      assignmentCount: number;
+    }> = [];
+    for (const u of units) {
+      const prereqRows = await ctx.db
+        .query("unitPrerequisites")
+        .withIndex("by_unit", (q) => q.eq("unitId", u._id))
+        .collect();
+      const assignRows = await ctx.db
+        .query("assignments")
+        .filter((q) => q.eq(q.field("unitId"), u._id))
+        .collect();
+      out.push({
+        unitId: u._id,
+        prereqCount: prereqRows.length,
+        assignmentCount: assignRows.length,
+      });
+    }
+    return out;
+  },
+});

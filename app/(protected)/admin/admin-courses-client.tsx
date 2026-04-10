@@ -60,6 +60,7 @@ export default function AdminCoursesClient() {
   const companies = useQuery(api.companies.list);
   const levels = useQuery(api.certifications.listAllAdmin);
   const allUnits = useQuery(api.units.listAllAdmin);
+  const unitPrereqAssignCounts = useQuery(api.units.adminPrereqAndAssignmentCounts);
 
   const createLevel = useMutation(api.certifications.create);
   const updateLevel = useMutation(api.certifications.update);
@@ -200,6 +201,20 @@ export default function AdminCoursesClient() {
     }
     return new Set(unitsInFilteredCert.map((u) => u._id));
   }, [filterCertId, centreUnitsShowAll, unitsInFilteredCert]);
+
+  const countsByUnitId = useMemo(() => {
+    const m = new Map<
+      Id<"units">,
+      { prereqCount: number; assignmentCount: number }
+    >();
+    for (const row of unitPrereqAssignCounts ?? []) {
+      m.set(row.unitId, {
+        prereqCount: row.prereqCount,
+        assignmentCount: row.assignmentCount,
+      });
+    }
+    return m;
+  }, [unitPrereqAssignCounts]);
 
   const certSearchLower = certSearch.trim().toLowerCase();
   const unitSearchLower = unitSearch.trim().toLowerCase();
@@ -692,8 +707,8 @@ export default function AdminCoursesClient() {
         onDragEnd={(e) => void onUnifiedDragEnd(e)}
       >
         {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
-        <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-3">
-          <div className="flex min-h-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] p-4 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
+        <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[repeat(3,minmax(0,1fr))]">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] p-4 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
                 <GraduationCap
@@ -778,7 +793,7 @@ export default function AdminCoursesClient() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col rounded-2xl border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-brand-gold/[0.14] p-4 shadow-lg dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:bg-brand-gold/[0.12]">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-brand-gold/[0.14] p-4 shadow-lg dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:bg-brand-gold/[0.12]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
                 <Layers
@@ -841,8 +856,8 @@ export default function AdminCoursesClient() {
             ) : null}
             <p className="mb-3 shrink-0 text-sm text-muted-foreground">
               Drag units onto certifications or library items onto units (when no
-              unit is selected in this column). Under Edit / delete, the link
-              and list icons open prerequisites and assignments in a drawer
+              unit is selected in this column). Under Edit / delete, the
+              numbered chips open or close prerequisites and tests in a drawer
               below the row.
             </p>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
@@ -869,6 +884,21 @@ export default function AdminCoursesClient() {
                               selected={selectedDetailUnitId === u._id}
                               expandDrawerOpen={
                                 unitCentreDrawer?.unitId === u._id
+                              }
+                              prerequisiteCount={
+                                countsByUnitId.get(u._id)?.prereqCount ?? 0
+                              }
+                              assignmentCount={
+                                countsByUnitId.get(u._id)?.assignmentCount ??
+                                0
+                              }
+                              prereqsDrawerOpen={
+                                unitCentreDrawer?.unitId === u._id &&
+                                unitCentreDrawer.panel === "prereqs"
+                              }
+                              assignmentsDrawerOpen={
+                                unitCentreDrawer?.unitId === u._id &&
+                                unitCentreDrawer.panel === "assignments"
                               }
                               onSelect={() => handleUnitRowClick(u._id)}
                               onEdit={() => openEditUnit(u._id)}
@@ -1029,6 +1059,20 @@ export default function AdminCoursesClient() {
                             expandDrawerOpen={
                               unitCentreDrawer?.unitId === u._id
                             }
+                            prerequisiteCount={
+                              countsByUnitId.get(u._id)?.prereqCount ?? 0
+                            }
+                            assignmentCount={
+                              countsByUnitId.get(u._id)?.assignmentCount ?? 0
+                            }
+                            prereqsDrawerOpen={
+                              unitCentreDrawer?.unitId === u._id &&
+                              unitCentreDrawer.panel === "prereqs"
+                            }
+                            assignmentsDrawerOpen={
+                              unitCentreDrawer?.unitId === u._id &&
+                              unitCentreDrawer.panel === "assignments"
+                            }
                             onSelect={() => handleUnitRowClick(u._id)}
                             onEdit={() => openEditUnit(u._id)}
                             onDelete={() => {
@@ -1156,7 +1200,7 @@ export default function AdminCoursesClient() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col rounded-2xl border border-brand-sky/40 border-l-4 border-r-4 border-l-brand-sky border-r-brand-sky bg-brand-sky/[0.10] p-4 shadow-lg dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky dark:bg-brand-sky/[0.12]">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-sky/40 border-l-4 border-r-4 border-l-brand-sky border-r-brand-sky bg-brand-sky/[0.10] p-4 shadow-lg dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky dark:bg-brand-sky/[0.12]">
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
                 <BookMarked

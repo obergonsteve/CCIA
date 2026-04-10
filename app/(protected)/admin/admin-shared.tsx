@@ -64,6 +64,90 @@ function unitRowDescription(unit: { description?: string }): {
   return { text, show };
 }
 
+function UnitRowPereqAssignChips({
+  prerequisiteCount,
+  assignmentCount,
+  prereqsDrawerOpen,
+  assignmentsDrawerOpen,
+  onOpenPrerequisites,
+  onOpenAssignments,
+}: {
+  prerequisiteCount: number;
+  assignmentCount: number;
+  prereqsDrawerOpen?: boolean;
+  assignmentsDrawerOpen?: boolean;
+  onOpenPrerequisites?: () => void;
+  onOpenAssignments?: () => void;
+}) {
+  if (!onOpenPrerequisites && !onOpenAssignments) {
+    return null;
+  }
+  const chipBtn =
+    "inline-flex shrink-0 items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold leading-none transition-colors";
+  return (
+    <div
+      className="mt-1 flex min-w-0 flex-row flex-wrap items-center gap-1"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {onOpenPrerequisites ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                chipBtn,
+                prereqsDrawerOpen
+                  ? "border-brand-gold/70 bg-brand-gold/25 text-amber-800 shadow-sm dark:text-amber-200"
+                  : "border-brand-gold/55 bg-background/90 text-amber-600 hover:bg-brand-gold/15 dark:bg-card/80 dark:text-amber-400",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenPrerequisites();
+              }}
+            >
+              <Link2 className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+              <span>Prereqs</span>
+              <span className="tabular-nums">{prerequisiteCount}</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            Prerequisites ({prerequisiteCount}) — other units learners must
+            finish first. Click to expand or collapse.
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+      {onOpenAssignments ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                chipBtn,
+                assignmentsDrawerOpen
+                  ? "border-brand-sky/70 bg-brand-sky/20 text-sky-800 shadow-sm dark:text-sky-200"
+                  : "border-brand-sky/55 bg-background/90 text-sky-600 hover:bg-brand-sky/12 dark:bg-card/80 dark:text-sky-400",
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenAssignments();
+              }}
+            >
+              <ClipboardList className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+              <span>Tests</span>
+              <span className="tabular-nums">{assignmentCount}</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            Tests ({assignmentCount}) — assignments for this unit. Click to
+            expand or collapse.
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+    </div>
+  );
+}
+
 export function DraggableUnitPaletteItem({
   unit,
   selected,
@@ -71,6 +155,10 @@ export function DraggableUnitPaletteItem({
   inSelectedCert,
   /** Drawer open directly under this row (affects rounding). */
   expandDrawerOpen,
+  prerequisiteCount = 0,
+  assignmentCount = 0,
+  prereqsDrawerOpen,
+  assignmentsDrawerOpen,
   onSelect,
   onEdit,
   onDelete,
@@ -81,6 +169,10 @@ export function DraggableUnitPaletteItem({
   selected?: boolean;
   inSelectedCert?: boolean;
   expandDrawerOpen?: boolean;
+  prerequisiteCount?: number;
+  assignmentCount?: number;
+  prereqsDrawerOpen?: boolean;
+  assignmentsDrawerOpen?: boolean;
   onSelect?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -94,12 +186,19 @@ export function DraggableUnitPaletteItem({
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
       }
     : undefined;
-  const hasActions =
-    onEdit != null ||
-    onDelete != null ||
-    onOpenPrerequisites != null ||
-    onOpenAssignments != null;
+  const hasActions = onEdit != null || onDelete != null;
   const { text: descText, show: showDesc } = unitRowDescription(unit);
+  const chips =
+    onOpenPrerequisites || onOpenAssignments ? (
+      <UnitRowPereqAssignChips
+        prerequisiteCount={prerequisiteCount}
+        assignmentCount={assignmentCount}
+        prereqsDrawerOpen={prereqsDrawerOpen}
+        assignmentsDrawerOpen={assignmentsDrawerOpen}
+        onOpenPrerequisites={onOpenPrerequisites}
+        onOpenAssignments={onOpenAssignments}
+      />
+    ) : null;
   return (
     <div
       ref={setNodeRef}
@@ -123,39 +222,45 @@ export function DraggableUnitPaletteItem({
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       {onSelect ? (
-        <button
-          type="button"
-          className="min-w-0 flex-1 px-0 py-1.5 text-left leading-tight"
-          onClick={onSelect}
-        >
-          <span className="block truncate font-medium">{unit.title}</span>
-          {showDesc ? (
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-              {descText}
-            </span>
-          ) : null}
-        </button>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
+          <button
+            type="button"
+            className="min-w-0 text-left leading-tight"
+            onClick={onSelect}
+          >
+            <span className="block truncate font-medium">{unit.title}</span>
+            {showDesc ? (
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {descText}
+              </span>
+            ) : null}
+          </button>
+          {chips}
+        </div>
       ) : (
-        <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
-          <span className="block truncate font-medium">{unit.title}</span>
-          {showDesc ? (
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-              {descText}
-            </span>
-          ) : null}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
+          <div className="leading-tight">
+            <span className="block truncate font-medium">{unit.title}</span>
+            {showDesc ? (
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {descText}
+              </span>
+            ) : null}
+          </div>
+          {chips}
         </div>
       )}
       {hasActions ? (
         <div
           className={cn(
-            "flex shrink-0 flex-col border-l border-border transition-opacity duration-150 ease-out",
+            "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
             isDragging
               ? "opacity-100"
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
           {onEdit || onDelete ? (
-            <div className="flex shrink-0 flex-row">
+            <>
               {onEdit ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -198,58 +303,7 @@ export function DraggableUnitPaletteItem({
                   </TooltipContent>
                 </Tooltip>
               ) : null}
-            </div>
-          ) : null}
-          {onOpenPrerequisites || onOpenAssignments ? (
-            <div
-              className={cn(
-                "flex shrink-0 flex-row border-border/70",
-                (onEdit || onDelete) && "border-t",
-              )}
-            >
-              {onOpenPrerequisites ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 rounded-none text-brand-gold hover:text-brand-gold"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenPrerequisites();
-                      }}
-                    >
-                      <Link2 className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    Prerequisites — other units learners must finish first
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-              {onOpenAssignments ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 rounded-none text-brand-sky hover:text-brand-sky"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenAssignments();
-                      }}
-                    >
-                      <ClipboardList className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    Assignments — tests and quizzes for this unit
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-            </div>
+            </>
           ) : null}
         </div>
       ) : null}
@@ -350,7 +404,7 @@ export function ContentLibraryDragRow({
       {hasActions ? (
         <div
           className={cn(
-            "flex shrink-0 flex-row border-l border-border transition-opacity duration-150 ease-out",
+            "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
             isDragging
               ? "opacity-100"
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
@@ -579,7 +633,7 @@ export function SortableLevelRow({
       </button>
       <div
         className={cn(
-          "flex h-full shrink-0 flex-row items-center border-l border-border transition-opacity duration-150 ease-out",
+          "flex h-full shrink-0 flex-col items-center justify-center border-l border-border transition-opacity duration-150 ease-out",
           isDragging
             ? "opacity-100"
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
@@ -622,6 +676,10 @@ export function SortableUnitRow({
   unit,
   selected,
   expandDrawerOpen,
+  prerequisiteCount = 0,
+  assignmentCount = 0,
+  prereqsDrawerOpen,
+  assignmentsDrawerOpen,
   onSelect,
   onEdit,
   onRemoveFromCert,
@@ -631,6 +689,10 @@ export function SortableUnitRow({
   unit: Doc<"units">;
   selected: boolean;
   expandDrawerOpen?: boolean;
+  prerequisiteCount?: number;
+  assignmentCount?: number;
+  prereqsDrawerOpen?: boolean;
+  assignmentsDrawerOpen?: boolean;
   onSelect: () => void;
   onEdit: () => void;
   onRemoveFromCert: () => void;
@@ -651,6 +713,17 @@ export function SortableUnitRow({
     opacity: isDragging ? 0.85 : 1,
   };
   const { text: descText, show: showDesc } = unitRowDescription(unit);
+  const chips =
+    onOpenPrerequisites || onOpenAssignments ? (
+      <UnitRowPereqAssignChips
+        prerequisiteCount={prerequisiteCount}
+        assignmentCount={assignmentCount}
+        prereqsDrawerOpen={prereqsDrawerOpen}
+        assignmentsDrawerOpen={assignmentsDrawerOpen}
+        onOpenPrerequisites={onOpenPrerequisites}
+        onOpenAssignments={onOpenAssignments}
+      />
+    ) : null;
 
   return (
     <div
@@ -670,112 +743,67 @@ export function SortableUnitRow({
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
-      <button
-        type="button"
-        className="min-w-0 flex-1 px-0 py-1.5 text-left leading-tight"
-        onClick={onSelect}
-      >
-        <span className="block truncate font-medium">{unit.title}</span>
-        {showDesc ? (
-          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            {descText}
-          </span>
-        ) : null}
-      </button>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
+        <button
+          type="button"
+          className="min-w-0 text-left leading-tight"
+          onClick={onSelect}
+        >
+          <span className="block truncate font-medium">{unit.title}</span>
+          {showDesc ? (
+            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              {descText}
+            </span>
+          ) : null}
+        </button>
+        {chips}
+      </div>
       <div
         className={cn(
-          "flex shrink-0 flex-col border-l border-border transition-opacity duration-150 ease-out",
+          "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
           isDragging
             ? "opacity-100"
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
         )}
       >
-        <div className="flex shrink-0 flex-row">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-none"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              Edit unit — title and description
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveFromCert();
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              Remove this unit from the current certification only
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        {onOpenPrerequisites || onOpenAssignments ? (
-          <div className="flex shrink-0 flex-row border-t border-border/70">
-            {onOpenPrerequisites ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-none text-brand-gold hover:text-brand-gold"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenPrerequisites();
-                    }}
-                  >
-                    <Link2 className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  Prerequisites — other units learners must finish first
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-            {onOpenAssignments ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-none text-brand-sky hover:text-brand-sky"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenAssignments();
-                    }}
-                  >
-                    <ClipboardList className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  Assignments — tests and quizzes for this unit
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-          </div>
-        ) : null}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-none"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            Edit unit — title and description
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveFromCert();
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            Remove this unit from the current certification only
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );
