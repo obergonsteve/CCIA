@@ -1134,7 +1134,7 @@ export default function AdminCoursesClient() {
     <TooltipProvider delayDuration={400}>
       <div className="min-h-0 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Training Content</h1>
         <p className="text-sm text-muted-foreground">
           Provide structured training material by adding Content to Units and
           Units to Certifications.

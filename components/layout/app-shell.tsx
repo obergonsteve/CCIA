@@ -160,7 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   },
                   {
                     href: "/admin/courses",
-                    label: "Courses",
+                    label: "Training Content",
                     icon: Layers,
                   },
                   {
