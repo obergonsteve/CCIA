@@ -216,6 +216,25 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
           order: c.order,
         });
       }
+      let assessOrder = unit.content.length;
+      if (unit.test) {
+        const testContentId = await ctx.db.insert("contentItems", {
+          type: "test",
+          title: unit.test.title,
+          url: "",
+          assessment: {
+            description: unit.test.description,
+            passingScore: unit.test.passingScore,
+            questions: unit.test.questions,
+          },
+        });
+        await ctx.db.insert("unitContents", {
+          unitId,
+          contentId: testContentId,
+          order: assessOrder,
+        });
+        assessOrder += 1;
+      }
       const assessContentId = await ctx.db.insert("contentItems", {
         type: "assignment",
         title: unit.assignment.title,
@@ -229,7 +248,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       await ctx.db.insert("unitContents", {
         unitId,
         contentId: assessContentId,
-        order: unit.content.length,
+        order: assessOrder,
       });
     }
   }

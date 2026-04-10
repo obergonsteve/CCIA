@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | CCIA Land Lease Training",
   },
   description:
-    "Training portal for residential land lease community operators — CCIA Land Lease Division (Australia).",
+    "Training for residential land lease community operators — CCIA Land Lease Division (Australia).",
   appleWebApp: {
     capable: true,
     title: "CCIA Training",

@@ -912,6 +912,8 @@ export default function AdminCoursesClient() {
       if (
         selectedDetailUnitId &&
         !libraryShowAll &&
+        contentCategory === "all" &&
+        !contentSearchLower &&
         displayedDetailContent &&
         displayedDetailContent.length >= 2
       ) {
@@ -1024,6 +1026,8 @@ export default function AdminCoursesClient() {
       selectedDetailUnitId,
       libraryShowAll,
       reorderContentOnUnit,
+      contentCategory,
+      contentSearchLower,
     ],
   );
 
@@ -1130,27 +1134,55 @@ export default function AdminCoursesClient() {
   const detailContentListForUi =
     displayedDetailContent ?? detailContent;
 
+  /** When set, unit content list is filtered — reorder would be ambiguous, so drag is disabled. */
+  const contentFilterActive =
+    contentCategory !== "all" || contentSearchLower.length > 0;
+
+  const filteredLibraryContent = useMemo(() => {
+    if (allLibraryContent === undefined) {
+      return undefined;
+    }
+    return allLibraryContent.filter((item) => contentMatchesSearch(item));
+  }, [allLibraryContent, contentMatchesSearch]);
+
+  const filteredDetailContentForUi = useMemo(() => {
+    if (!detailContentListForUi?.length) {
+      return [];
+    }
+    return detailContentListForUi.filter((item) => contentMatchesSearch(item));
+  }, [detailContentListForUi, contentMatchesSearch]);
+
+  const unitContentSortableList = contentFilterActive
+    ? filteredDetailContentForUi
+    : (detailContentListForUi ?? []);
+
   return (
     <TooltipProvider delayDuration={400}>
       <div className="min-h-0 space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Training Content</h1>
-        <p className="text-sm text-muted-foreground">
-          Provide structured training material by adding Content to Units and
-          Units to Certifications.
+        <p className="text-base leading-snug text-muted-foreground">
+          Build structured training material by attaching units and content to
+          certifications.
         </p>
-        <p className="mt-2 flex max-w-3xl flex-wrap items-center gap-x-1.5 gap-y-1 border-l-2 border-muted-foreground/25 pl-3 text-xs text-muted-foreground">
+        <p
+          className={cn(
+            "mt-2 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-1 border-l-2 pl-3 text-sm leading-snug",
+            "border-[oklch(0.58_0.11_232/0.88)] text-[oklch(0.44_0.095_232)]",
+            "dark:border-[oklch(0.55_0.095_232/0.65)] dark:text-[oklch(0.82_0.065_232)]",
+          )}
+        >
           <GripHorizontal
-            className="h-3.5 w-3.5 shrink-0 text-foreground"
+            className="h-4 w-4 shrink-0 text-current opacity-90"
             aria-hidden
           />
           <span>drag up or down to reorder</span>
-          <span className="text-muted-foreground/50">·</span>
+          <span className="text-current opacity-45">·</span>
           <GripVertical
-            className="h-3.5 w-3.5 shrink-0 text-foreground"
+            className="h-4 w-4 shrink-0 text-current opacity-90"
             aria-hidden
           />
-          <span>drag to the left to add to next column</span>
+          <span>drag left to attach units and content</span>
         </p>
       </div>
 
@@ -1207,7 +1239,7 @@ export default function AdminCoursesClient() {
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-lime/50 dark:border-brand-lime/40" />
             {!filterCertId ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Drag and drop Units onto a Certification to add them.
+                Drag and drop Units onto a Certification to attach them.
               </p>
             ) : (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
@@ -1550,8 +1582,12 @@ export default function AdminCoursesClient() {
                     !libraryShowAll
                       ? detailContent === undefined
                         ? "…"
-                        : detailContent.length
-                      : (allLibraryContent?.length ?? 0)}
+                        : contentFilterActive
+                          ? filteredDetailContentForUi.length
+                          : detailContent.length
+                      : filteredLibraryContent === undefined
+                        ? "…"
+                        : filteredLibraryContent.length}
                     )
                   </span>
                 </span>
@@ -1647,19 +1683,25 @@ export default function AdminCoursesClient() {
                         </span>{" "}
                         to drag from the library.
                       </p>
+                    ) : contentFilterActive &&
+                      filteredDetailContentForUi.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-6 border rounded-md text-center">
+                        No content matches the current category or search (
+                        {detailContent.length} on this unit).
+                      </p>
                     ) : (
                       <SortableContext
-                        items={detailContentListForUi!.map((i) => i._id)}
+                        items={unitContentSortableList.map((i) => i._id)}
                         strategy={verticalListSortingStrategy}
                       >
                       <ul className="space-y-1">
-                        {detailContentListForUi!.map((item) => (
+                        {unitContentSortableList.map((item) => (
                           <li
                             key={item.unitContentId ?? `legacy-${item._id}`}
                           >
                             <SortableUnitContentRow
                               item={item}
-                              dimmed={!contentMatchesSearch(item)}
+                              disableDrag={contentFilterActive}
                               selected={
                                 Boolean(editContentOpen) &&
                                 editContentId === item._id
@@ -1717,19 +1759,23 @@ export default function AdminCoursesClient() {
                   </div>
               ) : (
                 <>
-                  {!allLibraryContent?.length ? (
+                  {allLibraryContent === undefined ? (
+                    <p className="py-10 text-center text-sm text-muted-foreground">
+                      Loading library…
+                    </p>
+                  ) : !allLibraryContent.length ? (
                     <p className="py-10 text-center text-sm text-muted-foreground">
                       No library items. Use +.
                     </p>
+                  ) : !filteredLibraryContent?.length ? (
+                    <p className="py-10 text-center text-sm text-muted-foreground">
+                      No content matches the current category or search (
+                      {allLibraryContent.length} in library).
+                    </p>
                   ) : (
                     <ul className="space-y-1">
-                      {allLibraryContent.map((item) => (
-                        <li
-                          key={item._id}
-                          className={cn(
-                            contentMatchesSearch(item) ? "" : "opacity-30",
-                          )}
-                        >
+                      {filteredLibraryContent.map((item) => (
+                        <li key={item._id}>
                           <ContentLibraryDragRow
                             item={item}
                             selected={

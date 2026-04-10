@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "CCIA Land Lease Training",
     short_name: "CCIA Training",
     description:
-      "Training portal for residential land lease community operators (Australia).",
+      "Training for residential land lease community operators (Australia).",
     start_url: "/",
     display: "standalone",
     background_color: "#faf9f5",

@@ -464,12 +464,15 @@ export function SortableUnitContentRow({
   item,
   selected,
   dimmed,
+  /** When true (e.g. category/search filter on), row is not a drag reorder source. */
+  disableDrag,
   onEdit,
   onDelete,
 }: {
   item: UnitAttachedContentRow;
   selected?: boolean;
   dimmed?: boolean;
+  disableDrag?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
@@ -480,7 +483,7 @@ export function SortableUnitContentRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item._id });
+  } = useSortable({ id: item._id, disabled: Boolean(disableDrag) });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -500,10 +503,20 @@ export function SortableUnitContentRow({
     >
       <button
         type="button"
-        title="Drag to reorder lessons on this unit"
-        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
-        {...attributes}
-        {...listeners}
+        title={
+          disableDrag
+            ? "Clear search and set category to All to reorder"
+            : "Drag to reorder lessons on this unit"
+        }
+        className={cn(
+          "touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center",
+          disableDrag
+            ? "cursor-not-allowed opacity-50"
+            : "cursor-grab",
+        )}
+        disabled={disableDrag}
+        aria-disabled={disableDrag}
+        {...(disableDrag ? {} : { ...attributes, ...listeners })}
       >
         <GripHorizontal className="h-3.5 w-3.5" />
       </button>

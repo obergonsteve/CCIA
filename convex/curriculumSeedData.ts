@@ -34,6 +34,11 @@ export type SeedUnit = {
   description: string;
   order: number;
   content: SeedContent[];
+  /**
+   * Optional graded quiz (`contentItems.type === "test"`), inserted before the
+   * unit assignment — typical flow: lessons → knowledge check → assignment.
+   */
+  test?: SeedAssignment;
   assignment: SeedAssignment;
   prerequisites?: SeedPrerequisiteRef[];
 };
@@ -57,6 +62,10 @@ export type SeedCourse = {
 /** Sample MP4 that works with HTML5 `<video>` (short clip). */
 const DEMO_VIDEO =
   "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+
+/** Public sample PDF for seeded reference items (type `pdf`). */
+const SAMPLE_PDF =
+  "https://www.w3.org/WAI/WCAG21/Techniques/pdf/img/table-word.pdf";
 
 function slideDeck(): string {
   return JSON.stringify([
@@ -103,7 +112,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             url: "https://www.ccia.com.au/",
             order: 2,
           },
+          {
+            type: "pdf",
+            title: "Sample fee schedule layout (reference PDF)",
+            url: SAMPLE_PDF,
+            order: 3,
+          },
         ],
+        test: {
+          title: "Knowledge check — Land lease model",
+          description: "Quick recall of how sites and ownership typically work.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "ll101-t1",
+              question:
+                "Recurrent charges in a land lease community usually fund:",
+              type: "multiple_choice",
+              options: [
+                "Only the operator’s unrelated businesses",
+                "Shared services and upkeep described in community rules or agreements",
+                "Council rates for every private home title",
+                "Nothing — they are optional donations",
+              ],
+              correctAnswer:
+                "Shared services and upkeep described in community rules or agreements",
+            },
+            {
+              id: "ll101-t2",
+              question:
+                "A relocatable home on a leased site is best described as:",
+              type: "multiple_choice",
+              options: [
+                "Always real property merged with the land automatically",
+                "Often a dwelling that can be relocated subject to rules and approvals",
+                "Illegal in Australian land lease communities",
+                "Owned by the state government",
+              ],
+              correctAnswer:
+                "Often a dwelling that can be relocated subject to rules and approvals",
+            },
+          ],
+        },
         assignment: {
           title: "Checkpoint — Land lease basics",
           description: "Confirm you understand core terminology and responsibilities.",
@@ -179,7 +229,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             url: "https://www.fairtrading.nsw.gov.au/housing-and-property/landlease-communities",
             order: 1,
           },
+          {
+            type: "pdf",
+            title: "Incident log template (sample PDF)",
+            url: SAMPLE_PDF,
+            order: 2,
+          },
         ],
+        test: {
+          title: "Knowledge check — On-site routines",
+          description: "Priorities when triaging everyday operational issues.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "ll102-t1",
+              question:
+                "Before opening a common-area facility after maintenance, you should:",
+              type: "multiple_choice",
+              options: [
+                "Assume it is safe if contractors left quickly",
+                "Verify completion, signage removal, and recommissioning checks where relevant",
+                "Wait one month regardless of risk",
+                "Rely on resident volunteers to certify safety",
+              ],
+              correctAnswer:
+                "Verify completion, signage removal, and recommissioning checks where relevant",
+            },
+            {
+              id: "ll102-t2",
+              question:
+                "Good practice for resident-facing maintenance updates is to:",
+              type: "multiple_choice",
+              options: [
+                "Share realistic timeframes and known impacts",
+                "Promise exact completion dates you cannot control",
+                "Avoid all written notices",
+                "Only update residents after legal proceedings",
+              ],
+              correctAnswer:
+                "Share realistic timeframes and known impacts",
+            },
+          ],
+        },
         assignment: {
           title: "Checkpoint — Operational priorities",
           description: "Prioritise tasks and escalation in realistic scenarios.",
@@ -260,7 +351,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             order: 2,
             duration: 200,
           },
+          {
+            type: "pdf",
+            title: "Compliance register excerpt (sample PDF)",
+            url: SAMPLE_PDF,
+            order: 3,
+          },
         ],
+        test: {
+          title: "Knowledge check — Statutory duties",
+          description: "Spot the themes regulators expect operators to manage.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "cmp-t1",
+              question:
+                "Community rules and site agreements should generally be:",
+              type: "multiple_choice",
+              options: [
+                "Applied inconsistently to speed things up",
+                "Accessible, lawful, and enforced fairly",
+                "Hidden from residents until disputes arise",
+                "Replaced by verbal-only policies",
+              ],
+              correctAnswer:
+                "Accessible, lawful, and enforced fairly",
+            },
+            {
+              id: "cmp-t2",
+              question:
+                "When fee schedules change, residents usually need:",
+              type: "multiple_choice",
+              options: [
+                "No information if the change is small",
+                "Clear notice aligned with agreements and applicable law",
+                "A personal phone call only, with no records",
+                "Only social media posts",
+              ],
+              correctAnswer:
+                "Clear notice aligned with agreements and applicable law",
+            },
+          ],
+        },
         assignment: {
           title: "Quiz — Compliance essentials",
           description: "Apply compliance thinking to typical operator decisions.",
@@ -334,7 +466,49 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             url: slideDeck(),
             order: 1,
           },
+          {
+            type: "video",
+            title: "Walking through a disclosure pack",
+            url: DEMO_VIDEO,
+            order: 2,
+            duration: 150,
+          },
         ],
+        test: {
+          title: "Knowledge check — Disclosure basics",
+          description: "Fair dealing when sharing fees and documents.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "cmp2-t1",
+              question:
+                "If a buyer asks about future fee increases, you should:",
+              type: "multiple_choice",
+              options: [
+                "Point to governing documents and explain known variables honestly",
+                "Promise fixed fees forever",
+                "Refuse to discuss money",
+                "Only answer in a private chat with no records",
+              ],
+              correctAnswer:
+                "Point to governing documents and explain known variables honestly",
+            },
+            {
+              id: "cmp2-t2",
+              question:
+                "Disclosure documents should typically be:",
+              type: "multiple_choice",
+              options: [
+                "Current, legible, and available in reasonable timeframes",
+                "Withheld until after settlement",
+                "Replaced by marketing brochures only",
+                "Updated only when a resident complains to a regulator",
+              ],
+              correctAnswer:
+                "Current, legible, and available in reasonable timeframes",
+            },
+          ],
+        },
         assignment: {
           title: "Scenario — Disclosure and fairness",
           description: "Choose responses that align with fair dealing principles.",
@@ -395,7 +569,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             url: slideDeck(),
             order: 1,
           },
+          {
+            type: "link",
+            title: "WHS consultation overview (Safe Work Australia)",
+            url: "https://www.safeworkaustralia.gov.au/safety-topic/hazards",
+            order: 2,
+          },
         ],
+        test: {
+          title: "Knowledge check — Hazard scanning",
+          description: "Recognise proportionate responses to common site hazards.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "whs-t1",
+              question:
+                "A leaking pipe near a footpath should be treated as:",
+              type: "multiple_choice",
+              options: [
+                "Low priority until someone falls",
+                "A potential slip/trip risk to isolate and repair with documentation",
+                "Only the resident’s problem",
+                "Something to fix only in business hours next month",
+              ],
+              correctAnswer:
+                "A potential slip/trip risk to isolate and repair with documentation",
+            },
+            {
+              id: "whs-t2",
+              question:
+                "Temporary controls (signage, barriers) are used to:",
+              type: "multiple_choice",
+              options: [
+                "Reduce risk while permanent fixes are arranged",
+                "Replace all permanent repairs",
+                "Confuse contractors",
+                "Avoid notifying anyone",
+              ],
+              correctAnswer:
+                "Reduce risk while permanent fixes are arranged",
+            },
+          ],
+        },
         assignment: {
           title: "Quiz — Hazard controls",
           description: "Pick proportionate controls for reported hazards.",
@@ -457,7 +672,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             order: 1,
             duration: 160,
           },
+          {
+            type: "pdf",
+            title: "Contractor induction checklist (sample PDF)",
+            url: SAMPLE_PDF,
+            order: 2,
+          },
         ],
+        test: {
+          title: "Knowledge check — Contractor verification",
+          description: "Due diligence without taking on the contractor’s WHS duties.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "whs2-t1",
+              question:
+                "Operators should request evidence of suitable insurance because:",
+              type: "multiple_choice",
+              options: [
+                "It supports risk transfer and due diligence expectations",
+                "It removes all operator liability automatically",
+                "It is never necessary for small jobs",
+                "Only lawyers may hold insurance certificates",
+              ],
+              correctAnswer:
+                "It supports risk transfer and due diligence expectations",
+            },
+            {
+              id: "whs2-t2",
+              question:
+                "A SWMS or safe work method is primarily the responsibility of:",
+              type: "multiple_choice",
+              options: [
+                "The party conducting the high-risk work, with coordination from the site",
+                "Residents only",
+                "The operator alone for every screw turned",
+                "No one if the job is under budget",
+              ],
+              correctAnswer:
+                "The party conducting the high-risk work, with coordination from the site",
+            },
+          ],
+        },
         assignment: {
           title: "Checkpoint — Contractor oversight",
           description: "Boundary between operator coordination and contractor responsibility.",
@@ -518,7 +774,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             order: 1,
             duration: 190,
           },
+          {
+            type: "link",
+            title: "Inclusive communication tips (Australian Human Rights Commission)",
+            url: "https://humanrights.gov.au/",
+            order: 2,
+          },
         ],
+        test: {
+          title: "Knowledge check — Clear communications",
+          description: "Tone and channels that support trust.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "rx-t1",
+              question:
+                "When announcing an unpopular change, leading with:",
+              type: "multiple_choice",
+              options: [
+                "Facts, reasons, timelines, and review pathways is usually best practice",
+                "Threats and ultimatums only",
+                "Jargon with no summary",
+                "Silence until complaints peak",
+              ],
+              correctAnswer:
+                "Facts, reasons, timelines, and review pathways is usually best practice",
+            },
+            {
+              id: "rx-t2",
+              question:
+                "Accessibility for notices can include:",
+              type: "multiple_choice",
+              options: [
+                "Multiple channels and plain language where practical",
+                "Email-only with tiny fonts",
+                "Verbal-only with no records",
+                "Posting once on a locked door",
+              ],
+              correctAnswer:
+                "Multiple channels and plain language where practical",
+            },
+          ],
+        },
         assignment: {
           title: "Quiz — Communication standards",
           description: "Choose language and channels that build trust.",
@@ -565,7 +862,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             url: slideDeck(),
             order: 1,
           },
+          {
+            type: "pdf",
+            title: "Complaint acknowledgement template (sample PDF)",
+            url: SAMPLE_PDF,
+            order: 2,
+          },
         ],
+        test: {
+          title: "Knowledge check — Complaint handling",
+          description: "Process, notes, and fairness.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "rx2-t1",
+              question:
+                "Contemporaneous notes of complaints help because they:",
+              type: "multiple_choice",
+              options: [
+                "Support fair review, continuity of staff, and factual timelines",
+                "Guarantee the operator always wins disputes",
+                "Replace the need to speak with residents",
+                "Should never be shared internally",
+              ],
+              correctAnswer:
+                "Support fair review, continuity of staff, and factual timelines",
+            },
+            {
+              id: "rx2-t2",
+              question:
+                "Escalation to external bodies may be appropriate when:",
+              type: "multiple_choice",
+              options: [
+                "Internal processes are exhausted or serious issues require it",
+                "A resident sends a first email",
+                "Never — operators should block all external contact",
+                "Only after three years regardless of severity",
+              ],
+              correctAnswer:
+                "Internal processes are exhausted or serious issues require it",
+            },
+          ],
+        },
         assignment: {
           title: "Scenario — Handling repeated complaints",
           description: "Balance empathy, process, and consistency.",
@@ -626,7 +964,48 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             url: slideDeck(),
             order: 1,
           },
+          {
+            type: "link",
+            title: "ASIC — avoiding misleading statements (general reading)",
+            url: "https://www.asic.gov.au/",
+            order: 2,
+          },
         ],
+        test: {
+          title: "Knowledge check — Fee transparency",
+          description: "Avoid misleading summaries when discussing money.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "fin-t1",
+              question:
+                "When projecting future charges, you should:",
+              type: "multiple_choice",
+              options: [
+                "State assumptions and avoid implying certainty you cannot support",
+                "Lock in dollar amounts for decades verbally",
+                "Hide indexation clauses",
+                "Only discuss fees if residents waive rights",
+              ],
+              correctAnswer:
+                "State assumptions and avoid implying certainty you cannot support",
+            },
+            {
+              id: "fin-t2",
+              question:
+                "A reserve or sinking fund is typically for:",
+              type: "multiple_choice",
+              options: [
+                "Planned major repairs and renewals over time",
+                "Personal bonuses for managers",
+                "Unrelated investments only",
+                "Optional gifts to residents",
+              ],
+              correctAnswer:
+                "Planned major repairs and renewals over time",
+            },
+          ],
+        },
         assignment: {
           title: "Quiz — Fee communications",
           description: "Avoid misleading summaries when explaining charges.",
@@ -673,7 +1052,49 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
             url: slideDeck(),
             order: 1,
           },
+          {
+            type: "video",
+            title: "Balancing amenity upgrades with risk reduction",
+            url: DEMO_VIDEO,
+            order: 2,
+            duration: 175,
+          },
         ],
+        test: {
+          title: "Knowledge check — Maintenance priorities",
+          description: "Risk, amenity, and budget trade-offs.",
+          passingScore: 70,
+          questions: [
+            {
+              id: "fin2-t1",
+              question:
+                "If playground surfacing fails impact tests, you should usually:",
+              type: "multiple_choice",
+              options: [
+                "Close or restrict the area until made safe, then remediate",
+                "Wait for peak season to end regardless of injury risk",
+                "Rely on resident supervision only",
+                "Document nothing until someone is hurt",
+              ],
+              correctAnswer:
+                "Close or restrict the area until made safe, then remediate",
+            },
+            {
+              id: "fin2-t2",
+              question:
+                "A 12-month works calendar helps by:",
+              type: "multiple_choice",
+              options: [
+                "Coordinating contractors, budgets, and resident communications",
+                "Eliminating all reactive maintenance",
+                "Replacing statutory inspections",
+                "Hiding capex from owners",
+              ],
+              correctAnswer:
+                "Coordinating contractors, budgets, and resident communications",
+            },
+          ],
+        },
         assignment: {
           title: "Checkpoint — Prioritising Capex",
           description: "Choose a rational sequence when funds are limited.",

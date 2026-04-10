@@ -114,7 +114,7 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
       </main>
 
       <footer className="border-t py-6 text-center text-xs text-muted-foreground px-4">
-        CCIA Land Lease Division Training Portal — Caravan & Camping Industry
+        CCIA Land Lease Division Training — Caravan & Camping Industry
         Association (Australia).
       </footer>
     </div>

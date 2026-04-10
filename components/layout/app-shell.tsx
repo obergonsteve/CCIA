@@ -278,8 +278,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             {children}
           </main>
           <footer className="shrink-0 border-t border-border/60 text-center text-xs text-muted-foreground py-3 px-4">
-            CCIA Land Lease Division Training Portal — Residential land lease
-            communities (Australia).
+            CCIA Land Lease Division Training — Residential land lease communities
+            (Australia).
           </footer>
         </div>
       </div>
