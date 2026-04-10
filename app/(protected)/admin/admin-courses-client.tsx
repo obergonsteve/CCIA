@@ -46,6 +46,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
   BookMarked,
   GraduationCap,
+  GripHorizontal,
   GripVertical,
   Layers,
   Plus,
@@ -1137,6 +1138,19 @@ export default function AdminCoursesClient() {
         <p className="text-sm text-muted-foreground">
           Provide structured training material by adding Content to Units and
           Units to Certifications.
+        </p>
+        <p className="mt-2 flex max-w-3xl flex-wrap items-center gap-x-1.5 gap-y-1 border-l-2 border-muted-foreground/25 pl-3 text-xs text-muted-foreground">
+          <GripHorizontal
+            className="h-3.5 w-3.5 shrink-0 text-foreground"
+            aria-hidden
+          />
+          <span>drag up or down to reorder</span>
+          <span className="text-muted-foreground/50">·</span>
+          <GripVertical
+            className="h-3.5 w-3.5 shrink-0 text-foreground"
+            aria-hidden
+          />
+          <span>drag to the left to add to next column</span>
         </p>
       </div>
 

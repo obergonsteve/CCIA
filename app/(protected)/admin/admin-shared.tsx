@@ -584,7 +584,7 @@ export function UnitRowContentDropTarget({
       className={cn(
         "rounded-lg transition-[box-shadow,background-color] duration-150",
         showTarget &&
-          "bg-brand-gold/25 shadow-md ring-2 ring-brand-gold ring-offset-2 ring-offset-background dark:bg-brand-gold/20",
+          "relative z-[1] bg-brand-gold/50 shadow-xl shadow-brand-gold/25 ring-[3px] ring-brand-gold ring-offset-[4px] ring-offset-background dark:bg-brand-gold/40 dark:shadow-brand-gold/20",
       )}
     >
       {children}
@@ -613,7 +613,7 @@ export function LevelRowDroppable({
       className={cn(
         "rounded-lg p-0.5 transition-[box-shadow,background-color] duration-150",
         showTarget &&
-          "bg-brand-lime/30 shadow-md ring-2 ring-brand-lime ring-offset-2 ring-offset-background dark:bg-brand-lime/25",
+          "relative z-[1] bg-brand-lime/55 shadow-xl shadow-brand-lime/30 ring-[3px] ring-brand-lime ring-offset-[4px] ring-offset-background dark:bg-brand-lime/45 dark:shadow-brand-lime/25",
       )}
     >
       {children}
