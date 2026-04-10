@@ -198,21 +198,29 @@ function resolveUnitIdForPaletteContentDrop(
   if (overId.startsWith("unit-content-drop-")) {
     return overId.slice("unit-content-drop-".length) as Id<"units">;
   }
+  /**
+   * All-units rows nest `DraggableUnitPaletteItem` (`palette-unit:*`) inside
+   * `UnitRowContentDropTarget`. Pointer collision often returns the inner
+   * draggable id — same idea as sortable cert id vs level-units-add-*.
+   */
+  const unitKey = overId.startsWith("palette-unit:")
+    ? overId.slice("palette-unit:".length)
+    : overId;
   const { allUnits, unitsInFilteredCert, filterCertId, centreUnitsShowAll } =
     args;
   if (filterCertId && !centreUnitsShowAll) {
     if (!unitsInFilteredCert?.length) {
       return null;
     }
-    return unitsInFilteredCert.some((u) => u._id === overId)
-      ? (overId as Id<"units">)
+    return unitsInFilteredCert.some((u) => u._id === unitKey)
+      ? (unitKey as Id<"units">)
       : null;
   }
   if (!allUnits?.length) {
     return null;
   }
-  return allUnits.some((u) => u._id === overId)
-    ? (overId as Id<"units">)
+  return allUnits.some((u) => u._id === unitKey)
+    ? (unitKey as Id<"units">)
     : null;
 }
 
@@ -982,7 +990,7 @@ export default function AdminCoursesClient() {
                 className="h-9 bg-card"
               />
             </div>
-            <hr className="my-2 shrink-0 border-t border-brand-lime/35 dark:border-brand-lime/25" />
+            <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-lime/50 dark:border-brand-lime/40" />
             {!filterCertId ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                 Drag and drop Units onto a Certification to add them.
@@ -1085,17 +1093,6 @@ export default function AdminCoursesClient() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {filterCertId && filterCertName ? (
-              <button
-                type="button"
-                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-lime/40 bg-brand-lime/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-lime/55 hover:bg-brand-lime/30 dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25"
-                onClick={() => setCentreUnitsShowAll((v) => !v)}
-              >
-                {centreUnitsShowAll
-                  ? `Show ${filterCertName} units`
-                  : "Show all units"}
-              </button>
-            ) : null}
             <div className="mb-1 shrink-0">
               <label
                 htmlFor="admin-unit-search"
@@ -1111,11 +1108,27 @@ export default function AdminCoursesClient() {
                 className="h-9 bg-card"
               />
             </div>
-            {(!filterCertId || centreUnitsShowAll) ? (
+            <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-gold/50 dark:border-brand-gold/40" />
+            {filterCertId && filterCertName ? (
+              <button
+                type="button"
+                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-lime/40 bg-brand-lime/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-lime/55 hover:bg-brand-lime/30 dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25"
+                onClick={() => setCentreUnitsShowAll((v) => !v)}
+              >
+                {centreUnitsShowAll
+                  ? `Show ${filterCertName} units`
+                  : "Show all units"}
+              </button>
+            ) : null}
+            {filterCertId && !centreUnitsShowAll ? (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Show all units to drag and drop onto a Certification.
+              </p>
+            ) : (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                 Drag and drop Content onto a Unit.
               </p>
-            ) : null}
+            )}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
                 {/*
                   ADMIN.md: cert click filters centre to that cert’s units.
@@ -1336,17 +1349,6 @@ export default function AdminCoursesClient() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            {selectedDetailUnitId && filterUnitTitle ? (
-              <button
-                type="button"
-                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-gold/40 bg-brand-gold/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-gold/55 hover:bg-brand-gold/30 dark:bg-brand-gold/15 dark:hover:bg-brand-gold/25"
-                onClick={() => setLibraryShowAll((v) => !v)}
-              >
-                {libraryShowAll
-                  ? `Show ${filterUnitTitle} content`
-                  : "Show all content"}
-              </button>
-            ) : null}
             <div className="mb-1 shrink-0">
               <label
                 htmlFor="admin-content-search"
@@ -1385,12 +1387,27 @@ export default function AdminCoursesClient() {
                 </Button>
               ))}
             </div>
-            <hr className="my-2 shrink-0 border-t border-brand-sky/35 dark:border-brand-sky/25" />
-            {(!selectedDetailUnitId || libraryShowAll) ? (
+            <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-sky/50 dark:border-brand-sky/40" />
+            {selectedDetailUnitId && filterUnitTitle ? (
+              <button
+                type="button"
+                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-gold/40 bg-brand-gold/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-gold/55 hover:bg-brand-gold/30 dark:bg-brand-gold/15 dark:hover:bg-brand-gold/25"
+                onClick={() => setLibraryShowAll((v) => !v)}
+              >
+                {libraryShowAll
+                  ? `Show ${filterUnitTitle} content`
+                  : "Show all content"}
+              </button>
+            ) : null}
+            {selectedDetailUnitId && !libraryShowAll ? (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Show all content to drag and drop onto a Unit.
+              </p>
+            ) : (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                 Drag Content onto a Unit to attach it.
               </p>
-            ) : null}
+            )}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
               {selectedDetailUnitId && unitSelectionResolving ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
