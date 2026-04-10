@@ -4,6 +4,7 @@ import {
   internalMutation,
   mutation,
   type MutationCtx,
+  type QueryCtx,
   query,
 } from "./_generated/server";
 import {
@@ -128,6 +129,38 @@ export const listAllAdmin = query({
   },
 });
 
+/**
+ * Units linked to a level (junction + legacy `units.levelId`). No auth — caller
+ * must verify `userCanAccessLevel` when exposing to learners.
+ */
+export async function collectUnitsForLevel(
+  ctx: QueryCtx,
+  levelId: Id<"certificationLevels">,
+): Promise<Doc<"units">[]> {
+  const links = await ctx.db
+    .query("certificationUnits")
+    .withIndex("by_level", (q) => q.eq("levelId", levelId))
+    .collect();
+  links.sort((a, b) => a.order - b.order);
+  const linkedUnitIds = new Set<Id<"units">>();
+  const fromLinks: Doc<"units">[] = [];
+  for (const link of links) {
+    const u = await ctx.db.get(link.unitId);
+    if (u) {
+      linkedUnitIds.add(u._id);
+      fromLinks.push(u);
+    }
+  }
+  const legacy = await ctx.db
+    .query("units")
+    .filter((q) => q.eq(q.field("levelId"), levelId))
+    .collect();
+  const legacyOnly = legacy
+    .filter((u) => !linkedUnitIds.has(u._id))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  return [...fromLinks, ...legacyOnly];
+}
+
 export const listByLevel = query({
   args: { levelId: v.id("certificationLevels") },
   handler: async (ctx, { levelId }) => {
@@ -136,29 +169,7 @@ export const listByLevel = query({
     if (!ok) {
       return [];
     }
-    const links = await ctx.db
-      .query("certificationUnits")
-      .withIndex("by_level", (q) => q.eq("levelId", levelId))
-      .collect();
-    links.sort((a, b) => a.order - b.order);
-    const linkedUnitIds = new Set<Id<"units">>();
-    const fromLinks: Doc<"units">[] = [];
-    for (const link of links) {
-      const u = await ctx.db.get(link.unitId);
-      if (u) {
-        linkedUnitIds.add(u._id);
-        fromLinks.push(u);
-      }
-    }
-    /** Legacy rows still use `units.levelId`; merge so first junction add does not hide them. */
-    const legacy = await ctx.db
-      .query("units")
-      .filter((q) => q.eq(q.field("levelId"), levelId))
-      .collect();
-    const legacyOnly = legacy
-      .filter((u) => !linkedUnitIds.has(u._id))
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    return [...fromLinks, ...legacyOnly];
+    return collectUnitsForLevel(ctx, levelId);
   },
 });
 

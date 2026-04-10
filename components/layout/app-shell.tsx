@@ -130,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           <Link href={levelPath}>
                             <span
                               className={cn(
-                                "block rounded-md border-l-2 border-transparent px-2 py-1.5 text-xs font-medium transition-colors line-clamp-2",
+                                "block rounded-md border-l-2 border-transparent px-2 py-1.5 text-[13px] font-medium leading-snug transition-colors line-clamp-2",
                                 active
                                   ? "border-brand-gold bg-brand-gold/20 text-white"
                                   : "text-white/70 hover:border-white/15 hover:bg-white/6",

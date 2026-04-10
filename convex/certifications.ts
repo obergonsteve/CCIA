@@ -6,6 +6,7 @@ import {
   requireUserId,
   userCanAccessLevel,
 } from "./lib/auth";
+import { collectUnitsForLevel } from "./units";
 
 export const listAllAdmin = query({
   args: {},
@@ -32,6 +33,96 @@ export const listForUser = query({
       (l) => l.companyId == null || l.companyId === user.companyId,
     );
     return filtered.sort((a, b) => a.order - b.order);
+  },
+});
+
+/**
+ * Certifications grouped for the learner dashboard: in progress, not started, fully complete.
+ */
+export const listDashboardBucketsForUser = query({
+  args: {},
+  handler: async (ctx) => {
+    type Row = {
+      level: Doc<"certificationLevels">;
+      unitTotal: number;
+      completedCount: number;
+      touchedCount: number;
+    };
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      return {
+        current: [] as Row[],
+        future: [] as Row[],
+        completed: [] as Row[],
+      };
+    }
+    const all = await ctx.db.query("certificationLevels").collect();
+    const levels =
+      user.role === "admin" || user.role === "content_creator"
+        ? all
+        : all.filter(
+            (l) => l.companyId == null || l.companyId === user.companyId,
+          );
+    const sorted = levels.sort((a, b) => a.order - b.order);
+
+    const allProgress = await ctx.db
+      .query("userProgress")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .collect();
+    const progressByUnit = new Map<
+      Id<"units">,
+      (typeof allProgress)[number]
+    >();
+    for (const p of allProgress) {
+      progressByUnit.set(p.unitId, p);
+    }
+
+    const rows: Row[] = [];
+    for (const level of sorted) {
+      const ok = await userCanAccessLevel(ctx, level._id);
+      if (!ok) {
+        continue;
+      }
+      const units = await collectUnitsForLevel(ctx, level._id);
+      const unitIds = units.map((u) => u._id);
+      let completedCount = 0;
+      let touchedCount = 0;
+      for (const uid of unitIds) {
+        const pr = progressByUnit.get(uid);
+        if (pr) {
+          touchedCount += 1;
+          if (pr.completed) {
+            completedCount += 1;
+          }
+        }
+      }
+      rows.push({
+        level,
+        unitTotal: unitIds.length,
+        completedCount,
+        touchedCount,
+      });
+    }
+
+    const current: Row[] = [];
+    const future: Row[] = [];
+    const completed: Row[] = [];
+    for (const row of rows) {
+      const { unitTotal, completedCount, touchedCount } = row;
+      if (unitTotal === 0) {
+        future.push(row);
+        continue;
+      }
+      if (completedCount === unitTotal) {
+        completed.push(row);
+      } else if (touchedCount > 0) {
+        current.push(row);
+      } else {
+        future.push(row);
+      }
+    }
+    return { current, future, completed };
   },
 });
 
