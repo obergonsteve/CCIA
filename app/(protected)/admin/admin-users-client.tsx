@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Plus, Trash2 } from "lucide-react";
+import { Building2, Landmark, Plus, Trash2, Users as UsersIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -46,7 +46,6 @@ export default function AdminUsersClient() {
   const adminDeleteUser = useMutation(api.users.adminDelete);
   const adminSetPassword = useAction(api.auth.adminSetPassword);
   const adminCreateUser = useAction(api.auth.adminCreateUser);
-  const bootstrapDemo = useMutation(api.seed.bootstrapDemo);
 
   const [selectedCompanyId, setSelectedCompanyId] =
     useState<Id<"companies"> | null>(null);
@@ -146,13 +145,27 @@ export default function AdminUsersClient() {
           accounts. Use <strong>Add user</strong> to invite someone to the selected
           company.
         </p>
+        <div
+          className="mt-3 flex max-w-md gap-1.5"
+          aria-hidden
+        >
+          <span className="h-0.5 flex-1 max-w-[5.5rem] rounded-full bg-brand-lime/85 dark:bg-brand-lime/70" />
+          <span className="h-0.5 flex-1 max-w-[5.5rem] rounded-full bg-brand-gold/90 dark:bg-brand-gold/75" />
+          <span className="h-0.5 flex-1 max-w-[5.5rem] rounded-full bg-brand-sky/85 dark:bg-brand-sky/70" />
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-[minmax(0,280px)_1fr] gap-6 items-start">
         <div className="space-y-4">
-          <Card>
+          <Card className="border border-brand-lime/40 border-l-4 border-l-brand-lime bg-brand-lime/[0.07] shadow-sm ring-brand-lime/15 dark:border-brand-lime/35 dark:bg-brand-lime/[0.11] dark:ring-brand-lime/10">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Companies</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Building2
+                  className="h-4 w-4 shrink-0 text-brand-lime"
+                  aria-hidden
+                />
+                Companies
+              </CardTitle>
               <CardDescription>
                 Select a company to edit its profile and people. Add or delete
                 companies here.
@@ -185,22 +198,7 @@ export default function AdminUsersClient() {
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={async () => {
-                  try {
-                    await bootstrapDemo({});
-                    toast.success("Demo level + unit created");
-                  } catch (e) {
-                    toast.error(e instanceof Error ? e.message : "Failed");
-                  }
-                }}
-              >
-                Seed demo content
-              </Button>
-              <ScrollArea className="h-[min(420px,50vh)] rounded-md border">
+              <ScrollArea className="h-[min(420px,50vh)] rounded-md border border-brand-lime/25 dark:border-brand-lime/20">
                 <ul className="p-1">
                   {(companies ?? []).map((c) => {
                     const count = memberCounts.get(c._id) ?? 0;
@@ -255,18 +253,25 @@ export default function AdminUsersClient() {
 
         <div className="space-y-4 min-w-0">
           {!selectedCompany || !selectedCompanyId ? (
-            <Card>
+            <Card className="border border-dashed border-muted-foreground/20 bg-gradient-to-br from-brand-lime/[0.06] via-brand-gold/[0.05] to-brand-sky/[0.07] dark:from-brand-lime/[0.08] dark:via-brand-gold/[0.06] dark:to-brand-sky/[0.09]">
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
                 Add a company on the left, then select it to manage users.
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <>
+            <Card className="border border-brand-gold/40 border-l-4 border-l-brand-gold bg-brand-gold/[0.07] shadow-sm ring-brand-gold/15 dark:border-brand-gold/35 dark:bg-brand-gold/[0.10] dark:ring-brand-gold/10">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Company details</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Landmark
+                    className="h-4 w-4 shrink-0 text-brand-gold"
+                    aria-hidden
+                  />
+                  Company details
+                </CardTitle>
                 <CardDescription>
                   Profile for this organization (contact, status, onboarding date).
-                  Save before switching companies. Users are managed below.
+                  Save before switching companies.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -387,8 +392,24 @@ export default function AdminUsersClient() {
                     Delete company
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
 
-                <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+            <Card className="border border-brand-sky/40 border-l-4 border-l-brand-sky bg-brand-sky/[0.06] shadow-sm ring-brand-sky/15 dark:border-brand-sky/35 dark:bg-brand-sky/[0.10] dark:ring-brand-sky/10">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <UsersIcon
+                    className="h-4 w-4 shrink-0 text-brand-sky"
+                    aria-hidden
+                  />
+                  Users
+                </CardTitle>
+                <CardDescription>
+                  Accounts for this company — add people and manage roles.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3 rounded-lg border border-brand-sky/25 bg-brand-sky/[0.05] p-4 dark:border-brand-sky/20 dark:bg-brand-sky/[0.08]">
                   <h4 className="text-sm font-medium">Add user</h4>
                   <div className="grid sm:grid-cols-2 gap-3 max-w-2xl">
                     <Input
@@ -464,13 +485,12 @@ export default function AdminUsersClient() {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium mb-2">People</h4>
                   {(companyUsers ?? []).length === 0 ? (
                     <p className="text-sm text-muted-foreground py-6 text-center border rounded-md">
                       No users yet. Add one above.
                     </p>
                   ) : (
-                    <ul className="border rounded-md divide-y max-h-[min(400px,45vh)] overflow-y-auto">
+                    <ul className="max-h-[min(400px,45vh)] divide-y overflow-y-auto rounded-md border border-brand-sky/25 dark:border-brand-sky/20">
                       {(companyUsers ?? []).map((u) => (
                         <li
                           key={u._id}
@@ -517,6 +537,7 @@ export default function AdminUsersClient() {
                 </div>
               </CardContent>
             </Card>
+            </>
           )}
         </div>
       </div>
