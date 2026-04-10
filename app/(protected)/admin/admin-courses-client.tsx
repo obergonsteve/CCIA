@@ -2,8 +2,7 @@
 
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { ContentItemView } from "@/components/content-item-view";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   closestCenter,
   DndContext,
@@ -39,7 +38,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useMutation, useQuery } from "convex/react";
-import { BookMarked, Eye, GraduationCap, Layers, Plus, Trash2 } from "lucide-react";
+import { BookMarked, GraduationCap, Layers, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -80,7 +79,6 @@ export default function AdminCoursesClient() {
   );
   const patchUnitContentOrder = useMutation(api.content.patchUnitContentOrder);
   const patchLegacyContentOrder = useMutation(api.content.patchLegacyContentOrder);
-  const generateUploadUrl = useMutation(api.content.generateUploadUrl);
   const allLibraryContent = useQuery(api.content.listAllAdmin);
   const createAssignment = useMutation(api.assignments.create);
   const updateAssignment = useMutation(api.assignments.update);
@@ -117,6 +115,11 @@ export default function AdminCoursesClient() {
   const [addCertOpen, setAddCertOpen] = useState(false);
   const [addUnitOpen, setAddUnitOpen] = useState(false);
   const [addLibraryOpen, setAddLibraryOpen] = useState(false);
+  /** Centre column: prerequisites or assignments drawer under a unit row. */
+  const [unitCentreDrawer, setUnitCentreDrawer] = useState<{
+    unitId: Id<"units">;
+    panel: "prereqs" | "assignments";
+  } | null>(null);
 
   const [certSearch, setCertSearch] = useState("");
   const [unitSearch, setUnitSearch] = useState("");
@@ -169,8 +172,6 @@ export default function AdminCoursesClient() {
   const [contentKind, setContentKind] = useState<
     "video" | "pdf" | "link" | "slideshow"
   >("link");
-  const [contentUnitId, setContentUnitId] = useState<string>("");
-  const [previewOpen, setPreviewOpen] = useState(false);
 
   const [assignUnitId, setAssignUnitId] = useState<string>("");
   const [assignId, setAssignId] = useState<string>("");
@@ -279,31 +280,8 @@ export default function AdminCoursesClient() {
     );
   }, [selectedDetailUnitId, allUnits, unitsInFilteredCert]);
 
-  /** Prerequisites only when a unit row is actually shown as selected in this column. */
-  const selectedUnitShownInCentreColumn = useMemo(() => {
-    if (!selectedDetailUnitId) {
-      return false;
-    }
-    if (filterCertId && !centreUnitsShowAll) {
-      if (unitsInFilteredCert === undefined) {
-        return false;
-      }
-      return unitsInFilteredCert.some((u) => u._id === selectedDetailUnitId);
-    }
-    if (allUnits === undefined) {
-      return false;
-    }
-    return allUnits.some((u) => u._id === selectedDetailUnitId);
-  }, [
-    selectedDetailUnitId,
-    filterCertId,
-    centreUnitsShowAll,
-    unitsInFilteredCert,
-    allUnits,
-  ]);
-
   /**
-   * ADMIN.md: unit click filters the right column to that unit’s content.
+   * ADMIN.md: unit click filters the right column to this unit’s content.
    * While `allUnits` / `unitsInFilteredCert` are still loading, avoid treating
    * the selection as “cleared” and flashing the full library.
    */
@@ -461,11 +439,9 @@ export default function AdminCoursesClient() {
 
   useEffect(() => {
     if (!selectedDetailUnitId) {
-      setContentUnitId("");
       return;
     }
     setAssignUnitId(selectedDetailUnitId);
-    setContentUnitId(selectedDetailUnitId);
     resetToNewAssignment();
   }, [selectedDetailUnitId, resetToNewAssignment]);
 
@@ -488,8 +464,20 @@ export default function AdminCoursesClient() {
 
   /** ADMIN.md: unit row click selects unit for library column; click again off. */
   function handleUnitRowClick(unitId: Id<"units">) {
+    setUnitCentreDrawer(null);
     setSelectedDetailUnitId((prev) => (prev === unitId ? null : unitId));
     setLibraryShowAll(false);
+  }
+
+  function openUnitCentreDrawer(
+    unitId: Id<"units">,
+    panel: "prereqs" | "assignments",
+  ) {
+    setSelectedDetailUnitId(unitId);
+    setLibraryShowAll(false);
+    setUnitCentreDrawer((prev) =>
+      prev?.unitId === unitId && prev.panel === panel ? null : { unitId, panel },
+    );
   }
 
   useEffect(() => {
@@ -510,17 +498,6 @@ export default function AdminCoursesClient() {
     setEditUnitDesc(u.description);
     setEditUnitOpen(true);
   }
-
-  const previewDoc: Doc<"contentItems"> | null =
-    contentTitle && contentUnitId
-      ? ({
-          _id: "preview_content" as Id<"contentItems">,
-          _creationTime: 0,
-          type: contentKind,
-          title: contentTitle,
-          url: contentUrl || "#",
-        } as Doc<"contentItems">)
-      : null;
 
   const onUnifiedDragEnd = useCallback(
     async (e: DragEndEvent) => {
@@ -700,7 +677,8 @@ export default function AdminCoursesClient() {
     "h-7 w-7 shrink-0 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
 
   return (
-    <div className="min-h-0 space-y-4">
+    <TooltipProvider delayDuration={400}>
+      <div className="min-h-0 space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
         <p className="text-sm text-muted-foreground">
@@ -863,7 +841,9 @@ export default function AdminCoursesClient() {
             ) : null}
             <p className="mb-3 shrink-0 text-sm text-muted-foreground">
               Drag units onto certifications or library items onto units (when no
-              unit is selected in this column).
+              unit is selected in this column). Under Edit / delete, the link
+              and list icons open prerequisites and assignments in a drawer
+              below the row.
             </p>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
                 {/*
@@ -883,17 +863,137 @@ export default function AdminCoursesClient() {
                     >
                       <ul className="space-y-1">
                         {unitsInFilteredCert.map((u) => (
-                          <li key={u._id}>
+                          <li key={u._id} className="space-y-0">
                             <SortableUnitRow
                               unit={u}
                               selected={selectedDetailUnitId === u._id}
+                              expandDrawerOpen={
+                                unitCentreDrawer?.unitId === u._id
+                              }
                               onSelect={() => handleUnitRowClick(u._id)}
                               onEdit={() => openEditUnit(u._id)}
                               onRemoveFromCert={() => {
                                 setDetachFromCertUnitId(u._id);
                                 setDetachFromCertOpen(true);
                               }}
+                              onOpenPrerequisites={() =>
+                                openUnitCentreDrawer(u._id, "prereqs")
+                              }
+                              onOpenAssignments={() =>
+                                openUnitCentreDrawer(u._id, "assignments")
+                              }
                             />
+                            {unitCentreDrawer?.unitId === u._id ? (
+                              <div className="max-h-[min(70vh,560px)] overflow-y-auto rounded-b-lg border border-t-0 border-border bg-card/90 p-3 shadow-inner">
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {unitCentreDrawer.panel === "prereqs"
+                                      ? "Prerequisites"
+                                      : "Assignments"}
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => setUnitCentreDrawer(null)}
+                                  >
+                                    Close
+                                  </Button>
+                                </div>
+                                {unitCentreDrawer.panel === "prereqs" ? (
+                                  <PrerequisiteDropEditor
+                                    targetUnitId={u._id}
+                                    targetTitle={u.title}
+                                    allUnits={allUnits}
+                                  />
+                                ) : (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <p className="text-xs text-muted-foreground">
+                                        Tests and quizzes for this unit.
+                                      </p>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={resetToNewAssignment}
+                                      >
+                                        <Plus className="h-3.5 w-3.5 mr-1" />
+                                        New assignment
+                                      </Button>
+                                    </div>
+                                    {(detailAssignments ?? []).length ===
+                                    0 ? (
+                                      <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
+                                        No assignments yet.
+                                      </p>
+                                    ) : (
+                                      <ul className="border rounded-md divide-y max-h-36 overflow-y-auto text-sm">
+                                        {(detailAssignments ?? []).map(
+                                          (a) => (
+                                            <li
+                                              key={a._id}
+                                              className="flex items-center gap-2 px-3 py-2"
+                                            >
+                                              <span className="flex-1 truncate font-medium">
+                                                {a.title}
+                                              </span>
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                  loadAssignmentFromRow(a)
+                                                }
+                                              >
+                                                Edit
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                className="text-destructive hover:text-destructive"
+                                                onClick={() => {
+                                                  setAssignDeleteId(a._id);
+                                                  setAssignDeleteOpen(true);
+                                                }}
+                                              >
+                                                Remove
+                                              </Button>
+                                            </li>
+                                          ),
+                                        )}
+                                      </ul>
+                                    )}
+                                    <AssignmentBuilderFields
+                                      showUnitSelect={false}
+                                      allUnits={allUnits}
+                                      assignUnitId={assignUnitId}
+                                      setAssignUnitId={setAssignUnitId}
+                                      setAssignId={setAssignId}
+                                      resetToNewAssignment={
+                                        resetToNewAssignment
+                                      }
+                                      assignmentsForUnit={assignmentsForUnit}
+                                      assignId={assignId}
+                                      loadAssignment={loadAssignment}
+                                      assignTitle={assignTitle}
+                                      setAssignTitle={setAssignTitle}
+                                      assignDesc={assignDesc}
+                                      setAssignDesc={setAssignDesc}
+                                      assignPass={assignPass}
+                                      setAssignPass={setAssignPass}
+                                      questions={questions}
+                                      addQuestion={addQuestion}
+                                      updateQuestion={updateQuestion}
+                                      removeQuestion={removeQuestion}
+                                      saveAssignment={saveAssignment}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
                           </li>
                         ))}
                       </ul>
@@ -909,7 +1009,7 @@ export default function AdminCoursesClient() {
                       <li
                         key={u._id}
                         className={cn(
-                          "space-y-1",
+                          "space-y-0",
                           unitMatchesSearch(u) ? "" : "opacity-30",
                         )}
                       >
@@ -926,33 +1026,133 @@ export default function AdminCoursesClient() {
                               unitIdsInSelectedCertWhenBrowsingAll?.has(u._id) ??
                               false
                             }
+                            expandDrawerOpen={
+                              unitCentreDrawer?.unitId === u._id
+                            }
                             onSelect={() => handleUnitRowClick(u._id)}
                             onEdit={() => openEditUnit(u._id)}
                             onDelete={() => {
                               setUnitDeleteId(u._id);
                               setUnitDeleteOpen(true);
                             }}
+                            onOpenPrerequisites={() =>
+                              openUnitCentreDrawer(u._id, "prereqs")
+                            }
+                            onOpenAssignments={() =>
+                              openUnitCentreDrawer(u._id, "assignments")
+                            }
                           />
                         </UnitRowContentDropTarget>
+                        {unitCentreDrawer?.unitId === u._id ? (
+                          <div className="max-h-[min(70vh,560px)] overflow-y-auto rounded-b-lg border border-t-0 border-border bg-card/90 p-3 shadow-inner">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {unitCentreDrawer.panel === "prereqs"
+                                  ? "Prerequisites"
+                                  : "Assignments"}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => setUnitCentreDrawer(null)}
+                              >
+                                Close
+                              </Button>
+                            </div>
+                            {unitCentreDrawer.panel === "prereqs" ? (
+                              <PrerequisiteDropEditor
+                                targetUnitId={u._id}
+                                targetTitle={u.title}
+                                allUnits={allUnits}
+                              />
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs text-muted-foreground">
+                                    Tests and quizzes for this unit.
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={resetToNewAssignment}
+                                  >
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    New assignment
+                                  </Button>
+                                </div>
+                                {(detailAssignments ?? []).length === 0 ? (
+                                  <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
+                                    No assignments yet.
+                                  </p>
+                                ) : (
+                                  <ul className="border rounded-md divide-y max-h-36 overflow-y-auto text-sm">
+                                    {(detailAssignments ?? []).map((a) => (
+                                      <li
+                                        key={a._id}
+                                        className="flex items-center gap-2 px-3 py-2"
+                                      >
+                                        <span className="flex-1 truncate font-medium">
+                                          {a.title}
+                                        </span>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() =>
+                                            loadAssignmentFromRow(a)
+                                          }
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          className="text-destructive hover:text-destructive"
+                                          onClick={() => {
+                                            setAssignDeleteId(a._id);
+                                            setAssignDeleteOpen(true);
+                                          }}
+                                        >
+                                          Remove
+                                        </Button>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                                <AssignmentBuilderFields
+                                  showUnitSelect={false}
+                                  allUnits={allUnits}
+                                  assignUnitId={assignUnitId}
+                                  setAssignUnitId={setAssignUnitId}
+                                  setAssignId={setAssignId}
+                                  resetToNewAssignment={resetToNewAssignment}
+                                  assignmentsForUnit={assignmentsForUnit}
+                                  assignId={assignId}
+                                  loadAssignment={loadAssignment}
+                                  assignTitle={assignTitle}
+                                  setAssignTitle={setAssignTitle}
+                                  assignDesc={assignDesc}
+                                  setAssignDesc={setAssignDesc}
+                                  assignPass={assignPass}
+                                  setAssignPass={setAssignPass}
+                                  questions={questions}
+                                  addQuestion={addQuestion}
+                                  updateQuestion={updateQuestion}
+                                  removeQuestion={removeQuestion}
+                                  saveAssignment={saveAssignment}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
                 )}
-
-                {selectedDetailUnitId &&
-                selectedDetailUnit &&
-                selectedUnitShownInCentreColumn ? (
-                  <div className="space-y-2 border-t border-border pt-3">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Prerequisites for selected unit
-                    </p>
-                    <PrerequisiteDropEditor
-                      targetUnitId={selectedDetailUnitId}
-                      targetTitle={selectedDetailUnit.title}
-                      allUnits={allUnits}
-                    />
-                  </div>
-                ) : null}
             </div>
           </div>
 
@@ -985,30 +1185,15 @@ export default function AdminCoursesClient() {
                   </span>
                 </span>
               </h2>
-              <div className="flex shrink-0 items-center gap-1">
-                {selectedDetailUnitId &&
-                selectedDetailUnit &&
-                !libraryShowAll ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => openEditUnit(selectedDetailUnitId)}
-                  >
-                    Edit unit
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  size="icon"
-                  className={cyanPlusBtn}
-                  aria-label="Add content to library"
-                  onClick={() => setAddLibraryOpen(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                size="icon"
+                className={cyanPlusBtn}
+                aria-label="Add content to library"
+                onClick={() => setAddLibraryOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
             </div>
             <div className="mb-1 shrink-0">
               <label
@@ -1044,11 +1229,12 @@ export default function AdminCoursesClient() {
               </p>
             ) : (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Publish new lessons below, or use{" "}
+                Use + to add library content (attached to this unit while it is
+                selected), or{" "}
                 <span className="font-medium text-foreground">
                   Show all content
                 </span>{" "}
-                to drag library items onto a unit in the centre column.
+                to drag from the library onto a unit in the centre column.
               </p>
             )}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
@@ -1066,11 +1252,12 @@ export default function AdminCoursesClient() {
                       </p>
                     ) : detailContent.length === 0 ? (
                       <p className="text-sm text-muted-foreground py-6 border rounded-md text-center">
-                        No lessons attached. Publish below or use{" "}
+                        No lessons attached. Use + to add content (attached to
+                        this unit when it is selected), or{" "}
                         <span className="font-medium text-foreground">
                           Show all content
                         </span>{" "}
-                        to drag items onto this unit.
+                        to drag from the library.
                       </p>
                     ) : (
                       <ul className="space-y-1">
@@ -1122,217 +1309,6 @@ export default function AdminCoursesClient() {
                         ))}
                       </ul>
                     )}
-                    <div className="space-y-3 border-t border-border pt-3">
-                      <div className="grid sm:grid-cols-2 gap-3 rounded-lg border p-4 bg-muted/25">
-                        <p className="text-sm font-medium sm:col-span-2">
-                          Add lesson to this unit
-                        </p>
-                        <Input
-                          className="sm:col-span-2"
-                          placeholder="Title"
-                          value={contentTitle}
-                          onChange={(e) => setContentTitle(e.target.value)}
-                        />
-                        <Select
-                          value={contentKind}
-                          onValueChange={(v) =>
-                            setContentKind(
-                              (v ?? "link") as typeof contentKind,
-                            )
-                          }
-                        >
-                          <SelectTrigger className="sm:col-span-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="link">link</SelectItem>
-                            <SelectItem value="video">video</SelectItem>
-                            <SelectItem value="pdf">pdf</SelectItem>
-                            <SelectItem value="slideshow">slideshow</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Textarea
-                          className="sm:col-span-2"
-                          placeholder="URL(s) — slideshow: JSON array or | separated"
-                          value={contentUrl}
-                          onChange={(e) => setContentUrl(e.target.value)}
-                        />
-                        <div className="flex flex-wrap gap-2 sm:col-span-2">
-                          <Dialog
-                            open={previewOpen}
-                            onOpenChange={setPreviewOpen}
-                          >
-                            <DialogTrigger
-                              className={cn(
-                                buttonVariants({ variant: "outline" }),
-                                "inline-flex gap-1 items-center",
-                              )}
-                            >
-                              <Eye className="h-4 w-4" />
-                              Preview
-                            </DialogTrigger>
-                            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>Learner preview</DialogTitle>
-                              </DialogHeader>
-                              {previewDoc ? (
-                                <ContentItemView item={previewDoc} />
-                              ) : (
-                                <p className="text-sm text-muted-foreground">
-                                  Add a title first.
-                                </p>
-                              )}
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-                        <Input
-                          className="sm:col-span-2"
-                          type="file"
-                          accept="video/*,application/pdf"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file || !selectedDetailUnitId) {
-                              toast.error("Select a unit and choose a file");
-                              return;
-                            }
-                            const postUrl = await generateUploadUrl();
-                            const res = await fetch(postUrl, {
-                              method: "POST",
-                              headers: {
-                                "Content-Type":
-                                  file.type || "application/octet-stream",
-                              },
-                              body: file,
-                            });
-                            const json = (await res.json()) as {
-                              storageId: string;
-                            };
-                            const kind = file.type.startsWith("video")
-                              ? "video"
-                              : "pdf";
-                            setContentKind(kind);
-                            const cid = await createContent({
-                              type: kind,
-                              title: contentTitle || file.name,
-                              url: "#",
-                              storageId: json.storageId as Id<"_storage">,
-                            });
-                            await attachContentToUnit({
-                              unitId: selectedDetailUnitId,
-                              contentId: cid,
-                            });
-                            toast.success("Uploaded and attached");
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          className="sm:col-span-2 w-fit"
-                          size="sm"
-                          onClick={async () => {
-                            if (!selectedDetailUnitId || !contentTitle) {
-                              toast.error("Title required");
-                              return;
-                            }
-                            try {
-                              const cid = await createContent({
-                                type: contentKind,
-                                title: contentTitle,
-                                url: contentUrl || "#",
-                              });
-                              await attachContentToUnit({
-                                unitId: selectedDetailUnitId,
-                                contentId: cid,
-                              });
-                              toast.success("Lesson created and attached");
-                              setContentTitle("");
-                              setContentUrl("");
-                            } catch (e) {
-                              toast.error(
-                                e instanceof Error ? e.message : "Failed",
-                              );
-                            }
-                          }}
-                        >
-                          Publish lesson
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="border-t border-border pt-3">
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Assignments
-                        </p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={resetToNewAssignment}
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1" />
-                          New assignment
-                        </Button>
-                      </div>
-                      {(detailAssignments ?? []).length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-6 text-center border rounded-md">
-                          No assignments yet.
-                        </p>
-                      ) : (
-                        <ul className="border rounded-md divide-y max-h-40 overflow-y-auto text-sm mb-3">
-                          {(detailAssignments ?? []).map((a) => (
-                            <li
-                              key={a._id}
-                              className="flex items-center gap-2 px-3 py-2"
-                            >
-                              <span className="flex-1 truncate font-medium">
-                                {a.title}
-                              </span>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => loadAssignmentFromRow(a)}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => {
-                                  setAssignDeleteId(a._id);
-                                  setAssignDeleteOpen(true);
-                                }}
-                              >
-                                Remove
-                              </Button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      <AssignmentBuilderFields
-                        showUnitSelect={false}
-                        allUnits={allUnits}
-                        assignUnitId={assignUnitId}
-                        setAssignUnitId={setAssignUnitId}
-                        setAssignId={setAssignId}
-                        resetToNewAssignment={resetToNewAssignment}
-                        assignmentsForUnit={assignmentsForUnit}
-                        assignId={assignId}
-                        loadAssignment={loadAssignment}
-                        assignTitle={assignTitle}
-                        setAssignTitle={setAssignTitle}
-                        assignDesc={assignDesc}
-                        setAssignDesc={setAssignDesc}
-                        assignPass={assignPass}
-                        setAssignPass={setAssignPass}
-                        questions={questions}
-                        addQuestion={addQuestion}
-                        updateQuestion={updateQuestion}
-                        removeQuestion={removeQuestion}
-                        saveAssignment={saveAssignment}
-                      />
-                    </div>
                   </div>
               ) : (
                 <>
@@ -1550,7 +1526,8 @@ export default function AdminCoursesClient() {
           <DialogHeader>
             <DialogTitle>Add to library</DialogTitle>
             <DialogDescription>
-              Shared content you can drag onto units in the centre column.
+              Shared content for the library. With a unit selected in the centre
+              column, new items are also attached to that unit.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1609,15 +1586,23 @@ export default function AdminCoursesClient() {
                   return;
                 }
                 try {
-                  await createContent({
+                  const cid = await createContent({
                     type: contentKind,
                     title: contentTitle.trim(),
                     url: contentUrl.trim() || "#",
                   });
+                  if (selectedDetailUnitId) {
+                    await attachContentToUnit({
+                      unitId: selectedDetailUnitId,
+                      contentId: cid,
+                    });
+                    toast.success("Saved to library and attached to unit");
+                  } else {
+                    toast.success("Saved to library");
+                  }
                   setContentTitle("");
                   setContentUrl("");
                   setAddLibraryOpen(false);
-                  toast.success("Saved to library");
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed");
                 }
@@ -2121,6 +2106,7 @@ export default function AdminCoursesClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

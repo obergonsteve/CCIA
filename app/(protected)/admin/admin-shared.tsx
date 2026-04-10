@@ -14,11 +14,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery } from "convex/react";
-import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ClipboardList,
+  GripVertical,
+  Link2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -57,16 +69,23 @@ export function DraggableUnitPaletteItem({
   selected,
   /** When showing all units with a cert selected: units already in that cert. */
   inSelectedCert,
+  /** Drawer open directly under this row (affects rounding). */
+  expandDrawerOpen,
   onSelect,
   onEdit,
   onDelete,
+  onOpenPrerequisites,
+  onOpenAssignments,
 }: {
   unit: UnitAdminListRow;
   selected?: boolean;
   inSelectedCert?: boolean;
+  expandDrawerOpen?: boolean;
   onSelect?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onOpenPrerequisites?: () => void;
+  onOpenAssignments?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `palette-unit:${unit._id}` });
@@ -75,14 +94,19 @@ export function DraggableUnitPaletteItem({
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
       }
     : undefined;
-  const hasActions = onEdit != null || onDelete != null;
+  const hasActions =
+    onEdit != null ||
+    onDelete != null ||
+    onOpenPrerequisites != null ||
+    onOpenAssignments != null;
   const { text: descText, show: showDesc } = unitRowDescription(unit);
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border text-sm shadow-sm",
+        "group flex min-w-0 items-stretch overflow-hidden border text-sm shadow-sm",
+        expandDrawerOpen ? "rounded-t-lg rounded-b-none border-b-0" : "rounded-lg",
         inSelectedCert && ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
         !inSelectedCert && "border-border bg-card",
         !inSelectedCert && selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
@@ -124,41 +148,108 @@ export function DraggableUnitPaletteItem({
       {hasActions ? (
         <div
           className={cn(
-            "flex shrink-0 border-l border-border transition-opacity duration-150 ease-out",
+            "flex shrink-0 flex-col border-l border-border transition-opacity duration-150 ease-out",
             isDragging
               ? "opacity-100"
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
-          {onEdit ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-none"
-              title="Edit unit"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-            >
-              <Pencil className="h-3 w-3" />
-            </Button>
+          {onEdit || onDelete ? (
+            <div className="flex shrink-0 flex-row">
+              {onEdit ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-none"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit();
+                      }}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    Edit unit — title and description
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+              {onDelete ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete();
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    Delete unit from the system (all certifications and links)
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
           ) : null}
-          {onDelete ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
-              title="Delete unit"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
+          {onOpenPrerequisites || onOpenAssignments ? (
+            <div
+              className={cn(
+                "flex shrink-0 flex-row border-border/70",
+                (onEdit || onDelete) && "border-t",
+              )}
             >
-              <Trash2 className="h-3 w-3" />
-            </Button>
+              {onOpenPrerequisites ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-none text-brand-gold hover:text-brand-gold"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenPrerequisites();
+                      }}
+                    >
+                      <Link2 className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    Prerequisites — other units learners must finish first
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+              {onOpenAssignments ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-none text-brand-sky hover:text-brand-sky"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenAssignments();
+                      }}
+                    >
+                      <ClipboardList className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    Assignments — tests and quizzes for this unit
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -530,15 +621,21 @@ export function SortableLevelRow({
 export function SortableUnitRow({
   unit,
   selected,
+  expandDrawerOpen,
   onSelect,
   onEdit,
   onRemoveFromCert,
+  onOpenPrerequisites,
+  onOpenAssignments,
 }: {
   unit: Doc<"units">;
   selected: boolean;
+  expandDrawerOpen?: boolean;
   onSelect: () => void;
   onEdit: () => void;
   onRemoveFromCert: () => void;
+  onOpenPrerequisites?: () => void;
+  onOpenAssignments?: () => void;
 }) {
   const {
     attributes,
@@ -560,7 +657,8 @@ export function SortableUnitRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        "group flex items-stretch overflow-hidden border border-border bg-card text-sm shadow-sm",
+        expandDrawerOpen ? "rounded-t-lg rounded-b-none border-b-0" : "rounded-lg",
         selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
       )}
     >
@@ -592,32 +690,92 @@ export function SortableUnitRow({
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
         )}
       >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-none"
-          title="Edit unit"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-        >
-          <Pencil className="h-3 w-3" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
-          title="Remove from this certification"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemoveFromCert();
-          }}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        <div className="flex shrink-0 flex-row">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-none"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              Edit unit — title and description
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveFromCert();
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              Remove this unit from the current certification only
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        {onOpenPrerequisites || onOpenAssignments ? (
+          <div className="flex shrink-0 flex-row border-t border-border/70">
+            {onOpenPrerequisites ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-none text-brand-gold hover:text-brand-gold"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenPrerequisites();
+                    }}
+                  >
+                    <Link2 className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  Prerequisites — other units learners must finish first
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+            {onOpenAssignments ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-none text-brand-sky hover:text-brand-sky"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenAssignments();
+                    }}
+                  >
+                    <ClipboardList className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  Assignments — tests and quizzes for this unit
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
