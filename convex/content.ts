@@ -251,8 +251,9 @@ export const attachToUnit = mutation({
         q.eq("unitId", unitId).eq("contentId", contentId),
       )
       .unique();
+    /** Idempotent: confirm / double-drop / retries must not error. */
     if (existing) {
-      throw new Error("This content is already on this unit");
+      return existing._id;
     }
     const links = await ctx.db
       .query("unitContents")

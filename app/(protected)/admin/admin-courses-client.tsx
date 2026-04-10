@@ -320,6 +320,16 @@ export default function AdminCoursesClient() {
     unitId: Id<"units">;
   } | null>(null);
 
+  /** Avoid post-drop snap-back while Convex refetches (merge with server in useMemo). */
+  const [optimisticLevelOrder, setOptimisticLevelOrder] = useState<
+    Id<"certificationLevels">[] | null
+  >(null);
+  const [optimisticUnitsInCertOrder, setOptimisticUnitsInCertOrder] = useState<
+    Id<"units">[] | null
+  >(null);
+  const [optimisticDetailContentOrder, setOptimisticDetailContentOrder] =
+    useState<Id<"contentItems">[] | null>(null);
+
   const [certSearch, setCertSearch] = useState("");
   const [unitSearch, setUnitSearch] = useState("");
   const [contentSearch, setContentSearch] = useState("");
@@ -492,6 +502,109 @@ export default function AdminCoursesClient() {
     api.content.listByUnit,
     selectedDetailUnitId ? { unitId: selectedDetailUnitId } : "skip",
   );
+
+  const displayedLevels = useMemo(() => {
+    if (levels === undefined) {
+      return undefined;
+    }
+    if (!optimisticLevelOrder?.length) {
+      return levels;
+    }
+    const byId = new Map(levels.map((l) => [l._id, l]));
+    const next = optimisticLevelOrder
+      .map((id) => byId.get(id))
+      .filter(Boolean) as Doc<"certificationLevels">[];
+    return next.length === levels.length ? next : levels;
+  }, [levels, optimisticLevelOrder]);
+
+  const displayedUnitsInFilteredCert = useMemo(() => {
+    if (unitsInFilteredCert === undefined) {
+      return undefined;
+    }
+    if (!optimisticUnitsInCertOrder?.length) {
+      return unitsInFilteredCert;
+    }
+    const byId = new Map(unitsInFilteredCert.map((u) => [u._id, u]));
+    const next = optimisticUnitsInCertOrder
+      .map((id) => byId.get(id))
+      .filter(Boolean) as Doc<"units">[];
+    return next.length === unitsInFilteredCert.length
+      ? next
+      : unitsInFilteredCert;
+  }, [unitsInFilteredCert, optimisticUnitsInCertOrder]);
+
+  const displayedDetailContent = useMemo(() => {
+    if (detailContent === undefined) {
+      return undefined;
+    }
+    if (!optimisticDetailContentOrder?.length) {
+      return detailContent;
+    }
+    const byId = new Map(detailContent.map((r) => [r._id, r]));
+    const next = optimisticDetailContentOrder
+      .map((id) => byId.get(id))
+      .filter(Boolean);
+    if (next.length !== detailContent.length) {
+      return detailContent;
+    }
+    return next as typeof detailContent;
+  }, [detailContent, optimisticDetailContentOrder]);
+
+  useEffect(() => {
+    if (!optimisticLevelOrder?.length || levels === undefined) {
+      return;
+    }
+    if (levels.length !== optimisticLevelOrder.length) {
+      setOptimisticLevelOrder(null);
+      return;
+    }
+    const match = levels.every(
+      (l, i) => l._id === optimisticLevelOrder[i],
+    );
+    if (match) {
+      setOptimisticLevelOrder(null);
+    }
+  }, [levels, optimisticLevelOrder]);
+
+  useEffect(() => {
+    if (!optimisticUnitsInCertOrder?.length || unitsInFilteredCert === undefined) {
+      return;
+    }
+    if (unitsInFilteredCert.length !== optimisticUnitsInCertOrder.length) {
+      setOptimisticUnitsInCertOrder(null);
+      return;
+    }
+    const match = unitsInFilteredCert.every(
+      (u, i) => u._id === optimisticUnitsInCertOrder[i],
+    );
+    if (match) {
+      setOptimisticUnitsInCertOrder(null);
+    }
+  }, [unitsInFilteredCert, optimisticUnitsInCertOrder]);
+
+  useEffect(() => {
+    if (!optimisticDetailContentOrder?.length || detailContent === undefined) {
+      return;
+    }
+    if (detailContent.length !== optimisticDetailContentOrder.length) {
+      setOptimisticDetailContentOrder(null);
+      return;
+    }
+    const match = detailContent.every(
+      (r, i) => r._id === optimisticDetailContentOrder[i],
+    );
+    if (match) {
+      setOptimisticDetailContentOrder(null);
+    }
+  }, [detailContent, optimisticDetailContentOrder]);
+
+  useEffect(() => {
+    setOptimisticDetailContentOrder(null);
+  }, [selectedDetailUnitId, libraryShowAll]);
+
+  useEffect(() => {
+    setOptimisticUnitsInCertOrder(null);
+  }, [filterCertId, centreUnitsShowAll]);
 
   const dragOverlayContent = useMemo((): Doc<"contentItems"> | null => {
     if (!dragOverlayContentId || !allLibraryContent) {
@@ -798,20 +911,29 @@ export default function AdminCoursesClient() {
       if (
         selectedDetailUnitId &&
         !libraryShowAll &&
-        detailContent &&
-        detailContent.length >= 2
+        displayedDetailContent &&
+        displayedDetailContent.length >= 2
       ) {
         const inList = (id: string) =>
-          detailContent.some((i) => i._id === id);
+          displayedDetailContent.some((i) => i._id === id);
         if (
           inList(activeStr) &&
           inList(overStr) &&
           !activeStr.startsWith("palette-")
         ) {
-          const oldIndex = detailContent.findIndex((i) => i._id === activeStr);
-          const newIndex = detailContent.findIndex((i) => i._id === overStr);
+          const oldIndex = displayedDetailContent.findIndex(
+            (i) => i._id === activeStr,
+          );
+          const newIndex = displayedDetailContent.findIndex(
+            (i) => i._id === overStr,
+          );
           if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-            const ordered = arrayMove(detailContent, oldIndex, newIndex);
+            const ordered = arrayMove(
+              displayedDetailContent,
+              oldIndex,
+              newIndex,
+            );
+            setOptimisticDetailContentOrder(ordered.map((row) => row._id));
             try {
               await reorderContentOnUnit({
                 unitId: selectedDetailUnitId,
@@ -819,6 +941,7 @@ export default function AdminCoursesClient() {
               });
               toast.success("Lessons reordered");
             } catch (err) {
+              setOptimisticDetailContentOrder(null);
               toast.error(err instanceof Error ? err.message : "Reorder failed");
             }
           }
@@ -826,19 +949,25 @@ export default function AdminCoursesClient() {
         }
       }
 
-      if (levels) {
+      if (displayedLevels) {
         const activeLevelKey = resolveLevelSortCollisionId(String(active.id));
         const overLevelKey = resolveLevelSortCollisionId(overStr);
-        const oldIndex = levels.findIndex((l) => l._id === activeLevelKey);
-        const newIndex = levels.findIndex((l) => l._id === overLevelKey);
+        const oldIndex = displayedLevels.findIndex(
+          (l) => l._id === activeLevelKey,
+        );
+        const newIndex = displayedLevels.findIndex(
+          (l) => l._id === overLevelKey,
+        );
         if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-          const ordered = arrayMove(levels, oldIndex, newIndex).map(
+          const ordered = arrayMove(displayedLevels, oldIndex, newIndex).map(
             (l) => l._id,
           );
+          setOptimisticLevelOrder(ordered);
           try {
             await reorderLevels({ orderedIds: ordered });
             toast.success("Order updated");
           } catch (err) {
+            setOptimisticLevelOrder(null);
             toast.error(err instanceof Error ? err.message : "Reorder failed");
           }
           return;
@@ -848,26 +977,29 @@ export default function AdminCoursesClient() {
       if (
         filterCertId &&
         !centreUnitsShowAll &&
-        unitsInFilteredCert &&
-        unitsInFilteredCert.length
+        displayedUnitsInFilteredCert &&
+        displayedUnitsInFilteredCert.length
       ) {
         if (active.id === over.id) {
           return;
         }
         const activeUnitKey = resolveUnitSortCollisionId(String(active.id));
         const overUnitKey = resolveUnitSortCollisionId(overStr);
-        const oldIndex = unitsInFilteredCert.findIndex(
+        const oldIndex = displayedUnitsInFilteredCert.findIndex(
           (u) => u._id === activeUnitKey,
         );
-        const newIndex = unitsInFilteredCert.findIndex(
+        const newIndex = displayedUnitsInFilteredCert.findIndex(
           (u) => u._id === overUnitKey,
         );
         if (oldIndex < 0 || newIndex < 0) {
           return;
         }
-        const ordered = arrayMove(unitsInFilteredCert, oldIndex, newIndex).map(
-          (u) => u._id,
-        );
+        const ordered = arrayMove(
+          displayedUnitsInFilteredCert,
+          oldIndex,
+          newIndex,
+        ).map((u) => u._id);
+        setOptimisticUnitsInCertOrder(ordered);
         try {
           await reorderUnitsInLevel({
             levelId: filterCertId,
@@ -875,20 +1007,21 @@ export default function AdminCoursesClient() {
           });
           toast.success("Units reordered");
         } catch (err) {
+          setOptimisticUnitsInCertOrder(null);
           toast.error(err instanceof Error ? err.message : "Reorder failed");
         }
       }
     },
     [
-      levels,
+      displayedLevels,
+      displayedUnitsInFilteredCert,
+      displayedDetailContent,
       filterCertId,
       centreUnitsShowAll,
-      unitsInFilteredCert,
       reorderLevels,
       reorderUnitsInLevel,
       selectedDetailUnitId,
       libraryShowAll,
-      detailContent,
       reorderContentOnUnit,
     ],
   );
@@ -990,6 +1123,12 @@ export default function AdminCoursesClient() {
   const cyanPlusBtn =
     "h-7 w-7 shrink-0 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
 
+  const levelsListForUi = displayedLevels ?? levels ?? [];
+  const unitsInCertListForUi =
+    displayedUnitsInFilteredCert ?? unitsInFilteredCert;
+  const detailContentListForUi =
+    displayedDetailContent ?? detailContent;
+
   return (
     <TooltipProvider delayDuration={400}>
       <div className="min-h-0 space-y-4">
@@ -1066,17 +1205,17 @@ export default function AdminCoursesClient() {
               </p>
             )}
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto scrollbar-panel">
-              {(levels ?? []).length === 0 ? (
+              {levelsListForUi.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">
                   No certifications. Use +.
                 </p>
               ) : (
                 <SortableContext
-                  items={(levels ?? []).map((l) => l._id)}
+                  items={levelsListForUi.map((l) => l._id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <ul className="space-y-1">
-                    {(levels ?? []).map((l) => (
+                    {levelsListForUi.map((l) => (
                       <li
                         key={l._id}
                         className={cn(
@@ -1207,11 +1346,11 @@ export default function AdminCoursesClient() {
                     </p>
                   ) : (
                     <SortableContext
-                      items={unitsInFilteredCert.map((u) => u._id)}
+                      items={unitsInCertListForUi!.map((u) => u._id)}
                       strategy={verticalListSortingStrategy}
                     >
                       <ul className="space-y-1">
-                        {unitsInFilteredCert.map((u) => (
+                        {unitsInCertListForUi!.map((u) => (
                           <li key={u._id} className="space-y-0">
                             <UnitRowContentDropTarget
                               unitId={u._id}
@@ -1496,11 +1635,11 @@ export default function AdminCoursesClient() {
                       </p>
                     ) : (
                       <SortableContext
-                        items={detailContent.map((i) => i._id)}
+                        items={detailContentListForUi!.map((i) => i._id)}
                         strategy={verticalListSortingStrategy}
                       >
                       <ul className="space-y-1">
-                        {detailContent.map((item) => (
+                        {detailContentListForUi!.map((item) => (
                           <li
                             key={item.unitContentId ?? `legacy-${item._id}`}
                           >
