@@ -140,10 +140,12 @@ function contentItemMatchesCategory(
 }
 
 import {
+  ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
   ContentLibraryDragRow,
   DraggableUnitPaletteItem,
   LevelRowDroppable,
   SortableLevelRow,
+  SortableUnitContentRow,
   SortableUnitRow,
   UnitRowContentDropTarget,
   type UnitAdminListRow,
@@ -183,6 +185,22 @@ function resolveCertificationIdForPaletteUnitDrop(
  * `over` may be the wrapper droppable `unit-content-drop-*` or the sortable
  * unit row id — same pattern as certifications.
  */
+/** Sortable row id or nested `unit-content-drop-*` droppable from DnD collision. */
+function resolveUnitSortCollisionId(id: string): string {
+  if (id.startsWith("unit-content-drop-")) {
+    return id.slice("unit-content-drop-".length);
+  }
+  return id;
+}
+
+/** Sortable cert id or wrapper `level-units-add-*` droppable. */
+function resolveLevelSortCollisionId(id: string): string {
+  if (id.startsWith("level-units-add-")) {
+    return id.slice("level-units-add-".length);
+  }
+  return id;
+}
+
 function resolveUnitIdForPaletteContentDrop(
   overId: string,
   args: {
@@ -248,6 +266,7 @@ export default function AdminCoursesClient() {
   );
   const patchUnitContentOrder = useMutation(api.content.patchUnitContentOrder);
   const patchLegacyContentOrder = useMutation(api.content.patchLegacyContentOrder);
+  const reorderContentOnUnit = useMutation(api.content.reorderContentOnUnit);
   const allLibraryContent = useQuery(api.content.listAllAdmin);
   const deleteCertificationLevel = useMutation(api.certifications.remove);
   const deleteUnit = useMutation(api.units.remove);
@@ -776,9 +795,42 @@ export default function AdminCoursesClient() {
         return;
       }
 
+      if (
+        selectedDetailUnitId &&
+        !libraryShowAll &&
+        detailContent &&
+        detailContent.length >= 2
+      ) {
+        const inList = (id: string) =>
+          detailContent.some((i) => i._id === id);
+        if (
+          inList(activeStr) &&
+          inList(overStr) &&
+          !activeStr.startsWith("palette-")
+        ) {
+          const oldIndex = detailContent.findIndex((i) => i._id === activeStr);
+          const newIndex = detailContent.findIndex((i) => i._id === overStr);
+          if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+            const ordered = arrayMove(detailContent, oldIndex, newIndex);
+            try {
+              await reorderContentOnUnit({
+                unitId: selectedDetailUnitId,
+                orderedContentIds: ordered.map((row) => row._id),
+              });
+              toast.success("Lessons reordered");
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Reorder failed");
+            }
+          }
+          return;
+        }
+      }
+
       if (levels) {
-        const oldIndex = levels.findIndex((l) => l._id === active.id);
-        const newIndex = levels.findIndex((l) => l._id === over.id);
+        const activeLevelKey = resolveLevelSortCollisionId(String(active.id));
+        const overLevelKey = resolveLevelSortCollisionId(overStr);
+        const oldIndex = levels.findIndex((l) => l._id === activeLevelKey);
+        const newIndex = levels.findIndex((l) => l._id === overLevelKey);
         if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
           const ordered = arrayMove(levels, oldIndex, newIndex).map(
             (l) => l._id,
@@ -802,8 +854,14 @@ export default function AdminCoursesClient() {
         if (active.id === over.id) {
           return;
         }
-        const oldIndex = unitsInFilteredCert.findIndex((u) => u._id === active.id);
-        const newIndex = unitsInFilteredCert.findIndex((u) => u._id === over.id);
+        const activeUnitKey = resolveUnitSortCollisionId(String(active.id));
+        const overUnitKey = resolveUnitSortCollisionId(overStr);
+        const oldIndex = unitsInFilteredCert.findIndex(
+          (u) => u._id === activeUnitKey,
+        );
+        const newIndex = unitsInFilteredCert.findIndex(
+          (u) => u._id === overUnitKey,
+        );
         if (oldIndex < 0 || newIndex < 0) {
           return;
         }
@@ -830,6 +888,8 @@ export default function AdminCoursesClient() {
       reorderUnitsInLevel,
       selectedDetailUnitId,
       libraryShowAll,
+      detailContent,
+      reorderContentOnUnit,
     ],
   );
 
@@ -936,7 +996,8 @@ export default function AdminCoursesClient() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
         <p className="text-sm text-muted-foreground">
-          Construct and maintain Certifications, Units and Content.
+          Provide structured training material by adding Content to Units and
+          Units to Certifications.
         </p>
       </div>
 
@@ -1112,7 +1173,11 @@ export default function AdminCoursesClient() {
             {filterCertId && filterCertName ? (
               <button
                 type="button"
-                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-lime/40 bg-brand-lime/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-lime/55 hover:bg-brand-lime/30 dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25"
+                className={cn(
+                  "mb-2 inline-flex max-w-full items-center rounded-full border px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors",
+                  ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
+                  "hover:border-brand-lime/55 hover:bg-brand-lime/[0.16] dark:hover:border-brand-lime/45 dark:hover:bg-brand-lime/[0.18]",
+                )}
                 onClick={() => setCentreUnitsShowAll((v) => !v)}
               >
                 {centreUnitsShowAll
@@ -1157,7 +1222,6 @@ export default function AdminCoursesClient() {
                             >
                               <SortableUnitRow
                                 unit={u}
-                                disableRowDrag
                                 selected={selectedDetailUnitId === u._id}
                                 expandDrawerOpen={prereqsPanelUnitId === u._id}
                                 prerequisiteCount={
@@ -1431,16 +1495,18 @@ export default function AdminCoursesClient() {
                         to drag from the library.
                       </p>
                     ) : (
+                      <SortableContext
+                        items={detailContent.map((i) => i._id)}
+                        strategy={verticalListSortingStrategy}
+                      >
                       <ul className="space-y-1">
-                        {detailContent
-                          .filter((item) => contentMatchesSearch(item))
-                          .map((item) => (
+                        {detailContent.map((item) => (
                           <li
                             key={item.unitContentId ?? `legacy-${item._id}`}
                           >
-                            <ContentLibraryDragRow
+                            <SortableUnitContentRow
                               item={item}
-                              noPaletteDrag
+                              dimmed={!contentMatchesSearch(item)}
                               selected={
                                 Boolean(editContentOpen) &&
                                 editContentId === item._id
@@ -1493,6 +1559,7 @@ export default function AdminCoursesClient() {
                           </li>
                         ))}
                       </ul>
+                      </SortableContext>
                     )}
                   </div>
               ) : (

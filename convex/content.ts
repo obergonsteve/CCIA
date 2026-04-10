@@ -196,6 +196,41 @@ export const patchLegacyContentOrder = mutation({
   },
 });
 
+/**
+ * Apply lesson order in one transaction (avoids parallel patch races and keeps
+ * listByUnit’s merged junction + legacy sort consistent).
+ */
+export const reorderContentOnUnit = mutation({
+  args: {
+    unitId: v.id("units"),
+    orderedContentIds: v.array(v.id("contentItems")),
+  },
+  handler: async (ctx, { unitId, orderedContentIds }) => {
+    await requireAdminOrCreator(ctx);
+    const links = await ctx.db
+      .query("unitContents")
+      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+      .collect();
+    const linkByContentId = new Map(
+      links.map((l) => [l.contentId, l] as const),
+    );
+    for (let i = 0; i < orderedContentIds.length; i++) {
+      const contentId = orderedContentIds[i]!;
+      const link = linkByContentId.get(contentId);
+      if (link) {
+        await ctx.db.patch(link._id, { order: i });
+        continue;
+      }
+      const doc = await ctx.db.get(contentId);
+      if (doc?.unitId === unitId) {
+        await ctx.db.patch(contentId, { order: i });
+        continue;
+      }
+      throw new Error("Content not on this unit");
+    }
+  },
+});
+
 export const attachToUnit = mutation({
   args: {
     unitId: v.id("units"),

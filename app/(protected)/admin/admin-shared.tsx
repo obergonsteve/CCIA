@@ -24,6 +24,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery } from "convex/react";
 import {
+  GripHorizontal,
   GripVertical,
   Layers,
   Link2,
@@ -190,10 +191,12 @@ export function DraggableUnitPaletteItem({
       )}
     >
       {paletteDragDisabled ? (
-        <span
-          className="shrink-0 self-stretch w-[26px] border-r border-transparent"
-          aria-hidden
-        />
+        <div
+          className="flex shrink-0 items-center self-stretch px-1.5 text-muted-foreground/45"
+          title="Already on this certification — switch to that cert’s unit list to reorder"
+        >
+          <GripHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        </div>
       ) : (
         <button
           type="button"
@@ -349,8 +352,6 @@ export function ContentLibraryDragRow({
   selected,
   /** All-content mode + unit selected: item is already attached to that unit (mirrors units-in-cert tint). */
   inSelectedUnit,
-  /** Unit’s “content for …” list only — already on that unit; no drag-to-attach. */
-  noPaletteDrag,
   onEdit,
   onDelete,
 }: {
@@ -358,11 +359,10 @@ export function ContentLibraryDragRow({
   /** Highlights the row (e.g. item open in the edit dialog). */
   selected?: boolean;
   inSelectedUnit?: boolean;
-  noPaletteDrag?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
-  const paletteDragDisabled = Boolean(inSelectedUnit || noPaletteDrag);
+  const paletteDragDisabled = Boolean(inSelectedUnit);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette-content:${item._id}`,
     disabled: paletteDragDisabled,
@@ -383,10 +383,16 @@ export function ContentLibraryDragRow({
       )}
     >
       {paletteDragDisabled ? (
-        <span
-          className="shrink-0 self-stretch w-[26px] border-r border-transparent"
-          aria-hidden
-        />
+        <div
+          className="flex shrink-0 items-center self-stretch px-1.5 text-muted-foreground/45"
+          title={
+            inSelectedUnit
+              ? "On the selected unit — use Show all content to drag onto other units"
+              : undefined
+          }
+        >
+          <GripHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        </div>
       ) : (
         <button
           type="button"
@@ -434,6 +440,110 @@ export function ContentLibraryDragRow({
               size="icon"
               className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
               title="Delete from library"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Content attached to a unit — reorder within the unit only (pancake handle). */
+export type UnitAttachedContentRow = Doc<"contentItems"> & {
+  order: number;
+  unitContentId: Id<"unitContents"> | null;
+};
+
+export function SortableUnitContentRow({
+  item,
+  selected,
+  dimmed,
+  onEdit,
+  onDelete,
+}: {
+  item: UnitAttachedContentRow;
+  selected?: boolean;
+  dimmed?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item._id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.85 : dimmed ? 0.35 : 1,
+  };
+  const subtitle = contentLibrarySubtitle(item);
+  const displayTitle = libraryContentDisplayTitle(item.title);
+  const hasActions = onEdit != null || onDelete != null;
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        selected && ADMIN_LIST_ROW_SELECTED,
+      )}
+    >
+      <button
+        type="button"
+        title="Drag to reorder lessons on this unit"
+        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
+        {...attributes}
+        {...listeners}
+      >
+        <GripHorizontal className="h-3.5 w-3.5" />
+      </button>
+      <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
+        <div className="truncate font-medium">{displayTitle}</div>
+        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+          {subtitle}
+        </div>
+      </div>
+      {hasActions ? (
+        <div
+          className={cn(
+            "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
+            isDragging
+              ? "opacity-100"
+              : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+          )}
+        >
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-none"
+              title="Edit content"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          ) : null}
+          {onDelete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+              title="Remove from unit"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
@@ -637,11 +747,12 @@ export function SortableLevelRow({
     >
       <button
         type="button"
+        title="Drag to reorder certifications"
         className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
         {...attributes}
         {...listeners}
       >
-        <GripVertical className="h-3.5 w-3.5" />
+        <GripHorizontal className="h-3.5 w-3.5" />
       </button>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
         <button
@@ -724,8 +835,6 @@ export function SortableLevelRow({
 export function SortableUnitRow({
   unit,
   selected,
-  /** No grip / not sortable — e.g. cert-scoped list (units are already on that cert). */
-  disableRowDrag,
   expandDrawerOpen,
   prerequisiteCount = 0,
   assignmentCount = 0,
@@ -737,7 +846,6 @@ export function SortableUnitRow({
 }: {
   unit: Doc<"units">;
   selected: boolean;
-  disableRowDrag?: boolean;
   expandDrawerOpen?: boolean;
   prerequisiteCount?: number;
   assignmentCount?: number;
@@ -754,7 +862,7 @@ export function SortableUnitRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: unit._id, disabled: Boolean(disableRowDrag) });
+  } = useSortable({ id: unit._id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -780,21 +888,15 @@ export function SortableUnitRow({
         selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
       )}
     >
-      {disableRowDrag ? (
-        <span
-          className="shrink-0 self-stretch w-[26px] border-r border-transparent"
-          aria-hidden
-        />
-      ) : (
-        <button
-          type="button"
-          className="shrink-0 cursor-grab self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
-      )}
+      <button
+        type="button"
+        title="Drag to reorder units in this certification"
+        className="shrink-0 cursor-grab touch-none self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
+        {...attributes}
+        {...listeners}
+      >
+        <GripHorizontal className="h-3.5 w-3.5" />
+      </button>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
         <button
           type="button"
