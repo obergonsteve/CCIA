@@ -76,13 +76,23 @@ export const summariesForLevel = query({
       .withIndex("by_level", (q) => q.eq("levelId", levelId))
       .collect();
     cLinks.sort((a, b) => a.order - b.order);
+    const linkedUnitIds = new Set<Id<"units">>();
     const units = [];
     for (const cl of cLinks) {
       const u = await ctx.db.get(cl.unitId);
       if (u) {
+        linkedUnitIds.add(u._id);
         units.push(u);
       }
     }
+    const legacy = await ctx.db
+      .query("units")
+      .filter((q) => q.eq(q.field("levelId"), levelId))
+      .collect();
+    const legacyOnly = legacy
+      .filter((u) => !linkedUnitIds.has(u._id))
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    units.push(...legacyOnly);
     const results: Array<{
       unitId: Id<"units">;
       ready: boolean;

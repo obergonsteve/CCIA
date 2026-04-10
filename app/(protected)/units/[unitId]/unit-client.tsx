@@ -193,7 +193,11 @@ export default function UnitClient({ unitId: unitIdRaw }: { unitId: string }) {
               ) : null}
               {!locked &&
                 sortedItems.map((item) => (
-                  <ContentItemView key={item._id} item={item} />
+                  <ContentItemView
+                    key={item._id}
+                    item={item}
+                    unitId={unitId}
+                  />
                 ))}
               {!locked && !sortedItems.length && (
                 <p className="text-sm text-muted-foreground">

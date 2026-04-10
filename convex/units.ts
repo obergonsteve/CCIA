@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
   mutation,
@@ -140,22 +140,25 @@ export const listByLevel = query({
       .query("certificationUnits")
       .withIndex("by_level", (q) => q.eq("levelId", levelId))
       .collect();
-    if (links.length > 0) {
-      links.sort((a, b) => a.order - b.order);
-      const units = [];
-      for (const link of links) {
-        const u = await ctx.db.get(link.unitId);
-        if (u) {
-          units.push(u);
-        }
+    links.sort((a, b) => a.order - b.order);
+    const linkedUnitIds = new Set<Id<"units">>();
+    const fromLinks: Doc<"units">[] = [];
+    for (const link of links) {
+      const u = await ctx.db.get(link.unitId);
+      if (u) {
+        linkedUnitIds.add(u._id);
+        fromLinks.push(u);
       }
-      return units;
     }
+    /** Legacy rows still use `units.levelId`; merge so first junction add does not hide them. */
     const legacy = await ctx.db
       .query("units")
       .filter((q) => q.eq(q.field("levelId"), levelId))
       .collect();
-    return legacy.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const legacyOnly = legacy
+      .filter((u) => !linkedUnitIds.has(u._id))
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    return [...fromLinks, ...legacyOnly];
   },
 });
 
@@ -303,14 +306,42 @@ export const adminPrereqAndAssignmentCounts = query({
         .query("unitPrerequisites")
         .withIndex("by_unit", (q) => q.eq("unitId", u._id))
         .collect();
-      const assignRows = await ctx.db
-        .query("assignments")
+      /**
+       * Match `content.listByUnit`: assessments = contentItems (test/assignment)
+       * linked via unitContents or legacy contentItems.unitId — not the old
+       * `assignments` table (those rows are not shown in the admin Content list).
+       */
+      const ucLinks = await ctx.db
+        .query("unitContents")
+        .withIndex("by_unit", (q) => q.eq("unitId", u._id))
+        .collect();
+      const linkedContentIds = new Set(ucLinks.map((l) => l.contentId));
+      let assessmentCount = 0;
+      for (const link of ucLinks) {
+        const doc = await ctx.db.get(link.contentId);
+        if (
+          doc &&
+          (doc.type === "test" || doc.type === "assignment")
+        ) {
+          assessmentCount += 1;
+        }
+      }
+      const legacyAttached = await ctx.db
+        .query("contentItems")
         .filter((q) => q.eq(q.field("unitId"), u._id))
         .collect();
+      for (const doc of legacyAttached) {
+        if (linkedContentIds.has(doc._id)) {
+          continue;
+        }
+        if (doc.type === "test" || doc.type === "assignment") {
+          assessmentCount += 1;
+        }
+      }
       out.push({
         unitId: u._id,
         prereqCount: prereqRows.length,
-        assignmentCount: assignRows.length,
+        assignmentCount: assessmentCount,
       });
     }
     return out;

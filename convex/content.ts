@@ -7,6 +7,29 @@ import {
   userCanAccessUnit,
 } from "./lib/auth";
 
+const assessmentQuestionValidator = v.object({
+  id: v.string(),
+  question: v.string(),
+  type: v.union(v.literal("multiple_choice"), v.literal("text")),
+  options: v.optional(v.array(v.string())),
+  correctAnswer: v.optional(v.string()),
+});
+
+const assessmentPayloadValidator = v.object({
+  description: v.string(),
+  questions: v.array(assessmentQuestionValidator),
+  passingScore: v.number(),
+});
+
+const contentTypeValidator = v.union(
+  v.literal("video"),
+  v.literal("slideshow"),
+  v.literal("link"),
+  v.literal("pdf"),
+  v.literal("test"),
+  v.literal("assignment"),
+);
+
 export type ContentInUnit = Doc<"contentItems"> & {
   order: number;
   /** Null when the row still uses legacy `contentItems.unitId` (no `unitContents` link). */
@@ -83,23 +106,39 @@ export const generateUploadUrl = mutation({
   },
 });
 
+function isAssessmentType(
+  t: Doc<"contentItems">["type"],
+): t is "test" | "assignment" {
+  return t === "test" || t === "assignment";
+}
+
 /** Create a reusable library item (attach to units with `attachToUnit`). */
 export const create = mutation({
   args: {
-    type: v.union(
-      v.literal("video"),
-      v.literal("slideshow"),
-      v.literal("link"),
-      v.literal("pdf"),
-    ),
+    type: contentTypeValidator,
     title: v.string(),
     url: v.string(),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
+    assessment: v.optional(assessmentPayloadValidator),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    return await ctx.db.insert("contentItems", args);
+    const { assessment, type, ...rest } = args;
+    if (isAssessmentType(type)) {
+      if (!assessment) {
+        throw new Error("test and assignment content requires assessment data");
+      }
+      return await ctx.db.insert("contentItems", {
+        type,
+        ...rest,
+        assessment,
+      });
+    }
+    if (assessment !== undefined) {
+      throw new Error("assessment is only valid for test or assignment type");
+    }
+    return await ctx.db.insert("contentItems", { type, ...rest });
   },
 });
 
@@ -108,18 +147,29 @@ export const update = mutation({
     contentId: v.id("contentItems"),
     title: v.string(),
     url: v.string(),
-    type: v.union(
-      v.literal("video"),
-      v.literal("slideshow"),
-      v.literal("link"),
-      v.literal("pdf"),
-    ),
+    type: contentTypeValidator,
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
+    assessment: v.optional(assessmentPayloadValidator),
   },
-  handler: async (ctx, { contentId, ...fields }) => {
+  handler: async (ctx, { contentId, assessment, type, ...fields }) => {
     await requireAdminOrCreator(ctx);
-    await ctx.db.patch(contentId, fields);
+    if (isAssessmentType(type)) {
+      if (!assessment) {
+        throw new Error("test and assignment content requires assessment data");
+      }
+      await ctx.db.patch(contentId, {
+        ...fields,
+        type,
+        assessment,
+      });
+      return;
+    }
+    await ctx.db.patch(contentId, {
+      ...fields,
+      type,
+      assessment: undefined,
+    });
   },
 });
 
@@ -252,6 +302,14 @@ export const remove = mutation({
       .withIndex("by_content", (q) => q.eq("contentId", contentId))
       .collect()) {
       await ctx.db.delete(row._id);
+    }
+    for (const t of await ctx.db
+      .query("testResults")
+      .withIndex("by_assessment_content", (q) =>
+        q.eq("assessmentContentId", contentId),
+      )
+      .collect()) {
+      await ctx.db.delete(t._id);
     }
     await ctx.db.delete(contentId);
   },

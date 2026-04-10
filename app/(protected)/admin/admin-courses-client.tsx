@@ -25,9 +25,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   closestCenter,
   DndContext,
+  DragOverlay,
+  type CollisionDetection,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -38,23 +43,178 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { useMutation, useQuery } from "convex/react";
-import { BookMarked, GraduationCap, Layers, Plus, Trash2 } from "lucide-react";
+import {
+  BookMarked,
+  GraduationCap,
+  GripVertical,
+  Layers,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
+
+type ContentCategoryFilter =
+  | "all"
+  | "videos"
+  | "tests"
+  | "assignments"
+  | "decks"
+  | "references";
+
+type EditAssessmentQuestion = NonNullable<
+  NonNullable<Doc<"contentItems">["assessment"]>["questions"]
+>[number];
+
+function createEmptyAssessment(): NonNullable<
+  Doc<"contentItems">["assessment"]
+> {
+  return {
+    description: "—",
+    passingScore: 80,
+    questions: [
+      {
+        id: crypto.randomUUID(),
+        question: "",
+        type: "multiple_choice",
+        options: ["", ""],
+        correctAnswer: "",
+      },
+    ],
+  };
+}
+
+/** Link / video / PDF / deck: primary resource field. Tests & assignments use description + assessment block instead. */
+function urlFieldForContentKind(kind: Doc<"contentItems">["type"]): {
+  label: string;
+  placeholder: string;
+} | null {
+  switch (kind) {
+    case "link":
+      return { label: "URL", placeholder: "https://…" };
+    case "video":
+      return {
+        label: "Video URL",
+        placeholder: "YouTube, Vimeo, or direct file URL",
+      };
+    case "pdf":
+      return {
+        label: "PDF URL",
+        placeholder: "https://… to the PDF file",
+      };
+    case "slideshow":
+      return {
+        label: "Deck / slideshow URL",
+        placeholder: "URL to the slideshow or presentation",
+      };
+    default:
+      return null;
+  }
+}
+
+function contentItemMatchesCategory(
+  item: Doc<"contentItems">,
+  cat: ContentCategoryFilter,
+): boolean {
+  if (cat === "all") {
+    return true;
+  }
+  if (cat === "videos") {
+    return item.type === "video";
+  }
+  if (cat === "tests") {
+    return item.type === "test";
+  }
+  if (cat === "assignments") {
+    return item.type === "assignment";
+  }
+  if (cat === "decks") {
+    return item.type === "slideshow";
+  }
+  if (cat === "references") {
+    return item.type === "link" || item.type === "pdf";
+  }
+  return true;
+}
+
 import {
-  AssignmentBuilderFields,
   ContentLibraryDragRow,
-  ContentOnUnitAdminList,
   DraggableUnitPaletteItem,
   LevelRowDroppable,
   SortableLevelRow,
   SortableUnitRow,
   UnitRowContentDropTarget,
-  type Q,
   type UnitAdminListRow,
 } from "./admin-shared";
+
+/** Prefer pointer-inside droppables so cross-column unit → certification drops register reliably. */
+const coursesDndCollision: CollisionDetection = (args) => {
+  const byPointer = pointerWithin(args);
+  if (byPointer.length > 0) {
+    return byPointer;
+  }
+  return closestCenter(args);
+};
+
+/**
+ * Cert rows use `useSortable({ id: level._id })`, so `over` is the certification
+ * id — not the wrapper droppable `level-units-add-*`. Accept both.
+ */
+function resolveCertificationIdForPaletteUnitDrop(
+  overId: string,
+  levels: Doc<"certificationLevels">[] | undefined,
+): Id<"certificationLevels"> | null {
+  if (!levels?.length) {
+    return null;
+  }
+  if (overId.startsWith("level-units-add-")) {
+    return overId.slice("level-units-add-".length) as Id<
+      "certificationLevels"
+    >;
+  }
+  return levels.some((l) => l._id === overId)
+    ? (overId as Id<"certificationLevels">)
+    : null;
+}
+
+/**
+ * `over` may be the wrapper droppable `unit-content-drop-*` or the sortable
+ * unit row id — same pattern as certifications.
+ */
+function resolveUnitIdForPaletteContentDrop(
+  overId: string,
+  args: {
+    allUnits: UnitAdminListRow[] | undefined;
+    unitsInFilteredCert: Doc<"units">[] | undefined;
+    filterCertId: Id<"certificationLevels"> | null;
+    centreUnitsShowAll: boolean;
+  },
+): Id<"units"> | null {
+  if (!overId) {
+    return null;
+  }
+  if (overId.startsWith("unit-content-drop-")) {
+    return overId.slice("unit-content-drop-".length) as Id<"units">;
+  }
+  const { allUnits, unitsInFilteredCert, filterCertId, centreUnitsShowAll } =
+    args;
+  if (filterCertId && !centreUnitsShowAll) {
+    if (!unitsInFilteredCert?.length) {
+      return null;
+    }
+    return unitsInFilteredCert.some((u) => u._id === overId)
+      ? (overId as Id<"units">)
+      : null;
+  }
+  if (!allUnits?.length) {
+    return null;
+  }
+  return allUnits.some((u) => u._id === overId)
+    ? (overId as Id<"units">)
+    : null;
+}
 
 export default function AdminCoursesClient() {
   const companies = useQuery(api.companies.list);
@@ -81,9 +241,6 @@ export default function AdminCoursesClient() {
   const patchUnitContentOrder = useMutation(api.content.patchUnitContentOrder);
   const patchLegacyContentOrder = useMutation(api.content.patchLegacyContentOrder);
   const allLibraryContent = useQuery(api.content.listAllAdmin);
-  const createAssignment = useMutation(api.assignments.create);
-  const updateAssignment = useMutation(api.assignments.update);
-  const removeAssignment = useMutation(api.assignments.remove);
   const deleteCertificationLevel = useMutation(api.certifications.remove);
   const deleteUnit = useMutation(api.units.remove);
 
@@ -116,15 +273,31 @@ export default function AdminCoursesClient() {
   const [addCertOpen, setAddCertOpen] = useState(false);
   const [addUnitOpen, setAddUnitOpen] = useState(false);
   const [addLibraryOpen, setAddLibraryOpen] = useState(false);
-  /** Centre column: prerequisites or assignments drawer under a unit row. */
-  const [unitCentreDrawer, setUnitCentreDrawer] = useState<{
+  /** Centre column: prerequisites panel expanded under this unit row. */
+  const [prereqsPanelUnitId, setPrereqsPanelUnitId] =
+    useState<Id<"units"> | null>(null);
+  const [dragOverlayUnitId, setDragOverlayUnitId] =
+    useState<Id<"units"> | null>(null);
+  const [dragOverlayContentId, setDragOverlayContentId] =
+    useState<Id<"contentItems"> | null>(null);
+  const [dropHighlightLevelId, setDropHighlightLevelId] =
+    useState<Id<"certificationLevels"> | null>(null);
+  const [dropHighlightUnitId, setDropHighlightUnitId] =
+    useState<Id<"units"> | null>(null);
+  const [pendingAddUnitToCert, setPendingAddUnitToCert] = useState<{
     unitId: Id<"units">;
-    panel: "prereqs" | "assignments";
+    levelId: Id<"certificationLevels">;
+  } | null>(null);
+  const [pendingAttachContentToUnit, setPendingAttachContentToUnit] = useState<{
+    contentId: Id<"contentItems">;
+    unitId: Id<"units">;
   } | null>(null);
 
   const [certSearch, setCertSearch] = useState("");
   const [unitSearch, setUnitSearch] = useState("");
   const [contentSearch, setContentSearch] = useState("");
+  const [contentCategory, setContentCategory] =
+    useState<ContentCategoryFilter>("all");
 
   const [levelName, setLevelName] = useState("");
   const [levelSummary, setLevelSummary] = useState("");
@@ -143,8 +316,11 @@ export default function AdminCoursesClient() {
   const [editContentTitle, setEditContentTitle] = useState("");
   const [editContentUrl, setEditContentUrl] = useState("");
   const [editContentKind, setEditContentKind] = useState<
-    "video" | "pdf" | "link" | "slideshow"
+    Doc<"contentItems">["type"]
   >("link");
+  const [editContentAssessment, setEditContentAssessment] = useState<
+    NonNullable<Doc<"contentItems">["assessment"]> | null
+  >(null);
   const [editContentOrder, setEditContentOrder] = useState("0");
   const [editContentStorageId, setEditContentStorageId] =
     useState<Id<"_storage"> | null>(null);
@@ -164,30 +340,14 @@ export default function AdminCoursesClient() {
     useState<Id<"units"> | null>(null);
   const [editUnitContentLinkId, setEditUnitContentLinkId] =
     useState<Id<"unitContents"> | null>(null);
-  const [assignDeleteOpen, setAssignDeleteOpen] = useState(false);
-  const [assignDeleteId, setAssignDeleteId] =
-    useState<Id<"assignments"> | null>(null);
-
   const [contentTitle, setContentTitle] = useState("");
   const [contentUrl, setContentUrl] = useState("");
-  const [contentKind, setContentKind] = useState<
-    "video" | "pdf" | "link" | "slideshow"
-  >("link");
-
-  const [assignUnitId, setAssignUnitId] = useState<string>("");
-  const [assignId, setAssignId] = useState<string>("");
-  const [assignTitle, setAssignTitle] = useState("");
-  const [assignDesc, setAssignDesc] = useState("");
-  const [assignPass, setAssignPass] = useState(80);
-  const [questions, setQuestions] = useState<Q[]>([
-    {
-      id: crypto.randomUUID(),
-      question: "",
-      type: "multiple_choice",
-      options: ["", ""],
-      correctAnswer: "",
-    },
-  ]);
+  const [contentKind, setContentKind] = useState<Doc<"contentItems">["type"]>(
+    "link",
+  );
+  const [addLibraryAssessment, setAddLibraryAssessment] = useState<
+    NonNullable<Doc<"contentItems">["assessment"]> | null
+  >(null);
 
   const unitsInFilteredCert = useQuery(
     api.units.listByLevel,
@@ -215,6 +375,38 @@ export default function AdminCoursesClient() {
     }
     return m;
   }, [unitPrereqAssignCounts]);
+
+  const unitCountByLevelId = useMemo(() => {
+    const m = new Map<Id<"certificationLevels">, number>();
+    if (!allUnits) {
+      return m;
+    }
+    for (const u of allUnits) {
+      for (const lid of u.certificationLevelIds) {
+        m.set(lid, (m.get(lid) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [allUnits]);
+
+  const dragOverlayUnit = useMemo((): UnitAdminListRow | null => {
+    if (!dragOverlayUnitId || !allUnits) {
+      return null;
+    }
+    return allUnits.find((u) => u._id === dragOverlayUnitId) ?? null;
+  }, [dragOverlayUnitId, allUnits]);
+
+  const pendingAddUnitToCertLabels = useMemo(() => {
+    if (!pendingAddUnitToCert || !allUnits || !levels) {
+      return null;
+    }
+    const u = allUnits.find((x) => x._id === pendingAddUnitToCert.unitId);
+    const l = levels.find((x) => x._id === pendingAddUnitToCert.levelId);
+    return {
+      unitTitle: u?.title ?? "Unit",
+      levelName: l?.name ?? "Certification",
+    };
+  }, [pendingAddUnitToCert, allUnits, levels]);
 
   const certSearchLower = certSearch.trim().toLowerCase();
   const unitSearchLower = unitSearch.trim().toLowerCase();
@@ -251,6 +443,9 @@ export default function AdminCoursesClient() {
 
   const contentMatchesSearch = useCallback(
     (item: Doc<"contentItems">) => {
+      if (!contentItemMatchesCategory(item, contentCategory)) {
+        return false;
+      }
       if (!contentSearchLower) {
         return true;
       }
@@ -259,7 +454,7 @@ export default function AdminCoursesClient() {
         item.type.toLowerCase().includes(contentSearchLower)
       );
     },
-    [contentSearchLower],
+    [contentSearchLower, contentCategory],
   );
 
   useEffect(() => {
@@ -271,6 +466,34 @@ export default function AdminCoursesClient() {
     selectedDetailUnitId ? { unitId: selectedDetailUnitId } : "skip",
   );
 
+  const dragOverlayContent = useMemo((): Doc<"contentItems"> | null => {
+    if (!dragOverlayContentId || !allLibraryContent) {
+      return null;
+    }
+    return (
+      allLibraryContent.find((c) => c._id === dragOverlayContentId) ??
+      (detailContent?.find((c) => c._id === dragOverlayContentId) ?? null)
+    );
+  }, [dragOverlayContentId, allLibraryContent, detailContent]);
+
+  const pendingAttachContentToUnitLabels = useMemo(() => {
+    if (!pendingAttachContentToUnit || !allUnits) {
+      return null;
+    }
+    const c =
+      allLibraryContent?.find(
+        (x) => x._id === pendingAttachContentToUnit.contentId,
+      ) ??
+      detailContent?.find(
+        (x) => x._id === pendingAttachContentToUnit.contentId,
+      );
+    const u = allUnits.find((x) => x._id === pendingAttachContentToUnit.unitId);
+    return {
+      contentTitle: c?.title ?? "Content",
+      unitTitle: u?.title ?? "Unit",
+    };
+  }, [pendingAttachContentToUnit, allLibraryContent, detailContent, allUnits]);
+
   /** All-content view + unit selected: which library items are already on that unit (for row tint). */
   const contentIdsInSelectedUnitWhenBrowsingLibrary = useMemo(() => {
     if (!selectedDetailUnitId || !libraryShowAll || detailContent === undefined) {
@@ -278,11 +501,6 @@ export default function AdminCoursesClient() {
     }
     return new Set(detailContent.map((c) => c._id));
   }, [selectedDetailUnitId, libraryShowAll, detailContent]);
-
-  const detailAssignments = useQuery(
-    api.assignments.listByUnit,
-    selectedDetailUnitId ? { unitId: selectedDetailUnitId } : "skip",
-  );
 
   const selectedDetailUnit = useMemo((): UnitAdminListRow | Doc<"units"> | null => {
     if (!selectedDetailUnitId) {
@@ -389,77 +607,6 @@ export default function AdminCoursesClient() {
     }),
   );
 
-  const assignmentsForUnit = useQuery(
-    api.assignments.listByUnit,
-    assignUnitId ? { unitId: assignUnitId as Id<"units"> } : "skip",
-  );
-
-  const loadAssignment = useCallback(
-    (aid: Id<"assignments">) => {
-      const a = assignmentsForUnit?.find((x) => x._id === aid);
-      if (!a) {
-        return;
-      }
-      setAssignId(a._id);
-      setAssignTitle(a.title);
-      setAssignDesc(a.description);
-      setAssignPass(a.passingScore);
-      setQuestions(
-        a.questions.map((q) => ({
-          id: q.id,
-          question: q.question,
-          type: q.type,
-          options: q.options ?? ["", ""],
-          correctAnswer: q.correctAnswer ?? "",
-        })),
-      );
-    },
-    [assignmentsForUnit],
-  );
-
-  const loadAssignmentFromRow = useCallback((a: Doc<"assignments">) => {
-    if (selectedDetailUnitId) {
-      setAssignUnitId(selectedDetailUnitId);
-    }
-    setAssignId(a._id);
-    setAssignTitle(a.title);
-    setAssignDesc(a.description);
-    setAssignPass(a.passingScore);
-    setQuestions(
-      a.questions.map((q) => ({
-        id: q.id,
-        question: q.question,
-        type: q.type,
-        options: q.options ?? ["", ""],
-        correctAnswer: q.correctAnswer ?? "",
-      })),
-    );
-  }, [selectedDetailUnitId]);
-
-  const resetToNewAssignment = useCallback(() => {
-    setAssignId("");
-    setAssignTitle("");
-    setAssignDesc("");
-    setAssignPass(80);
-    setQuestions([
-      {
-        id: crypto.randomUUID(),
-        question: "",
-        type: "multiple_choice",
-        options: ["", ""],
-        correctAnswer: "",
-      },
-    ]);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedDetailUnitId) {
-      return;
-    }
-    setAssignUnitId(selectedDetailUnitId);
-    resetToNewAssignment();
-  }, [selectedDetailUnitId, resetToNewAssignment]);
-
   function openCertificationEditor(id: Id<"certificationLevels">) {
     setEditCertId(id);
     setCertDetailsOpen(true);
@@ -479,20 +626,15 @@ export default function AdminCoursesClient() {
 
   /** ADMIN.md: unit row click selects unit for library column; click again off. */
   function handleUnitRowClick(unitId: Id<"units">) {
-    setUnitCentreDrawer(null);
+    setPrereqsPanelUnitId(null);
     setSelectedDetailUnitId((prev) => (prev === unitId ? null : unitId));
     setLibraryShowAll(false);
   }
 
-  function openUnitCentreDrawer(
-    unitId: Id<"units">,
-    panel: "prereqs" | "assignments",
-  ) {
+  function togglePrereqsUnderRow(unitId: Id<"units">) {
     setSelectedDetailUnitId(unitId);
     setLibraryShowAll(false);
-    setUnitCentreDrawer((prev) =>
-      prev?.unitId === unitId && prev.panel === panel ? null : { unitId, panel },
-    );
+    setPrereqsPanelUnitId((prev) => (prev === unitId ? null : unitId));
   }
 
   useEffect(() => {
@@ -514,9 +656,81 @@ export default function AdminCoursesClient() {
     setEditUnitOpen(true);
   }
 
+  const handleDragStart = useCallback((e: DragStartEvent) => {
+    const id = String(e.active.id);
+    if (id.startsWith("palette-unit:")) {
+      setDragOverlayUnitId(
+        id.slice("palette-unit:".length) as Id<"units">,
+      );
+    } else if (id.startsWith("palette-content:")) {
+      setDragOverlayContentId(
+        id.slice("palette-content:".length) as Id<"contentItems">,
+      );
+    }
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    setDragOverlayUnitId(null);
+    setDragOverlayContentId(null);
+    setDropHighlightLevelId(null);
+    setDropHighlightUnitId(null);
+  }, []);
+
+  const handleDragOver = useCallback(
+    (e: DragOverEvent) => {
+      const { active, over } = e;
+      if (!over) {
+        setDropHighlightLevelId(null);
+        setDropHighlightUnitId(null);
+        return;
+      }
+      const activeStr = String(active.id);
+      const overStr = String(over.id);
+      if (activeStr.startsWith("palette-unit:")) {
+        setDropHighlightLevelId(
+          resolveCertificationIdForPaletteUnitDrop(overStr, levels),
+        );
+        setDropHighlightUnitId(null);
+        return;
+      }
+      if (activeStr.startsWith("palette-content:")) {
+        if (selectedDetailUnitId && !libraryShowAll) {
+          setDropHighlightUnitId(null);
+        } else {
+          setDropHighlightUnitId(
+            resolveUnitIdForPaletteContentDrop(overStr, {
+              allUnits,
+              unitsInFilteredCert,
+              filterCertId,
+              centreUnitsShowAll,
+            }),
+          );
+        }
+        setDropHighlightLevelId(null);
+        return;
+      }
+      setDropHighlightLevelId(null);
+      setDropHighlightUnitId(null);
+    },
+    [
+      levels,
+      allUnits,
+      unitsInFilteredCert,
+      filterCertId,
+      centreUnitsShowAll,
+      selectedDetailUnitId,
+      libraryShowAll,
+    ],
+  );
+
   const onUnifiedDragEnd = useCallback(
     async (e: DragEndEvent) => {
       const { active, over } = e;
+      setDragOverlayUnitId(null);
+      setDragOverlayContentId(null);
+      setDropHighlightLevelId(null);
+      setDropHighlightUnitId(null);
+
       if (!over) {
         return;
       }
@@ -527,30 +741,29 @@ export default function AdminCoursesClient() {
         const cid = activeStr.slice("palette-content:".length) as Id<
           "contentItems"
         >;
-        if (overStr.startsWith("unit-content-drop-")) {
-          const uid = overStr.slice("unit-content-drop-".length) as Id<"units">;
-          try {
-            await attachContentToUnit({ unitId: uid, contentId: cid });
-            toast.success("Attached to unit");
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed");
-          }
+        if (selectedDetailUnitId && !libraryShowAll) {
+          return;
+        }
+        const uid = resolveUnitIdForPaletteContentDrop(overStr, {
+          allUnits,
+          unitsInFilteredCert,
+          filterCertId,
+          centreUnitsShowAll,
+        });
+        if (uid) {
+          setPendingAttachContentToUnit({ contentId: cid, unitId: uid });
         }
         return;
       }
 
       if (activeStr.startsWith("palette-unit:")) {
         const uid = activeStr.slice("palette-unit:".length) as Id<"units">;
-        if (overStr.startsWith("level-units-add-")) {
-          const lid = overStr.slice("level-units-add-".length) as Id<
-            "certificationLevels"
-          >;
-          try {
-            await addUnitToLevel({ levelId: lid, unitId: uid });
-            toast.success("Unit added to certification");
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed");
-          }
+        const lid = resolveCertificationIdForPaletteUnitDrop(
+          overStr,
+          levels ?? undefined,
+        );
+        if (lid) {
+          setPendingAddUnitToCert({ unitId: uid, levelId: lid });
         }
         return;
       }
@@ -605,75 +818,22 @@ export default function AdminCoursesClient() {
       filterCertId,
       centreUnitsShowAll,
       unitsInFilteredCert,
-      attachContentToUnit,
-      addUnitToLevel,
       reorderLevels,
       reorderUnitsInLevel,
+      selectedDetailUnitId,
+      libraryShowAll,
     ],
   );
 
-  function addQuestion() {
-    setQuestions((q) => [
-      ...q,
-      {
-        id: crypto.randomUUID(),
-        question: "",
-        type: "multiple_choice",
-        options: ["", ""],
-        correctAnswer: "",
-      },
-    ]);
-  }
-
-  function updateQuestion(i: number, patch: Partial<Q>) {
-    setQuestions((prev) => {
-      const next = [...prev];
-      next[i] = { ...next[i], ...patch };
-      return next;
-    });
-  }
-
-  function removeQuestion(i: number) {
-    setQuestions((prev) => prev.filter((_, j) => j !== i));
-  }
-
-  async function saveAssignment() {
-    if (!assignUnitId) {
-      toast.error("Select a unit");
-      return;
-    }
-    const built = questions.map((q) => ({
-      id: q.id,
-      question: q.question,
-      type: q.type,
-      options:
-        q.type === "multiple_choice"
-          ? q.options.filter((o) => o.trim())
-          : undefined,
-      correctAnswer: q.correctAnswer.trim() || undefined,
-    }));
-    try {
-      if (assignId) {
-        await updateAssignment({
-          assignmentId: assignId as Id<"assignments">,
-          title: assignTitle,
-          description: assignDesc,
-          passingScore: assignPass,
-          questions: built,
-        });
-        toast.success("Assignment updated");
-      } else {
-        await createAssignment({
-          unitId: assignUnitId as Id<"units">,
-          title: assignTitle || "Assessment",
-          description: assignDesc || "—",
-          passingScore: assignPass,
-          questions: built,
-        });
-        toast.success("Assignment created");
-        setAssignTitle("");
-        setAssignDesc("");
-        setQuestions([
+  function addEditContentQuestion() {
+    setEditContentAssessment((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        questions: [
+          ...prev.questions,
           {
             id: crypto.randomUUID(),
             question: "",
@@ -681,11 +841,82 @@ export default function AdminCoursesClient() {
             options: ["", ""],
             correctAnswer: "",
           },
-        ]);
+        ],
+      };
+    });
+  }
+
+  function updateEditContentQuestion(
+    i: number,
+    patch: Partial<EditAssessmentQuestion>,
+  ) {
+    setEditContentAssessment((prev) => {
+      if (!prev) {
+        return prev;
       }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Save failed");
-    }
+      const questions = [...prev.questions];
+      questions[i] = { ...questions[i], ...patch };
+      return { ...prev, questions };
+    });
+  }
+
+  function removeEditContentQuestion(i: number) {
+    setEditContentAssessment((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        questions: prev.questions.filter((_, j) => j !== i),
+      };
+    });
+  }
+
+  function addAddLibraryQuestion() {
+    setAddLibraryAssessment((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        questions: [
+          ...prev.questions,
+          {
+            id: crypto.randomUUID(),
+            question: "",
+            type: "multiple_choice",
+            options: ["", ""],
+            correctAnswer: "",
+          },
+        ],
+      };
+    });
+  }
+
+  function updateAddLibraryQuestion(
+    i: number,
+    patch: Partial<EditAssessmentQuestion>,
+  ) {
+    setAddLibraryAssessment((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const questions = [...prev.questions];
+      questions[i] = { ...questions[i], ...patch };
+      return { ...prev, questions };
+    });
+  }
+
+  function removeAddLibraryQuestion(i: number) {
+    setAddLibraryAssessment((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        questions: prev.questions.filter((_, j) => j !== i),
+      };
+    });
   }
 
   const cyanPlusBtn =
@@ -703,7 +934,10 @@ export default function AdminCoursesClient() {
 
       <DndContext
         sensors={mainSensors}
-        collisionDetection={closestCenter}
+        collisionDetection={coursesDndCollision}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragCancel={handleDragCancel}
         onDragEnd={(e) => void onUnifiedDragEnd(e)}
       >
         {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
@@ -751,10 +985,17 @@ export default function AdminCoursesClient() {
             <hr className="my-2 shrink-0 border-t border-brand-lime/35 dark:border-brand-lime/25" />
             {!filterCertId ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Drop a unit from the centre onto a certification to add it to
-                that track.
+                Drag and drop Units onto a Certification to add them.
               </p>
-            ) : null}
+            ) : (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Use{" "}
+                <span className="font-medium text-foreground">
+                  Show all units
+                </span>{" "}
+                in the centre column to drag here.
+              </p>
+            )}
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto scrollbar-panel">
               {(levels ?? []).length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">
@@ -773,10 +1014,18 @@ export default function AdminCoursesClient() {
                           levelMatchesSearch(l) ? "" : "opacity-30",
                         )}
                       >
-                        <LevelRowDroppable levelId={l._id}>
+                        <LevelRowDroppable
+                          levelId={l._id}
+                          dropHighlight={dropHighlightLevelId === l._id}
+                        >
                           <SortableLevelRow
                             level={l}
                             selected={filterCertId === l._id}
+                            unitCount={
+                              allUnits === undefined
+                                ? undefined
+                                : (unitCountByLevelId.get(l._id) ?? 0)
+                            }
                             onSelect={() => handleCertFilterToggle(l._id)}
                             onEdit={() => openCertificationEditor(l._id)}
                             onDelete={() => {
@@ -793,19 +1042,27 @@ export default function AdminCoursesClient() {
             </div>
           </div>
 
-          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-brand-gold/[0.14] p-4 shadow-lg dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:bg-brand-gold/[0.12]">
+          <div
+            className={cn(
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] p-4 shadow-lg dark:bg-brand-gold/[0.12]",
+              filterCertId
+                ? "border-brand-lime/40 border-l-brand-lime border-r-brand-lime dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime"
+                : "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold",
+            )}
+          >
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
                 <Layers
-                  className="shrink-0 text-brand-gold"
+                  className={cn(
+                    "shrink-0",
+                    filterCertId ? "text-brand-lime" : "text-brand-gold",
+                  )}
                   size={20}
                   aria-hidden
                 />
                 <span className="truncate">
                   {filterCertId && !centreUnitsShowAll
-                    ? filterCertName
-                      ? `${filterCertName} Units`
-                      : "Units"
+                    ? `Units for ${filterCertName ?? "…"}`
                     : "All Units"}
                   <span className="ml-1 text-sm font-normal text-muted-foreground">
                     (
@@ -828,6 +1085,17 @@ export default function AdminCoursesClient() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
+            {filterCertId && filterCertName ? (
+              <button
+                type="button"
+                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-lime/40 bg-brand-lime/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-lime/55 hover:bg-brand-lime/30 dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25"
+                onClick={() => setCentreUnitsShowAll((v) => !v)}
+              >
+                {centreUnitsShowAll
+                  ? `Show ${filterCertName} units`
+                  : "Show all units"}
+              </button>
+            ) : null}
             <div className="mb-1 shrink-0">
               <label
                 htmlFor="admin-unit-search"
@@ -843,23 +1111,11 @@ export default function AdminCoursesClient() {
                 className="h-9 bg-card"
               />
             </div>
-            {filterCertId && filterCertName ? (
-              <button
-                type="button"
-                className="mb-1 inline-flex max-w-full items-center rounded-full border border-brand-gold/40 bg-brand-gold/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-gold/55 hover:bg-brand-gold/30 dark:bg-brand-gold/15 dark:hover:bg-brand-gold/25"
-                onClick={() => setCentreUnitsShowAll((v) => !v)}
-              >
-                {centreUnitsShowAll
-                  ? `Show ${filterCertName} units`
-                  : "Show all units"}
-              </button>
+            {(!filterCertId || centreUnitsShowAll) ? (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Drag and drop Content onto a Unit.
+              </p>
             ) : null}
-            <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-              Drag units onto certifications or library items onto units (when no
-              unit is selected in this column). Under Edit / delete, the
-              numbered chips open or close prerequisites and tests in a drawer
-              below the row.
-            </p>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
                 {/*
                   ADMIN.md: cert click filters centre to that cert’s units.
@@ -879,149 +1135,58 @@ export default function AdminCoursesClient() {
                       <ul className="space-y-1">
                         {unitsInFilteredCert.map((u) => (
                           <li key={u._id} className="space-y-0">
-                            <SortableUnitRow
-                              unit={u}
-                              selected={selectedDetailUnitId === u._id}
-                              expandDrawerOpen={
-                                unitCentreDrawer?.unitId === u._id
+                            <UnitRowContentDropTarget
+                              unitId={u._id}
+                              disabled={
+                                Boolean(selectedDetailUnitId) && !libraryShowAll
                               }
-                              prerequisiteCount={
-                                countsByUnitId.get(u._id)?.prereqCount ?? 0
-                              }
-                              assignmentCount={
-                                countsByUnitId.get(u._id)?.assignmentCount ??
-                                0
-                              }
-                              prereqsDrawerOpen={
-                                unitCentreDrawer?.unitId === u._id &&
-                                unitCentreDrawer.panel === "prereqs"
-                              }
-                              assignmentsDrawerOpen={
-                                unitCentreDrawer?.unitId === u._id &&
-                                unitCentreDrawer.panel === "assignments"
-                              }
-                              onSelect={() => handleUnitRowClick(u._id)}
-                              onEdit={() => openEditUnit(u._id)}
-                              onRemoveFromCert={() => {
-                                setDetachFromCertUnitId(u._id);
-                                setDetachFromCertOpen(true);
-                              }}
-                              onOpenPrerequisites={() =>
-                                openUnitCentreDrawer(u._id, "prereqs")
-                              }
-                              onOpenAssignments={() =>
-                                openUnitCentreDrawer(u._id, "assignments")
-                              }
-                            />
-                            {unitCentreDrawer?.unitId === u._id ? (
+                              dropHighlight={dropHighlightUnitId === u._id}
+                            >
+                              <SortableUnitRow
+                                unit={u}
+                                disableRowDrag
+                                selected={selectedDetailUnitId === u._id}
+                                expandDrawerOpen={prereqsPanelUnitId === u._id}
+                                prerequisiteCount={
+                                  countsByUnitId.get(u._id)?.prereqCount ?? 0
+                                }
+                                assignmentCount={
+                                  countsByUnitId.get(u._id)?.assignmentCount ??
+                                  0
+                                }
+                                prereqsDrawerOpen={prereqsPanelUnitId === u._id}
+                                onSelect={() => handleUnitRowClick(u._id)}
+                                onEdit={() => openEditUnit(u._id)}
+                                onRemoveFromCert={() => {
+                                  setDetachFromCertUnitId(u._id);
+                                  setDetachFromCertOpen(true);
+                                }}
+                                onOpenPrerequisites={() =>
+                                  togglePrereqsUnderRow(u._id)
+                                }
+                              />
+                            </UnitRowContentDropTarget>
+                            {prereqsPanelUnitId === u._id ? (
                               <div className="max-h-[min(70vh,560px)] overflow-y-auto rounded-b-lg border border-t-0 border-border bg-card/90 p-3 shadow-inner">
                                 <div className="mb-2 flex items-center justify-between gap-2">
                                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                    {unitCentreDrawer.panel === "prereqs"
-                                      ? "Prerequisites"
-                                      : "Assignments"}
+                                    Prerequisites
                                   </p>
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 text-xs"
-                                    onClick={() => setUnitCentreDrawer(null)}
+                                    onClick={() => setPrereqsPanelUnitId(null)}
                                   >
                                     Close
                                   </Button>
                                 </div>
-                                {unitCentreDrawer.panel === "prereqs" ? (
-                                  <PrerequisiteDropEditor
-                                    targetUnitId={u._id}
-                                    targetTitle={u.title}
-                                    allUnits={allUnits}
-                                  />
-                                ) : (
-                                  <div className="space-y-3">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <p className="text-xs text-muted-foreground">
-                                        Tests and quizzes for this unit.
-                                      </p>
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={resetToNewAssignment}
-                                      >
-                                        <Plus className="h-3.5 w-3.5 mr-1" />
-                                        New assignment
-                                      </Button>
-                                    </div>
-                                    {(detailAssignments ?? []).length ===
-                                    0 ? (
-                                      <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
-                                        No assignments yet.
-                                      </p>
-                                    ) : (
-                                      <ul className="border rounded-md divide-y max-h-36 overflow-y-auto text-sm">
-                                        {(detailAssignments ?? []).map(
-                                          (a) => (
-                                            <li
-                                              key={a._id}
-                                              className="flex items-center gap-2 px-3 py-2"
-                                            >
-                                              <span className="flex-1 truncate font-medium">
-                                                {a.title}
-                                              </span>
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                  loadAssignmentFromRow(a)
-                                                }
-                                              >
-                                                Edit
-                                              </Button>
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                className="text-destructive hover:text-destructive"
-                                                onClick={() => {
-                                                  setAssignDeleteId(a._id);
-                                                  setAssignDeleteOpen(true);
-                                                }}
-                                              >
-                                                Remove
-                                              </Button>
-                                            </li>
-                                          ),
-                                        )}
-                                      </ul>
-                                    )}
-                                    <AssignmentBuilderFields
-                                      showUnitSelect={false}
-                                      allUnits={allUnits}
-                                      assignUnitId={assignUnitId}
-                                      setAssignUnitId={setAssignUnitId}
-                                      setAssignId={setAssignId}
-                                      resetToNewAssignment={
-                                        resetToNewAssignment
-                                      }
-                                      assignmentsForUnit={assignmentsForUnit}
-                                      assignId={assignId}
-                                      loadAssignment={loadAssignment}
-                                      assignTitle={assignTitle}
-                                      setAssignTitle={setAssignTitle}
-                                      assignDesc={assignDesc}
-                                      setAssignDesc={setAssignDesc}
-                                      assignPass={assignPass}
-                                      setAssignPass={setAssignPass}
-                                      questions={questions}
-                                      addQuestion={addQuestion}
-                                      updateQuestion={updateQuestion}
-                                      removeQuestion={removeQuestion}
-                                      saveAssignment={saveAssignment}
-                                    />
-                                  </div>
-                                )}
+                                <PrerequisiteDropEditor
+                                  targetUnitId={u._id}
+                                  targetTitle={u.title}
+                                  allUnits={allUnits}
+                                />
                               </div>
                             ) : null}
                           </li>
@@ -1048,6 +1213,7 @@ export default function AdminCoursesClient() {
                           disabled={
                             Boolean(selectedDetailUnitId) && !libraryShowAll
                           }
+                          dropHighlight={dropHighlightUnitId === u._id}
                         >
                           <DraggableUnitPaletteItem
                             unit={u}
@@ -1056,141 +1222,62 @@ export default function AdminCoursesClient() {
                               unitIdsInSelectedCertWhenBrowsingAll?.has(u._id) ??
                               false
                             }
-                            expandDrawerOpen={
-                              unitCentreDrawer?.unitId === u._id
-                            }
+                            expandDrawerOpen={prereqsPanelUnitId === u._id}
                             prerequisiteCount={
                               countsByUnitId.get(u._id)?.prereqCount ?? 0
                             }
                             assignmentCount={
                               countsByUnitId.get(u._id)?.assignmentCount ?? 0
                             }
-                            prereqsDrawerOpen={
-                              unitCentreDrawer?.unitId === u._id &&
-                              unitCentreDrawer.panel === "prereqs"
-                            }
-                            assignmentsDrawerOpen={
-                              unitCentreDrawer?.unitId === u._id &&
-                              unitCentreDrawer.panel === "assignments"
-                            }
+                            prereqsDrawerOpen={prereqsPanelUnitId === u._id}
                             onSelect={() => handleUnitRowClick(u._id)}
                             onEdit={() => openEditUnit(u._id)}
+                            deleteTooltip={
+                              filterCertId &&
+                              u.certificationLevelIds.includes(filterCertId)
+                                ? "Remove from the selected certification only — unit stays in the library"
+                                : "Delete unit permanently from the system"
+                            }
                             onDelete={() => {
+                              if (
+                                filterCertId &&
+                                u.certificationLevelIds.includes(
+                                  filterCertId,
+                                )
+                              ) {
+                                setDetachFromCertUnitId(u._id);
+                                setDetachFromCertOpen(true);
+                                return;
+                              }
                               setUnitDeleteId(u._id);
                               setUnitDeleteOpen(true);
                             }}
                             onOpenPrerequisites={() =>
-                              openUnitCentreDrawer(u._id, "prereqs")
-                            }
-                            onOpenAssignments={() =>
-                              openUnitCentreDrawer(u._id, "assignments")
+                              togglePrereqsUnderRow(u._id)
                             }
                           />
                         </UnitRowContentDropTarget>
-                        {unitCentreDrawer?.unitId === u._id ? (
+                        {prereqsPanelUnitId === u._id ? (
                           <div className="max-h-[min(70vh,560px)] overflow-y-auto rounded-b-lg border border-t-0 border-border bg-card/90 p-3 shadow-inner">
                             <div className="mb-2 flex items-center justify-between gap-2">
                               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {unitCentreDrawer.panel === "prereqs"
-                                  ? "Prerequisites"
-                                  : "Assignments"}
+                                Prerequisites
                               </p>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 text-xs"
-                                onClick={() => setUnitCentreDrawer(null)}
+                                onClick={() => setPrereqsPanelUnitId(null)}
                               >
                                 Close
                               </Button>
                             </div>
-                            {unitCentreDrawer.panel === "prereqs" ? (
-                              <PrerequisiteDropEditor
-                                targetUnitId={u._id}
-                                targetTitle={u.title}
-                                allUnits={allUnits}
-                              />
-                            ) : (
-                              <div className="space-y-3">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-xs text-muted-foreground">
-                                    Tests and quizzes for this unit.
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={resetToNewAssignment}
-                                  >
-                                    <Plus className="h-3.5 w-3.5 mr-1" />
-                                    New assignment
-                                  </Button>
-                                </div>
-                                {(detailAssignments ?? []).length === 0 ? (
-                                  <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
-                                    No assignments yet.
-                                  </p>
-                                ) : (
-                                  <ul className="border rounded-md divide-y max-h-36 overflow-y-auto text-sm">
-                                    {(detailAssignments ?? []).map((a) => (
-                                      <li
-                                        key={a._id}
-                                        className="flex items-center gap-2 px-3 py-2"
-                                      >
-                                        <span className="flex-1 truncate font-medium">
-                                          {a.title}
-                                        </span>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() =>
-                                            loadAssignmentFromRow(a)
-                                          }
-                                        >
-                                          Edit
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-destructive hover:text-destructive"
-                                          onClick={() => {
-                                            setAssignDeleteId(a._id);
-                                            setAssignDeleteOpen(true);
-                                          }}
-                                        >
-                                          Remove
-                                        </Button>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                                <AssignmentBuilderFields
-                                  showUnitSelect={false}
-                                  allUnits={allUnits}
-                                  assignUnitId={assignUnitId}
-                                  setAssignUnitId={setAssignUnitId}
-                                  setAssignId={setAssignId}
-                                  resetToNewAssignment={resetToNewAssignment}
-                                  assignmentsForUnit={assignmentsForUnit}
-                                  assignId={assignId}
-                                  loadAssignment={loadAssignment}
-                                  assignTitle={assignTitle}
-                                  setAssignTitle={setAssignTitle}
-                                  assignDesc={assignDesc}
-                                  setAssignDesc={setAssignDesc}
-                                  assignPass={assignPass}
-                                  setAssignPass={setAssignPass}
-                                  questions={questions}
-                                  addQuestion={addQuestion}
-                                  updateQuestion={updateQuestion}
-                                  removeQuestion={removeQuestion}
-                                  saveAssignment={saveAssignment}
-                                />
-                              </div>
-                            )}
+                            <PrerequisiteDropEditor
+                              targetUnitId={u._id}
+                              targetTitle={u.title}
+                              allUnits={allUnits}
+                            />
                           </div>
                         ) : null}
                       </li>
@@ -1200,11 +1287,23 @@ export default function AdminCoursesClient() {
             </div>
           </div>
 
-          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-sky/40 border-l-4 border-r-4 border-l-brand-sky border-r-brand-sky bg-brand-sky/[0.10] p-4 shadow-lg dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky dark:bg-brand-sky/[0.12]">
+          <div
+            className={cn(
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-sky/[0.10] p-4 shadow-lg dark:bg-brand-sky/[0.12]",
+              selectedDetailUnitId
+                ? "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold"
+                : "border-brand-sky/40 border-l-brand-sky border-r-brand-sky dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky",
+            )}
+          >
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
                 <BookMarked
-                  className="shrink-0 text-brand-sky"
+                  className={cn(
+                    "shrink-0",
+                    selectedDetailUnitId
+                      ? "text-brand-gold"
+                      : "text-brand-sky",
+                  )}
                   size={20}
                   aria-hidden
                 />
@@ -1212,9 +1311,7 @@ export default function AdminCoursesClient() {
                   {selectedDetailUnitId &&
                   selectedDetailUnit &&
                   !libraryShowAll
-                    ? filterUnitTitle
-                      ? `${filterUnitTitle} Content`
-                      : "Content"
+                    ? `Content for ${filterUnitTitle ?? selectedDetailUnit.title}`
                     : "All Content"}
                   <span className="ml-1 text-sm font-normal text-muted-foreground">
                     (
@@ -1239,6 +1336,17 @@ export default function AdminCoursesClient() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
+            {selectedDetailUnitId && filterUnitTitle ? (
+              <button
+                type="button"
+                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-gold/40 bg-brand-gold/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-gold/55 hover:bg-brand-gold/30 dark:bg-brand-gold/15 dark:hover:bg-brand-gold/25"
+                onClick={() => setLibraryShowAll((v) => !v)}
+              >
+                {libraryShowAll
+                  ? `Show ${filterUnitTitle} content`
+                  : "Show all content"}
+              </button>
+            ) : null}
             <div className="mb-1 shrink-0">
               <label
                 htmlFor="admin-content-search"
@@ -1254,33 +1362,35 @@ export default function AdminCoursesClient() {
                 className="h-9 bg-card"
               />
             </div>
-            {selectedDetailUnitId && filterUnitTitle ? (
-              <button
-                type="button"
-                className="mb-1 inline-flex max-w-full items-center rounded-full border border-brand-sky/40 bg-brand-sky/15 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-sky/55 hover:bg-brand-sky/25 dark:bg-brand-sky/12 dark:hover:bg-brand-sky/22"
-                onClick={() => setLibraryShowAll((v) => !v)}
-              >
-                {libraryShowAll
-                  ? `Show ${filterUnitTitle} content`
-                  : "Show all content"}
-              </button>
-            ) : null}
+            <div className="mb-2 flex flex-wrap gap-1">
+              {(
+                [
+                  ["all", "All"],
+                  ["videos", "Videos"],
+                  ["tests", "Tests"],
+                  ["assignments", "Assignments"],
+                  ["decks", "Decks"],
+                  ["references", "References"],
+                ] as const
+              ).map(([id, label]) => (
+                <Button
+                  key={id}
+                  type="button"
+                  size="sm"
+                  variant={contentCategory === id ? "default" : "outline"}
+                  className="h-7 rounded-full px-2.5 text-xs"
+                  onClick={() => setContentCategory(id)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
             <hr className="my-2 shrink-0 border-t border-brand-sky/35 dark:border-brand-sky/25" />
-            {!selectedDetailUnitId || libraryShowAll ? (
+            {(!selectedDetailUnitId || libraryShowAll) ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Drag an item from this list onto a unit in the centre to attach
-                it to that unit.
+                Drag Content onto a Unit to attach it.
               </p>
-            ) : (
-              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Use + to add library content (attached to this unit while it is
-                selected), or{" "}
-                <span className="font-medium text-foreground">
-                  Show all content
-                </span>{" "}
-                to drag from the library onto a unit in the centre column.
-              </p>
-            )}
+            ) : null}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
               {selectedDetailUnitId && unitSelectionResolving ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
@@ -1305,12 +1415,15 @@ export default function AdminCoursesClient() {
                       </p>
                     ) : (
                       <ul className="space-y-1">
-                        {detailContent.map((item) => (
+                        {detailContent
+                          .filter((item) => contentMatchesSearch(item))
+                          .map((item) => (
                           <li
                             key={item.unitContentId ?? `legacy-${item._id}`}
                           >
                             <ContentLibraryDragRow
                               item={item}
+                              noPaletteDrag
                               selected={
                                 Boolean(editContentOpen) &&
                                 editContentId === item._id
@@ -1319,11 +1432,22 @@ export default function AdminCoursesClient() {
                                 setEditContentId(item._id);
                                 setEditUnitContentLinkId(item.unitContentId);
                                 setEditContentTitle(item.title);
-                                setEditContentUrl(item.url);
+                                setEditContentUrl(
+                                  item.type === "test" ||
+                                    item.type === "assignment"
+                                    ? item.assessment?.description ?? ""
+                                    : item.url,
+                                );
                                 setEditContentKind(item.type);
                                 setEditContentOrder(String(item.order));
                                 setEditContentStorageId(
                                   item.storageId ?? null,
+                                );
+                                setEditContentAssessment(
+                                  item.type === "test" ||
+                                    item.type === "assignment"
+                                    ? item.assessment ?? null
+                                    : null,
                                 );
                                 setEditContentOpen(true);
                               }}
@@ -1384,11 +1508,22 @@ export default function AdminCoursesClient() {
                               setEditContentId(item._id);
                               setEditUnitContentLinkId(null);
                               setEditContentTitle(item.title);
-                              setEditContentUrl(item.url);
+                              setEditContentUrl(
+                                item.type === "test" ||
+                                  item.type === "assignment"
+                                  ? item.assessment?.description ?? ""
+                                  : item.url,
+                              );
                               setEditContentKind(item.type);
                               setEditContentOrder(String(item.order ?? 0));
                               setEditContentStorageId(
                                 item.storageId ?? null,
+                              );
+                              setEditContentAssessment(
+                                item.type === "test" ||
+                                  item.type === "assignment"
+                                  ? item.assessment ?? null
+                                  : null,
                               );
                               setEditContentOpen(true);
                             }}
@@ -1418,7 +1553,157 @@ export default function AdminCoursesClient() {
             </div>
           </div>
         </div>
+        <DragOverlay dropAnimation={null}>
+          {dragOverlayUnit ? (
+            <div className="pointer-events-none flex min-w-[220px] max-w-sm cursor-grabbing items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-xl">
+              <span className="flex shrink-0 items-center self-stretch border-r border-border bg-muted/40 px-2 text-muted-foreground">
+                <GripVertical className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1 px-2 py-2">
+                <span className="block truncate font-medium">
+                  {dragOverlayUnit.title}
+                </span>
+              </div>
+            </div>
+          ) : dragOverlayContent ? (
+            <div className="pointer-events-none flex min-w-[220px] max-w-sm cursor-grabbing items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-xl">
+              <span className="flex shrink-0 items-center self-stretch border-r border-border bg-muted/40 px-2 text-muted-foreground">
+                <GripVertical className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1 px-2 py-2">
+                <span className="block truncate font-medium">
+                  {dragOverlayContent.title}
+                </span>
+                <span className="mt-0.5 block truncate text-xs capitalize text-muted-foreground">
+                  {dragOverlayContent.type}
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
+
+      <Dialog
+        open={pendingAddUnitToCert !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingAddUnitToCert(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add unit to certification?</DialogTitle>
+            <DialogDescription>
+              {pendingAddUnitToCertLabels ? (
+                <>
+                  Add{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingAddUnitToCertLabels.unitTitle}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingAddUnitToCertLabels.levelName}
+                  </span>
+                  ?
+                </>
+              ) : (
+                "Confirm adding this unit to the certification."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendingAddUnitToCert(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!pendingAddUnitToCert}
+              onClick={async () => {
+                if (!pendingAddUnitToCert) {
+                  return;
+                }
+                const { unitId, levelId } = pendingAddUnitToCert;
+                try {
+                  await addUnitToLevel({ levelId, unitId });
+                  toast.success("Unit added to certification");
+                  setPendingAddUnitToCert(null);
+                } catch (err) {
+                  toast.error(
+                    err instanceof Error ? err.message : "Failed",
+                  );
+                }
+              }}
+            >
+              Add to certification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pendingAttachContentToUnit !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingAttachContentToUnit(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Attach content to unit?</DialogTitle>
+            <DialogDescription>
+              {pendingAttachContentToUnitLabels ? (
+                <>
+                  Attach{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingAttachContentToUnitLabels.contentTitle}
+                  </span>{" "}
+                  to{" "}
+                  <span className="font-medium text-foreground">
+                    {pendingAttachContentToUnitLabels.unitTitle}
+                  </span>
+                  ?
+                </>
+              ) : (
+                "Confirm attaching this content to the unit."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendingAttachContentToUnit(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!pendingAttachContentToUnit}
+              onClick={async () => {
+                if (!pendingAttachContentToUnit) {
+                  return;
+                }
+                const { contentId, unitId } = pendingAttachContentToUnit;
+                try {
+                  await attachContentToUnit({ unitId, contentId });
+                  toast.success("Attached to unit");
+                  setPendingAttachContentToUnit(null);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed");
+                }
+              }}
+            >
+              Attach
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={addCertOpen} onOpenChange={setAddCertOpen}>
         <DialogContent className="max-w-md">
@@ -1565,13 +1850,27 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addLibraryOpen} onOpenChange={setAddLibraryOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={addLibraryOpen}
+        onOpenChange={(open) => {
+          setAddLibraryOpen(open);
+          if (!open) {
+            setAddLibraryAssessment(null);
+            return;
+          }
+          if (contentKind === "test" || contentKind === "assignment") {
+            setAddLibraryAssessment(createEmptyAssessment());
+          } else {
+            setAddLibraryAssessment(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[min(90dvh,800px)] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add to library</DialogTitle>
             <DialogDescription>
-              Shared content for the library. With a unit selected in the centre
-              column, new items are also attached to that unit.
+              Fields depend on type. If a unit is selected in the centre, new
+              items attach to it.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1588,31 +1887,179 @@ export default function AdminCoursesClient() {
               <Label>Type</Label>
               <Select
                 value={contentKind}
-                onValueChange={(v) =>
-                  setContentKind((v ?? "link") as typeof contentKind)
-                }
+                onValueChange={(v) => {
+                  const k = (v ?? "link") as Doc<"contentItems">["type"];
+                  setContentKind(k);
+                  if (k === "test" || k === "assignment") {
+                    setAddLibraryAssessment((prev) => prev ?? createEmptyAssessment());
+                  } else {
+                    setAddLibraryAssessment(null);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="link">link</SelectItem>
-                  <SelectItem value="video">video</SelectItem>
-                  <SelectItem value="pdf">pdf</SelectItem>
-                  <SelectItem value="slideshow">slideshow</SelectItem>
+                  <SelectItem value="link">Link</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="slideshow">Deck (slideshow)</SelectItem>
+                  <SelectItem value="test">Test</SelectItem>
+                  <SelectItem value="assignment">Assignment</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="add-lib-url">URL(s)</Label>
-              <Textarea
-                id="add-lib-url"
-                placeholder="URL(s)"
-                value={contentUrl}
-                onChange={(e) => setContentUrl(e.target.value)}
-                className="min-h-[72px]"
-              />
-            </div>
+            {contentKind === "test" || contentKind === "assignment" ? (
+              addLibraryAssessment ? (
+                <>
+                  <div className="space-y-1">
+                    <Label htmlFor="add-lib-desc">Description</Label>
+                    <Textarea
+                      id="add-lib-desc"
+                      placeholder="Learner-facing intro (shown before questions)"
+                      value={contentUrl}
+                      onChange={(e) => setContentUrl(e.target.value)}
+                      className="min-h-[72px]"
+                    />
+                  </div>
+                  <div className="max-h-[min(50vh,380px)] space-y-3 overflow-y-auto rounded-md border p-3">
+                    <div className="space-y-2">
+                      <Label>Passing score %</Label>
+                      <Input
+                        type="number"
+                        className="w-24"
+                        value={addLibraryAssessment.passingScore}
+                        onChange={(e) =>
+                          setAddLibraryAssessment({
+                            ...addLibraryAssessment,
+                            passingScore:
+                              Number.parseInt(e.target.value, 10) || 80,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-4 border-t pt-3">
+                      {addLibraryAssessment.questions.map((q, i) => (
+                        <div
+                          key={q.id}
+                          className="space-y-2 border-b pb-3 last:border-0"
+                        >
+                          <div className="flex justify-between gap-2">
+                            <Label>Question {i + 1}</Label>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => removeAddLibraryQuestion(i)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Input
+                            placeholder="Question text"
+                            value={q.question}
+                            onChange={(e) =>
+                              updateAddLibraryQuestion(i, {
+                                question: e.target.value,
+                              })
+                            }
+                          />
+                          <Select
+                            value={q.type}
+                            onValueChange={(v) =>
+                              updateAddLibraryQuestion(i, {
+                                type: (v ?? "multiple_choice") as
+                                  | "multiple_choice"
+                                  | "text",
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="multiple_choice">
+                                Multiple choice
+                              </SelectItem>
+                              <SelectItem value="text">Text</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {q.type === "multiple_choice" ? (
+                            <div className="space-y-2">
+                              {(q.options ?? ["", ""]).map((opt, j) => (
+                                <Input
+                                  key={j}
+                                  placeholder={`Option ${j + 1}`}
+                                  value={opt}
+                                  onChange={(e) => {
+                                    const next = [...(q.options ?? ["", ""])];
+                                    next[j] = e.target.value;
+                                    updateAddLibraryQuestion(i, {
+                                      options: next,
+                                    });
+                                  }}
+                                />
+                              ))}
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  updateAddLibraryQuestion(i, {
+                                    options: [
+                                      ...(q.options ?? ["", ""]),
+                                      "",
+                                    ],
+                                  })
+                                }
+                              >
+                                <Plus className="mr-1 h-4 w-4" />
+                                Add option
+                              </Button>
+                            </div>
+                          ) : null}
+                          <Input
+                            placeholder="Correct answer (exact match, case-insensitive)"
+                            value={q.correctAnswer ?? ""}
+                            onChange={(e) =>
+                              updateAddLibraryQuestion(i, {
+                                correctAnswer: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={addAddLibraryQuestion}
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        Add question
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : null
+            ) : urlFieldForContentKind(contentKind) ? (
+              <div className="space-y-1">
+                <Label htmlFor="add-lib-url">
+                  {urlFieldForContentKind(contentKind)!.label}
+                </Label>
+                <Textarea
+                  id="add-lib-url"
+                  placeholder={
+                    urlFieldForContentKind(contentKind)!.placeholder
+                  }
+                  value={contentUrl}
+                  onChange={(e) => setContentUrl(e.target.value)}
+                  className="min-h-[72px]"
+                />
+              </div>
+            ) : null}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -1630,22 +2077,72 @@ export default function AdminCoursesClient() {
                   return;
                 }
                 try {
-                  const cid = await createContent({
-                    type: contentKind,
-                    title: contentTitle.trim(),
-                    url: contentUrl.trim() || "#",
-                  });
-                  if (selectedDetailUnitId) {
-                    await attachContentToUnit({
-                      unitId: selectedDetailUnitId,
-                      contentId: cid,
+                  const isAsm =
+                    contentKind === "test" || contentKind === "assignment";
+                  if (isAsm) {
+                    if (!addLibraryAssessment) {
+                      toast.error("Assessment data missing");
+                      return;
+                    }
+                    if (!addLibraryAssessment.questions.length) {
+                      toast.error("Add at least one question");
+                      return;
+                    }
+                    const builtQuestions =
+                      addLibraryAssessment.questions.map((q) => ({
+                        id: q.id,
+                        question: q.question,
+                        type: q.type,
+                        options:
+                          q.type === "multiple_choice"
+                            ? (q.options ?? []).filter((o) => o.trim())
+                            : undefined,
+                        correctAnswer:
+                          q.correctAnswer?.trim() || undefined,
+                      }));
+                    const cid = await createContent({
+                      type: contentKind,
+                      title: contentTitle.trim(),
+                      url: "",
+                      assessment: {
+                        ...addLibraryAssessment,
+                        description: contentUrl.trim() || "—",
+                        questions: builtQuestions,
+                      },
                     });
-                    toast.success("Saved to library and attached to unit");
+                    if (selectedDetailUnitId) {
+                      await attachContentToUnit({
+                        unitId: selectedDetailUnitId,
+                        contentId: cid,
+                      });
+                      toast.success("Saved to library and attached to unit");
+                    } else {
+                      toast.success("Saved to library");
+                    }
                   } else {
-                    toast.success("Saved to library");
+                    const urlMeta = urlFieldForContentKind(contentKind);
+                    if (!contentUrl.trim() && urlMeta) {
+                      toast.error(`${urlMeta.label} is required`);
+                      return;
+                    }
+                    const cid = await createContent({
+                      type: contentKind,
+                      title: contentTitle.trim(),
+                      url: contentUrl.trim() || "#",
+                    });
+                    if (selectedDetailUnitId) {
+                      await attachContentToUnit({
+                        unitId: selectedDetailUnitId,
+                        contentId: cid,
+                      });
+                      toast.success("Saved to library and attached to unit");
+                    } else {
+                      toast.success("Saved to library");
+                    }
                   }
                   setContentTitle("");
                   setContentUrl("");
+                  setAddLibraryAssessment(null);
                   setAddLibraryOpen(false);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed");
@@ -1815,14 +2312,16 @@ export default function AdminCoursesClient() {
             setEditContentId(null);
             setEditContentStorageId(null);
             setEditUnitContentLinkId(null);
+            setEditContentAssessment(null);
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[min(90dvh,800px)] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit lesson</DialogTitle>
+            <DialogTitle>Edit content</DialogTitle>
             <DialogDescription>
-              Update title, type, URL, and sort order for this content item.
+              Fields depend on content type. Change type to switch between URL
+              resources and tests/assignments.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1838,30 +2337,197 @@ export default function AdminCoursesClient() {
               <Label>Type</Label>
               <Select
                 value={editContentKind}
-                onValueChange={(v) =>
-                  setEditContentKind((v ?? "link") as typeof editContentKind)
-                }
+                onValueChange={(v) => {
+                  const k = (v ?? "link") as Doc<"contentItems">["type"];
+                  setEditContentKind(k);
+                  if (k === "test" || k === "assignment") {
+                    setEditContentAssessment((prev) => {
+                      const base =
+                        prev ?? {
+                          description: "—",
+                          questions: [],
+                          passingScore: 80,
+                        };
+                      if (base.questions.length === 0) {
+                        return {
+                          ...base,
+                          questions: [
+                            {
+                              id: crypto.randomUUID(),
+                              question: "",
+                              type: "multiple_choice" as const,
+                              options: ["", ""],
+                              correctAnswer: "",
+                            },
+                          ],
+                        };
+                      }
+                      return base;
+                    });
+                  } else {
+                    setEditContentAssessment(null);
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="link">link</SelectItem>
-                  <SelectItem value="video">video</SelectItem>
-                  <SelectItem value="pdf">pdf</SelectItem>
-                  <SelectItem value="slideshow">slideshow</SelectItem>
+                  <SelectItem value="link">Link</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="slideshow">Deck (slideshow)</SelectItem>
+                  <SelectItem value="test">Test</SelectItem>
+                  <SelectItem value="assignment">Assignment</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="ec-url">URL</Label>
-              <Textarea
-                id="ec-url"
-                value={editContentUrl}
-                onChange={(e) => setEditContentUrl(e.target.value)}
-                className="min-h-[72px]"
-              />
-            </div>
+            {editContentKind === "test" ||
+            editContentKind === "assignment" ? (
+              <div className="space-y-1">
+                <Label htmlFor="ec-url">Description</Label>
+                <Textarea
+                  id="ec-url"
+                  placeholder="Learner-facing intro (shown before questions)"
+                  value={editContentUrl}
+                  onChange={(e) => setEditContentUrl(e.target.value)}
+                  className="min-h-[72px]"
+                />
+              </div>
+            ) : urlFieldForContentKind(editContentKind) ? (
+              <div className="space-y-1">
+                <Label htmlFor="ec-url">
+                  {urlFieldForContentKind(editContentKind)!.label}
+                </Label>
+                <Textarea
+                  id="ec-url"
+                  placeholder={
+                    urlFieldForContentKind(editContentKind)!.placeholder
+                  }
+                  value={editContentUrl}
+                  onChange={(e) => setEditContentUrl(e.target.value)}
+                  className="min-h-[72px]"
+                />
+              </div>
+            ) : null}
+            {(editContentKind === "test" ||
+              editContentKind === "assignment") &&
+            editContentAssessment ? (
+              <div className="max-h-[min(55vh,420px)] space-y-3 overflow-y-auto rounded-md border p-3">
+                <div className="space-y-2">
+                  <Label>Passing score %</Label>
+                  <Input
+                    type="number"
+                    className="w-24"
+                    value={editContentAssessment.passingScore}
+                    onChange={(e) =>
+                      setEditContentAssessment({
+                        ...editContentAssessment,
+                        passingScore:
+                          Number.parseInt(e.target.value, 10) || 80,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-4 border-t pt-3">
+                  {editContentAssessment.questions.map((q, i) => (
+                    <div
+                      key={q.id}
+                      className="space-y-2 border-b pb-3 last:border-0"
+                    >
+                      <div className="flex justify-between gap-2">
+                        <Label>Question {i + 1}</Label>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => removeEditContentQuestion(i)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Input
+                        placeholder="Question text"
+                        value={q.question}
+                        onChange={(e) =>
+                          updateEditContentQuestion(i, {
+                            question: e.target.value,
+                          })
+                        }
+                      />
+                      <Select
+                        value={q.type}
+                        onValueChange={(v) =>
+                          updateEditContentQuestion(i, {
+                            type: (v ?? "multiple_choice") as
+                              | "multiple_choice"
+                              | "text",
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="multiple_choice">
+                            Multiple choice
+                          </SelectItem>
+                          <SelectItem value="text">Text</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {q.type === "multiple_choice" ? (
+                        <div className="space-y-2">
+                          {(q.options ?? ["", ""]).map((opt, j) => (
+                            <Input
+                              key={j}
+                              placeholder={`Option ${j + 1}`}
+                              value={opt}
+                              onChange={(e) => {
+                                const next = [...(q.options ?? ["", ""])];
+                                next[j] = e.target.value;
+                                updateEditContentQuestion(i, { options: next });
+                              }}
+                            />
+                          ))}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              updateEditContentQuestion(i, {
+                                options: [...(q.options ?? ["", ""]), ""],
+                              })
+                            }
+                          >
+                            <Plus className="mr-1 h-4 w-4" />
+                            Add option
+                          </Button>
+                        </div>
+                      ) : null}
+                      <Input
+                        placeholder="Correct answer (exact match, case-insensitive)"
+                        value={q.correctAnswer ?? ""}
+                        onChange={(e) =>
+                          updateEditContentQuestion(i, {
+                            correctAnswer: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={addEditContentQuestion}
+                  >
+                    <Plus className="mr-1 h-4 w-4" />
+                    Add question
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <div className="space-y-1">
               <Label htmlFor="ec-order">Order</Label>
               <Input
@@ -1892,13 +2558,53 @@ export default function AdminCoursesClient() {
                     return;
                   }
                   try {
-                    await updateContent({
-                      contentId: editContentId,
-                      title: editContentTitle.trim(),
-                      url: editContentUrl.trim() || "#",
-                      type: editContentKind,
-                      storageId: editContentStorageId ?? undefined,
-                    });
+                    const isAsm =
+                      editContentKind === "test" ||
+                      editContentKind === "assignment";
+                    if (isAsm) {
+                      if (!editContentAssessment) {
+                        toast.error("Assessment data missing");
+                        return;
+                      }
+                      if (!editContentAssessment.questions.length) {
+                        toast.error("Add at least one question");
+                        return;
+                      }
+                      const builtQuestions =
+                        editContentAssessment.questions.map((q) => ({
+                          id: q.id,
+                          question: q.question,
+                          type: q.type,
+                          options:
+                            q.type === "multiple_choice"
+                              ? (q.options ?? []).filter((o) => o.trim())
+                              : undefined,
+                          correctAnswer:
+                            q.correctAnswer?.trim() || undefined,
+                        }));
+                      await updateContent({
+                        contentId: editContentId,
+                        title: editContentTitle.trim(),
+                        url: "",
+                        type: editContentKind,
+                        storageId: editContentStorageId ?? undefined,
+                        assessment: {
+                          ...editContentAssessment,
+                          description:
+                            editContentUrl.trim() ||
+                            editContentAssessment.description,
+                          questions: builtQuestions,
+                        },
+                      });
+                    } else {
+                      await updateContent({
+                        contentId: editContentId,
+                        title: editContentTitle.trim(),
+                        url: editContentUrl.trim() || "#",
+                        type: editContentKind,
+                        storageId: editContentStorageId ?? undefined,
+                      });
+                    }
                     if (editUnitContentLinkId) {
                       await patchUnitContentOrder({
                         unitContentId: editUnitContentLinkId,
@@ -2089,9 +2795,8 @@ export default function AdminCoursesClient() {
                   if (selectedDetailUnitId === unitDeleteId) {
                     setSelectedDetailUnitId(null);
                   }
-                  if (assignUnitId === unitDeleteId) {
-                    setAssignUnitId("");
-                    resetToNewAssignment();
+                  if (prereqsPanelUnitId === unitDeleteId) {
+                    setPrereqsPanelUnitId(null);
                   }
                   toast.success("Unit deleted");
                   setUnitDeleteOpen(false);
@@ -2107,49 +2812,6 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={assignDeleteOpen} onOpenChange={setAssignDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Remove assignment?</DialogTitle>
-            <DialogDescription>
-              Deletes this assessment. Learners&apos; past quiz rows for it are
-              removed as well.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setAssignDeleteOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={!assignDeleteId}
-              onClick={async () => {
-                if (!assignDeleteId) {
-                  return;
-                }
-                try {
-                  await removeAssignment({ assignmentId: assignDeleteId });
-                  if (assignId === assignDeleteId) {
-                    resetToNewAssignment();
-                  }
-                  toast.success("Assignment removed");
-                  setAssignDeleteOpen(false);
-                  setAssignDeleteId(null);
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed");
-                }
-              }}
-            >
-              Remove assignment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       </div>
     </TooltipProvider>
   );

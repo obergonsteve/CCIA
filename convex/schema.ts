@@ -81,18 +81,37 @@ export default defineSchema({
     .index("by_unit", ["unitId"])
     .index("by_prerequisite_unit", ["prerequisiteUnitId"]),
 
-  /** Reusable lesson / reference (attached to one or more units via `unitContents`). */
+  /** Reusable lesson / reference / assessment (attached to units via `unitContents`). */
   contentItems: defineTable({
     type: v.union(
       v.literal("video"),
       v.literal("slideshow"),
       v.literal("link"),
       v.literal("pdf"),
+      v.literal("test"),
+      v.literal("assignment"),
     ),
     title: v.string(),
+    /** Media URL or empty for test/assignment items. */
     url: v.string(),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
+    /** Quiz payload when `type` is test or assignment. */
+    assessment: v.optional(
+      v.object({
+        description: v.string(),
+        questions: v.array(
+          v.object({
+            id: v.string(),
+            question: v.string(),
+            type: v.union(v.literal("multiple_choice"), v.literal("text")),
+            options: v.optional(v.array(v.string())),
+            correctAnswer: v.optional(v.string()),
+          }),
+        ),
+        passingScore: v.number(),
+      }),
+    ),
     /** Legacy (pre–junction table). Remove after migrating or clearing training data. */
     unitId: v.optional(v.id("units")),
     order: v.optional(v.number()),
@@ -134,10 +153,16 @@ export default defineSchema({
 
   testResults: defineTable({
     userId: v.id("users"),
-    assignmentId: v.id("assignments"),
+    /** Legacy rows only (pre–content assessments). */
+    assignmentId: v.optional(v.id("assignments")),
+    /** Content item of type test or assignment. */
+    assessmentContentId: v.optional(v.id("contentItems")),
     score: v.number(),
     answers: v.array(v.any()),
     passed: v.boolean(),
     completedAt: v.number(),
-  }).index("by_user_assignment", ["userId", "assignmentId"]),
+  })
+    .index("by_user_assignment", ["userId", "assignmentId"])
+    .index("by_user_assessment_content", ["userId", "assessmentContentId"])
+    .index("by_assessment_content", ["assessmentContentId"]),
 });

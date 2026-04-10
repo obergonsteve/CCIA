@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
   requireAdminOrCreator,
@@ -64,23 +64,24 @@ export const listCatalogForUser = query({
         .query("certificationUnits")
         .withIndex("by_level", (q) => q.eq("levelId", level._id))
         .collect();
+      links.sort((a, b) => a.order - b.order);
+      const linkedUnitIds = new Set<Id<"units">>();
       const unitsOnLevel: Doc<"units">[] = [];
-      if (links.length > 0) {
-        for (const link of links) {
-          const u = await ctx.db.get(link.unitId);
-          if (u) {
-            unitsOnLevel.push(u);
-          }
-        }
-      } else {
-        const legacy = await ctx.db
-          .query("units")
-          .filter((q) => q.eq(q.field("levelId"), level._id))
-          .collect();
-        for (const u of legacy) {
+      for (const link of links) {
+        const u = await ctx.db.get(link.unitId);
+        if (u) {
+          linkedUnitIds.add(u._id);
           unitsOnLevel.push(u);
         }
       }
+      const legacy = await ctx.db
+        .query("units")
+        .filter((q) => q.eq(q.field("levelId"), level._id))
+        .collect();
+      const legacyOnly = legacy
+        .filter((u) => !linkedUnitIds.has(u._id))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      unitsOnLevel.push(...legacyOnly);
       let lessonCount = 0;
       let assessmentCount = 0;
       for (const u of unitsOnLevel) {
@@ -93,9 +94,26 @@ export const listCatalogForUser = query({
           .query("contentItems")
           .filter((q) => q.eq(q.field("unitId"), u._id))
           .collect();
-        let lessons = uc.length;
+        let lessons = 0;
+        let unitAssessments = 0;
+        for (const link of uc) {
+          const doc = await ctx.db.get(link.contentId);
+          if (!doc) {
+            continue;
+          }
+          if (doc.type === "test" || doc.type === "assignment") {
+            unitAssessments += 1;
+          } else {
+            lessons += 1;
+          }
+        }
         for (const c of legacyAttached) {
-          if (!linkedIds.has(c._id)) {
+          if (linkedIds.has(c._id)) {
+            continue;
+          }
+          if (c.type === "test" || c.type === "assignment") {
+            unitAssessments += 1;
+          } else {
             lessons += 1;
           }
         }
@@ -104,7 +122,7 @@ export const listCatalogForUser = query({
           .filter((q) => q.eq(q.field("unitId"), u._id))
           .collect();
         lessonCount += lessons;
-        assessmentCount += assigns.length;
+        assessmentCount += unitAssessments + assigns.length;
       }
       out.push({
         ...level,

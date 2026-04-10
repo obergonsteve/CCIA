@@ -146,21 +146,29 @@ export const bootstrapDemo = mutation({
       contentId,
       order: 0,
     });
-    await ctx.db.insert("assignments", {
-      unitId,
+    const assessId = await ctx.db.insert("contentItems", {
+      type: "assignment",
       title: "Orientation checkpoint",
-      description: "Confirm you have reviewed the supporting material.",
-      passingScore: 80,
-      questions: [
-        {
-          id: "q1",
-          question:
-            "Operators should stay informed of legislative and industry standards.",
-          type: "multiple_choice",
-          options: ["True", "False"],
-          correctAnswer: "True",
-        },
-      ],
+      url: "",
+      assessment: {
+        description: "Confirm you have reviewed the supporting material.",
+        passingScore: 80,
+        questions: [
+          {
+            id: "q1",
+            question:
+              "Operators should stay informed of legislative and industry standards.",
+            type: "multiple_choice",
+            options: ["True", "False"],
+            correctAnswer: "True",
+          },
+        ],
+      },
+    });
+    await ctx.db.insert("unitContents", {
+      unitId,
+      contentId: assessId,
+      order: 1,
     });
     return { companyId, levelId, unitId };
   },
@@ -208,12 +216,20 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
           order: c.order,
         });
       }
-      await ctx.db.insert("assignments", {
-        unitId,
+      const assessContentId = await ctx.db.insert("contentItems", {
+        type: "assignment",
         title: unit.assignment.title,
-        description: unit.assignment.description,
-        passingScore: unit.assignment.passingScore,
-        questions: unit.assignment.questions,
+        url: "",
+        assessment: {
+          description: unit.assignment.description,
+          passingScore: unit.assignment.passingScore,
+          questions: unit.assignment.questions,
+        },
+      });
+      await ctx.db.insert("unitContents", {
+        unitId,
+        contentId: assessContentId,
+        order: unit.content.length,
       });
     }
   }

@@ -24,11 +24,10 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery } from "convex/react";
 import {
-  ClipboardList,
   GripVertical,
+  Layers,
   Link2,
   Pencil,
-  Plus,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -68,18 +67,14 @@ function UnitRowPereqAssignChips({
   prerequisiteCount,
   assignmentCount,
   prereqsDrawerOpen,
-  assignmentsDrawerOpen,
   onOpenPrerequisites,
-  onOpenAssignments,
 }: {
   prerequisiteCount: number;
   assignmentCount: number;
   prereqsDrawerOpen?: boolean;
-  assignmentsDrawerOpen?: boolean;
   onOpenPrerequisites?: () => void;
-  onOpenAssignments?: () => void;
 }) {
-  if (!onOpenPrerequisites && !onOpenAssignments) {
+  if (!onOpenPrerequisites) {
     return null;
   }
   const chipBtn =
@@ -90,60 +85,48 @@ function UnitRowPereqAssignChips({
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {onOpenPrerequisites ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                chipBtn,
-                prereqsDrawerOpen
-                  ? "border-brand-gold/70 bg-brand-gold/25 text-amber-800 shadow-sm dark:text-amber-200"
-                  : "border-brand-gold/55 bg-background/90 text-amber-600 hover:bg-brand-gold/15 dark:bg-card/80 dark:text-amber-400",
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenPrerequisites();
-              }}
-            >
-              <Link2 className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
-              <span>Prereqs</span>
-              <span className="tabular-nums">{prerequisiteCount}</span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            Prerequisites ({prerequisiteCount}) — other units learners must
-            finish first. Click to expand or collapse.
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
-      {onOpenAssignments ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                chipBtn,
-                assignmentsDrawerOpen
-                  ? "border-brand-sky/70 bg-brand-sky/20 text-sky-800 shadow-sm dark:text-sky-200"
-                  : "border-brand-sky/55 bg-background/90 text-sky-600 hover:bg-brand-sky/12 dark:bg-card/80 dark:text-sky-400",
-              )}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenAssignments();
-              }}
-            >
-              <ClipboardList className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
-              <span>Tests</span>
-              <span className="tabular-nums">{assignmentCount}</span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            Tests ({assignmentCount}) — assignments for this unit. Click to
-            expand or collapse.
-          </TooltipContent>
-        </Tooltip>
-      ) : null}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              chipBtn,
+              prereqsDrawerOpen
+                ? "border-brand-gold/80 bg-brand-gold/25 text-amber-800 shadow-sm dark:text-amber-200"
+                : "border-brand-gold/65 bg-background/90 text-amber-600 hover:bg-brand-gold/15 dark:bg-card/80 dark:text-amber-400",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenPrerequisites();
+            }}
+          >
+            <Link2 className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+            <span>Prereqs</span>
+            <span className="tabular-nums">{prerequisiteCount}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          Prerequisites ({prerequisiteCount}) — other units learners must finish
+          first. Click to expand or collapse.
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className="mt-0.5 inline-flex max-w-full cursor-default items-center gap-1 text-left text-[11px] leading-tight text-muted-foreground"
+            role="status"
+          >
+            <span className="tabular-nums font-semibold text-foreground/85">
+              {assignmentCount}
+            </span>
+            <span>assessment{assignmentCount === 1 ? "" : "s"}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-xs">
+          Tests/assignments attached to this unit. Add or edit in All Content
+          (+ or Edit); drag onto this unit to attach.
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }
@@ -158,12 +141,12 @@ export function DraggableUnitPaletteItem({
   prerequisiteCount = 0,
   assignmentCount = 0,
   prereqsDrawerOpen,
-  assignmentsDrawerOpen,
   onSelect,
   onEdit,
   onDelete,
+  /** Shown on trash hover; reflects whether click opens remove-from-cert vs full delete. */
+  deleteTooltip,
   onOpenPrerequisites,
-  onOpenAssignments,
 }: {
   unit: UnitAdminListRow;
   selected?: boolean;
@@ -172,37 +155,30 @@ export function DraggableUnitPaletteItem({
   prerequisiteCount?: number;
   assignmentCount?: number;
   prereqsDrawerOpen?: boolean;
-  assignmentsDrawerOpen?: boolean;
   onSelect?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  deleteTooltip?: string;
   onOpenPrerequisites?: () => void;
-  onOpenAssignments?: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: `palette-unit:${unit._id}` });
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined;
+  const paletteDragDisabled = Boolean(inSelectedCert);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `palette-unit:${unit._id}`,
+    disabled: paletteDragDisabled,
+  });
   const hasActions = onEdit != null || onDelete != null;
   const { text: descText, show: showDesc } = unitRowDescription(unit);
-  const chips =
-    onOpenPrerequisites || onOpenAssignments ? (
-      <UnitRowPereqAssignChips
-        prerequisiteCount={prerequisiteCount}
-        assignmentCount={assignmentCount}
-        prereqsDrawerOpen={prereqsDrawerOpen}
-        assignmentsDrawerOpen={assignmentsDrawerOpen}
-        onOpenPrerequisites={onOpenPrerequisites}
-        onOpenAssignments={onOpenAssignments}
-      />
-    ) : null;
+  const chips = onOpenPrerequisites ? (
+    <UnitRowPereqAssignChips
+      prerequisiteCount={prerequisiteCount}
+      assignmentCount={assignmentCount}
+      prereqsDrawerOpen={prereqsDrawerOpen}
+      onOpenPrerequisites={onOpenPrerequisites}
+    />
+  ) : null;
   return (
     <div
       ref={setNodeRef}
-      style={style}
       className={cn(
         "group flex min-w-0 items-stretch overflow-hidden border text-sm shadow-sm",
         expandDrawerOpen ? "rounded-t-lg rounded-b-none border-b-0" : "rounded-lg",
@@ -210,17 +186,24 @@ export function DraggableUnitPaletteItem({
         !inSelectedCert && "border-border bg-card",
         !inSelectedCert && selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
         inSelectedCert && selected && ADMIN_LIST_ROW_SELECTED,
-        isDragging && "opacity-70",
+        isDragging && "opacity-40",
       )}
     >
-      <button
-        type="button"
-        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
-        {...listeners}
-        {...attributes}
-      >
-        <GripVertical className="h-3.5 w-3.5" />
-      </button>
+      {paletteDragDisabled ? (
+        <span
+          className="shrink-0 self-stretch w-[26px] border-r border-transparent"
+          aria-hidden
+        />
+      ) : (
+        <button
+          type="button"
+          className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
       {onSelect ? (
         <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
           <button
@@ -299,7 +282,8 @@ export function DraggableUnitPaletteItem({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="left">
-                    Delete unit from the system (all certifications and links)
+                    {deleteTooltip ??
+                      "Delete unit from the system (all certifications and links)"}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -333,8 +317,12 @@ function contentLibrarySubtitle(item: Doc<"contentItems">): string {
       : item.type === "pdf"
         ? "PDF"
         : item.type === "slideshow"
-          ? "Slideshow"
-          : "Link";
+          ? "Deck"
+          : item.type === "test"
+            ? "Test"
+            : item.type === "assignment"
+              ? "Assignment"
+              : "Link";
   const parts: string[] = [typeLabel];
   if (item.duration != null && item.duration > 0) {
     parts.push(`${item.duration} min`);
@@ -346,6 +334,13 @@ function contentLibrarySubtitle(item: Doc<"contentItems">): string {
       /* ignore invalid url */
     }
   }
+  if (
+    (item.type === "test" || item.type === "assignment") &&
+    item.assessment
+  ) {
+    const n = item.assessment.questions.length;
+    parts.push(`${n} question${n === 1 ? "" : "s"}`);
+  }
   return parts.join(" · ");
 }
 
@@ -354,6 +349,8 @@ export function ContentLibraryDragRow({
   selected,
   /** All-content mode + unit selected: item is already attached to that unit (mirrors units-in-cert tint). */
   inSelectedUnit,
+  /** Unit’s “content for …” list only — already on that unit; no drag-to-attach. */
+  noPaletteDrag,
   onEdit,
   onDelete,
 }: {
@@ -361,40 +358,45 @@ export function ContentLibraryDragRow({
   /** Highlights the row (e.g. item open in the edit dialog). */
   selected?: boolean;
   inSelectedUnit?: boolean;
+  noPaletteDrag?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: `palette-content:${item._id}` });
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined;
+  const paletteDragDisabled = Boolean(inSelectedUnit || noPaletteDrag);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `palette-content:${item._id}`,
+    disabled: paletteDragDisabled,
+  });
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
   const hasActions = onEdit != null || onDelete != null;
   return (
     <div
       ref={setNodeRef}
-      style={style}
       className={cn(
         "group flex min-w-0 items-stretch overflow-hidden rounded-lg border text-sm shadow-sm",
         inSelectedUnit && ADMIN_UNIT_PANEL_CONTENT_IN_UNIT_HIGHLIGHT,
         !inSelectedUnit && "border-border bg-card",
         !inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
         inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
-        isDragging && "opacity-70",
+        isDragging && "opacity-40",
       )}
     >
-      <button
-        type="button"
-        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
-        {...listeners}
-        {...attributes}
-      >
-        <GripVertical className="h-3.5 w-3.5" />
-      </button>
+      {paletteDragDisabled ? (
+        <span
+          className="shrink-0 self-stretch w-[26px] border-r border-transparent"
+          aria-hidden
+        />
+      ) : (
+        <button
+          type="button"
+          className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
+          {...listeners}
+          {...attributes}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
         <div className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -450,25 +452,29 @@ export function ContentLibraryDragRow({
 export function UnitRowContentDropTarget({
   unitId,
   disabled,
+  /** When collision resolves to the inner sortable id, parent sets this so the row still highlights. */
+  dropHighlight,
   children,
 }: {
   unitId: Id<"units">;
   /** When set (e.g. a unit is selected for detail), ignore drops here. */
   disabled?: boolean;
+  dropHighlight?: boolean;
   children: ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `unit-content-drop-${unitId}`,
     disabled: Boolean(disabled),
   });
+  const showTarget =
+    !disabled && (isOver || dropHighlight);
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-lg transition-shadow",
-        !disabled &&
-          isOver &&
-          "ring-2 ring-brand-sky/55 ring-offset-2 ring-offset-background",
+        "rounded-lg transition-[box-shadow,background-color] duration-150",
+        showTarget &&
+          "bg-brand-gold/25 shadow-md ring-2 ring-brand-gold ring-offset-2 ring-offset-background dark:bg-brand-gold/20",
       )}
     >
       {children}
@@ -479,20 +485,25 @@ export function UnitRowContentDropTarget({
 /** Drop target for adding a palette unit to a certification (all-units mode). */
 export function LevelRowDroppable({
   levelId,
+  /** When `over` is the sortable cert id, parent sets this so highlight still shows. */
+  dropHighlight,
   children,
 }: {
   levelId: Id<"certificationLevels">;
+  dropHighlight?: boolean;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `level-units-add-${levelId}`,
   });
+  const showTarget = isOver || dropHighlight;
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-md",
-        isOver ? "ring-1 ring-primary ring-offset-1 ring-offset-background" : "",
+        "rounded-lg p-0.5 transition-[box-shadow,background-color] duration-150",
+        showTarget &&
+          "bg-brand-lime/30 shadow-md ring-2 ring-brand-lime ring-offset-2 ring-offset-background dark:bg-brand-lime/25",
       )}
     >
       {children}
@@ -567,12 +578,15 @@ export function ContentOnUnitAdminList({ unitId }: { unitId: Id<"units"> }) {
 export function SortableLevelRow({
   level,
   selected,
+  unitCount,
   onSelect,
   onEdit,
   onDelete,
 }: {
   level: Doc<"certificationLevels">;
   selected: boolean;
+  /** Number of units in this certification; omit while loading. */
+  unitCount?: number;
   onSelect: () => void;
   onEdit?: () => void;
   onDelete: () => void;
@@ -600,12 +614,22 @@ export function SortableLevelRow({
       : "");
   const showShort = Boolean(short);
 
+  const unitChipBtn =
+    "inline-flex shrink-0 items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold leading-none transition-colors";
+
+  const unitCountTooltip =
+    unitCount === undefined
+      ? "Loading unit count. Drag units from the centre column onto this certification to add them."
+      : unitCount === 1
+        ? "1 unit in this certification. Drag units from the centre column onto this certification to add them."
+        : `${unitCount} units in this certification. Drag units from the centre column onto this certification to add them.`;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex items-center overflow-hidden rounded-lg border shadow-sm",
+        "group flex items-stretch overflow-hidden rounded-lg border shadow-sm",
         selected
           ? cn(ADMIN_CERT_PANEL_ROW_HIGHLIGHT, ADMIN_LIST_ROW_SELECTED)
           : "border-border bg-card",
@@ -619,21 +643,46 @@ export function SortableLevelRow({
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
-      <button
-        type="button"
-        className="min-w-0 flex-1 px-0 py-1.5 text-left leading-tight"
-        onClick={onSelect}
-      >
-        <span className="block truncate text-sm font-medium">{level.name}</span>
-        {showShort ? (
-          <span className="mt-0.5 block line-clamp-2 text-[11px] text-muted-foreground">
-            {short}
-          </span>
-        ) : null}
-      </button>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
+        <button
+          type="button"
+          className="min-w-0 text-left leading-tight"
+          onClick={onSelect}
+        >
+          <span className="block truncate text-sm font-medium">{level.name}</span>
+          {showShort ? (
+            <span className="mt-0.5 block line-clamp-2 text-[11px] text-muted-foreground">
+              {short}
+            </span>
+          ) : null}
+        </button>
+        <div
+          className="mt-1 flex min-w-0 flex-row flex-wrap items-center gap-1"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={cn(
+                  unitChipBtn,
+                  "cursor-default border-brand-lime/65 bg-background/90 text-lime-800 dark:bg-card/80 dark:text-lime-300",
+                )}
+              >
+                <Layers className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                <span>Units</span>
+                <span className="tabular-nums">
+                  {unitCount === undefined ? "…" : unitCount}
+                </span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="left">{unitCountTooltip}</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
       <div
         className={cn(
-          "flex h-full shrink-0 flex-col items-center justify-center border-l border-border transition-opacity duration-150 ease-out",
+          "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
           isDragging
             ? "opacity-100"
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
@@ -644,7 +693,7 @@ export function SortableLevelRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 rounded-none"
+            className="h-7 w-7 shrink-0 rounded-none"
             title="Edit certification"
             onClick={(e) => {
               e.stopPropagation();
@@ -675,29 +724,28 @@ export function SortableLevelRow({
 export function SortableUnitRow({
   unit,
   selected,
+  /** No grip / not sortable — e.g. cert-scoped list (units are already on that cert). */
+  disableRowDrag,
   expandDrawerOpen,
   prerequisiteCount = 0,
   assignmentCount = 0,
   prereqsDrawerOpen,
-  assignmentsDrawerOpen,
   onSelect,
   onEdit,
   onRemoveFromCert,
   onOpenPrerequisites,
-  onOpenAssignments,
 }: {
   unit: Doc<"units">;
   selected: boolean;
+  disableRowDrag?: boolean;
   expandDrawerOpen?: boolean;
   prerequisiteCount?: number;
   assignmentCount?: number;
   prereqsDrawerOpen?: boolean;
-  assignmentsDrawerOpen?: boolean;
   onSelect: () => void;
   onEdit: () => void;
   onRemoveFromCert: () => void;
   onOpenPrerequisites?: () => void;
-  onOpenAssignments?: () => void;
 }) {
   const {
     attributes,
@@ -706,24 +754,21 @@ export function SortableUnitRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: unit._id });
+  } = useSortable({ id: unit._id, disabled: Boolean(disableRowDrag) });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.85 : 1,
   };
   const { text: descText, show: showDesc } = unitRowDescription(unit);
-  const chips =
-    onOpenPrerequisites || onOpenAssignments ? (
-      <UnitRowPereqAssignChips
-        prerequisiteCount={prerequisiteCount}
-        assignmentCount={assignmentCount}
-        prereqsDrawerOpen={prereqsDrawerOpen}
-        assignmentsDrawerOpen={assignmentsDrawerOpen}
-        onOpenPrerequisites={onOpenPrerequisites}
-        onOpenAssignments={onOpenAssignments}
-      />
-    ) : null;
+  const chips = onOpenPrerequisites ? (
+    <UnitRowPereqAssignChips
+      prerequisiteCount={prerequisiteCount}
+      assignmentCount={assignmentCount}
+      prereqsDrawerOpen={prereqsDrawerOpen}
+      onOpenPrerequisites={onOpenPrerequisites}
+    />
+  ) : null;
 
   return (
     <div
@@ -735,14 +780,21 @@ export function SortableUnitRow({
         selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
       )}
     >
-      <button
-        type="button"
-        className="shrink-0 cursor-grab self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-3.5 w-3.5" />
-      </button>
+      {disableRowDrag ? (
+        <span
+          className="shrink-0 self-stretch w-[26px] border-r border-transparent"
+          aria-hidden
+        />
+      ) : (
+        <button
+          type="button"
+          className="shrink-0 cursor-grab self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
         <button
           type="button"
@@ -805,214 +857,6 @@ export function SortableUnitRow({
           </TooltipContent>
         </Tooltip>
       </div>
-    </div>
-  );
-}
-
-export type Q = {
-  id: string;
-  question: string;
-  type: "multiple_choice" | "text";
-  options: string[];
-  correctAnswer: string;
-};
-
-export function AssignmentBuilderFields({
-  showUnitSelect,
-  allUnits,
-  assignUnitId,
-  setAssignUnitId,
-  setAssignId,
-  resetToNewAssignment,
-  assignmentsForUnit,
-  assignId,
-  loadAssignment,
-  assignTitle,
-  setAssignTitle,
-  assignDesc,
-  setAssignDesc,
-  assignPass,
-  setAssignPass,
-  questions,
-  addQuestion,
-  updateQuestion,
-  removeQuestion,
-  saveAssignment,
-}: {
-  showUnitSelect: boolean;
-  allUnits: UnitAdminListRow[] | undefined;
-  assignUnitId: string;
-  setAssignUnitId: (v: string) => void;
-  setAssignId: (v: string) => void;
-  resetToNewAssignment: () => void;
-  assignmentsForUnit: Doc<"assignments">[] | undefined;
-  assignId: string;
-  loadAssignment: (id: Id<"assignments">) => void;
-  assignTitle: string;
-  setAssignTitle: (v: string) => void;
-  assignDesc: string;
-  setAssignDesc: (v: string) => void;
-  assignPass: number;
-  setAssignPass: (v: number) => void;
-  questions: Q[];
-  addQuestion: () => void;
-  updateQuestion: (i: number, patch: Partial<Q>) => void;
-  removeQuestion: (i: number) => void;
-  saveAssignment: () => void | Promise<void>;
-}) {
-  return (
-    <div className="space-y-4 max-w-2xl">
-      {showUnitSelect && (
-        <div className="grid gap-2">
-          <Label>Unit</Label>
-          <Select
-            value={assignUnitId}
-            onValueChange={(v) => {
-              setAssignUnitId(v ?? "");
-              setAssignId("");
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select unit" />
-            </SelectTrigger>
-            <SelectContent>
-              {(allUnits ?? []).map((u) => (
-                <SelectItem key={u._id} value={u._id}>
-                  {u.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      {assignUnitId && (assignmentsForUnit?.length ?? 0) > 0 && (
-        <div className="grid gap-2">
-          <Label>Edit existing</Label>
-          <Select
-            value={assignId || "__new__"}
-            onValueChange={(v) => {
-              if (v === "__new__") {
-                resetToNewAssignment();
-                return;
-              }
-              const id = v ?? "";
-              setAssignId(id);
-              loadAssignment(id as Id<"assignments">);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="New assignment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__new__">New assignment</SelectItem>
-              {(assignmentsForUnit ?? []).map((a) => (
-                <SelectItem key={a._id} value={a._id}>
-                  {a.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      <Input
-        placeholder="Assessment title"
-        value={assignTitle}
-        onChange={(e) => setAssignTitle(e.target.value)}
-      />
-      <Textarea
-        placeholder="Description"
-        value={assignDesc}
-        onChange={(e) => setAssignDesc(e.target.value)}
-      />
-      <div className="flex items-center gap-2">
-        <Label className="shrink-0">Passing %</Label>
-        <Input
-          type="number"
-          className="w-24"
-          value={assignPass}
-          onChange={(e) =>
-            setAssignPass(Number.parseInt(e.target.value, 10) || 80)
-          }
-        />
-      </div>
-      <div className="space-y-4 border rounded-md p-3">
-        {questions.map((q, i) => (
-          <div key={q.id} className="space-y-2 border-b pb-3 last:border-0">
-            <div className="flex justify-between gap-2">
-              <Label>Question {i + 1}</Label>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => removeQuestion(i)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-            <Input
-              placeholder="Question text"
-              value={q.question}
-              onChange={(e) => updateQuestion(i, { question: e.target.value })}
-            />
-            <Select
-              value={q.type}
-              onValueChange={(v) =>
-                updateQuestion(i, {
-                  type: (v ?? "multiple_choice") as Q["type"],
-                })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="multiple_choice">Multiple choice</SelectItem>
-                <SelectItem value="text">Text</SelectItem>
-              </SelectContent>
-            </Select>
-            {q.type === "multiple_choice" && (
-              <div className="space-y-2">
-                {q.options.map((opt, j) => (
-                  <Input
-                    key={j}
-                    placeholder={`Option ${j + 1}`}
-                    value={opt}
-                    onChange={(e) => {
-                      const next = [...q.options];
-                      next[j] = e.target.value;
-                      updateQuestion(i, { options: next });
-                    }}
-                  />
-                ))}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    updateQuestion(i, { options: [...q.options, ""] })
-                  }
-                >
-                  Add option
-                </Button>
-              </div>
-            )}
-            <Input
-              placeholder="Correct answer (exact match, case-insensitive)"
-              value={q.correctAnswer}
-              onChange={(e) =>
-                updateQuestion(i, { correctAnswer: e.target.value })
-              }
-            />
-          </div>
-        ))}
-        <Button type="button" variant="secondary" onClick={addQuestion}>
-          <Plus className="h-4 w-4 mr-1" />
-          Add question
-        </Button>
-      </div>
-      <Button type="button" onClick={() => void saveAssignment()}>
-        {assignId ? "Update assignment" : "Create assignment"}
-      </Button>
     </div>
   );
 }
