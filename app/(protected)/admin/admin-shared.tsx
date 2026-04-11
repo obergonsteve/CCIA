@@ -143,6 +143,8 @@ export function DraggableUnitPaletteItem({
   prerequisiteCount = 0,
   assignmentCount = 0,
   prereqsDrawerOpen,
+  /** Resolved from `unitCategories` (short code for the row subtitle). */
+  unitCategoryShortCode,
   onSelect,
   onEdit,
   onDelete,
@@ -159,6 +161,7 @@ export function DraggableUnitPaletteItem({
   prerequisiteCount?: number;
   assignmentCount?: number;
   prereqsDrawerOpen?: boolean;
+  unitCategoryShortCode?: string;
   onSelect?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -219,6 +222,11 @@ export function DraggableUnitPaletteItem({
             onClick={onSelect}
           >
             <span className="block truncate font-medium">{unit.title}</span>
+            {unitCategoryShortCode?.trim() ? (
+              <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-gold/90">
+                {unitCategoryShortCode.trim()}
+              </span>
+            ) : null}
             {showDesc ? (
               <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                 {descText}
@@ -231,6 +239,11 @@ export function DraggableUnitPaletteItem({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
           <div className="leading-tight">
             <span className="block truncate font-medium">{unit.title}</span>
+            {unitCategoryShortCode?.trim() ? (
+              <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-gold/90">
+                {unitCategoryShortCode.trim()}
+              </span>
+            ) : null}
             {showDesc ? (
               <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                 {descText}
@@ -372,6 +385,7 @@ export function ContentLibraryDragRow({
   selected,
   /** All-content mode + unit selected: item is already attached to that unit (mirrors units-in-cert tint). */
   inSelectedUnit,
+  contentCategoryShortCode,
   onEdit,
   onDelete,
 }: {
@@ -379,6 +393,7 @@ export function ContentLibraryDragRow({
   /** Highlights the row (e.g. item open in the edit dialog). */
   selected?: boolean;
   inSelectedUnit?: boolean;
+  contentCategoryShortCode?: string;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
@@ -425,6 +440,11 @@ export function ContentLibraryDragRow({
       )}
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
+        {contentCategoryShortCode?.trim() ? (
+          <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
+            {contentCategoryShortCode.trim()}
+          </div>
+        ) : null}
         <div className="mt-0.5 truncate text-xs text-muted-foreground">
           {subtitle}
         </div>
@@ -486,6 +506,7 @@ export function SortableUnitContentRow({
   dimmed,
   /** When true (e.g. category/search filter on), row is not a drag reorder source. */
   disableDrag,
+  contentCategoryShortCode,
   onEdit,
   onDelete,
 }: {
@@ -493,6 +514,7 @@ export function SortableUnitContentRow({
   selected?: boolean;
   dimmed?: boolean;
   disableDrag?: boolean;
+  contentCategoryShortCode?: string;
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
@@ -525,7 +547,7 @@ export function SortableUnitContentRow({
         type="button"
         title={
           disableDrag
-            ? "Clear search and set category to All to reorder"
+            ? "Clear search and set content category chip to All to reorder"
             : "Drag to reorder lessons on this unit"
         }
         className={cn(
@@ -542,6 +564,11 @@ export function SortableUnitContentRow({
       </button>
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
+        {contentCategoryShortCode?.trim() ? (
+          <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
+            {contentCategoryShortCode.trim()}
+          </div>
+        ) : null}
         <div className="mt-0.5 truncate text-xs text-muted-foreground">
           {subtitle}
         </div>
@@ -784,7 +811,7 @@ export function SortableLevelRow({
       {disableDrag ? (
         <div
           className="flex shrink-0 items-center self-stretch px-1.5 text-muted-foreground/45"
-          title="Clear search to reorder certifications"
+          title="Clear search or category filter to reorder certifications"
         >
           <GripHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden />
         </div>
@@ -886,6 +913,7 @@ export function SortableUnitRow({
   prereqsDrawerOpen,
   /** When true (e.g. search filter on), row is not a drag reorder source. */
   disableDrag,
+  unitCategoryShortCode,
   onSelect,
   onEdit,
   onRemoveFromCert,
@@ -898,6 +926,7 @@ export function SortableUnitRow({
   assignmentCount?: number;
   prereqsDrawerOpen?: boolean;
   disableDrag?: boolean;
+  unitCategoryShortCode?: string;
   onSelect: () => void;
   onEdit: () => void;
   onRemoveFromCert: () => void;
@@ -939,7 +968,7 @@ export function SortableUnitRow({
       {disableDrag ? (
         <div
           className="flex shrink-0 items-center self-stretch px-1.5 text-muted-foreground/45"
-          title="Clear search to reorder units in this certification"
+          title="Clear search or category filter to reorder units in this certification"
         >
           <GripHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden />
         </div>
@@ -961,6 +990,11 @@ export function SortableUnitRow({
           onClick={onSelect}
         >
           <span className="block truncate font-medium">{unit.title}</span>
+          {unitCategoryShortCode?.trim() ? (
+            <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-gold/90">
+              {unitCategoryShortCode.trim()}
+            </span>
+          ) : null}
           {showDesc ? (
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">
               {descText}
@@ -993,7 +1027,7 @@ export function SortableUnitRow({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            Edit unit — title and description
+            Edit unit — title, category, and description
           </TooltipContent>
         </Tooltip>
         <Tooltip>

@@ -1,6 +1,10 @@
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { LAND_LEASE_CURRICULUM, seedUnitKey } from "./curriculumSeedData";
+import {
+  LAND_LEASE_CURRICULUM,
+  seedUnitKey,
+  type SeedContent,
+} from "./curriculumSeedData";
 import { requireAdminOrCreator } from "./lib/auth";
 
 /** bcrypt cost 10 via bcryptjs — hashes for stevemoore / gillmoore (must match `auth.login`). */
@@ -16,6 +20,74 @@ const OPERATOR_COMPANIES = [
   "Peninsula Land Lease Ltd",
   "Aurora Park Communities",
 ] as const;
+
+async function getOrInsertCertCategory(
+  ctx: MutationCtx,
+  shortCode: string,
+  longDescription: string,
+  sortRef: { n: number },
+): Promise<Id<"certificationCategories">> {
+  const code = shortCode.trim();
+  const desc = longDescription.trim() || code;
+  const existing = await ctx.db
+    .query("certificationCategories")
+    .withIndex("by_short_code", (q) => q.eq("shortCode", code))
+    .first();
+  if (existing) {
+    return existing._id;
+  }
+  return await ctx.db.insert("certificationCategories", {
+    shortCode: code,
+    longDescription: desc,
+    sortOrder: sortRef.n++,
+  });
+}
+
+async function getOrInsertUnitCategory(
+  ctx: MutationCtx,
+  shortCode: string,
+  longDescription: string,
+  sortRef: { n: number },
+): Promise<Id<"unitCategories">> {
+  const code = shortCode.trim();
+  const desc = longDescription.trim() || code;
+  const existing = await ctx.db
+    .query("unitCategories")
+    .withIndex("by_short_code", (q) => q.eq("shortCode", code))
+    .first();
+  if (existing) {
+    return existing._id;
+  }
+  return await ctx.db.insert("unitCategories", {
+    shortCode: code,
+    longDescription: desc,
+    sortOrder: sortRef.n++,
+  });
+}
+
+async function getOrInsertContentCategory(
+  ctx: MutationCtx,
+  shortCode: string,
+  longDescription: string,
+  sortRef: { n: number },
+): Promise<Id<"contentCategories">> {
+  const code = shortCode.trim();
+  const desc = longDescription.trim() || code;
+  const existing = await ctx.db
+    .query("contentCategories")
+    .withIndex("by_short_code", (q) => q.eq("shortCode", code))
+    .first();
+  if (existing) {
+    return existing._id;
+  }
+  return await ctx.db.insert("contentCategories", {
+    shortCode: code,
+    longDescription: desc,
+    sortOrder: sortRef.n++,
+  });
+}
+
+const SEED_CONTENT_CATEGORY_ASSESSMENT = "Quizzes & assessments";
 
 /**
  * Idempotent: creates community-operator companies (including CCIA) and two admin users.
@@ -117,8 +189,36 @@ export const bootstrapDemo = mutation({
         : await ctx.db.insert("companies", {
             name: "Demo Land Lease Operator",
           });
+    const certSort = { n: 0 };
+    const unitSort = { n: 0 };
+    const contentSort = { n: 0 };
+    const demoCertCat = await getOrInsertCertCategory(
+      ctx,
+      "Demo & onboarding",
+      "Demo & onboarding — sample certification grouping",
+      certSort,
+    );
+    const demoUnitCat = await getOrInsertUnitCategory(
+      ctx,
+      "Law & compliance basics",
+      "Law & compliance basics — sample unit grouping",
+      unitSort,
+    );
+    const demoContentCatLink = await getOrInsertContentCategory(
+      ctx,
+      "Regulators & web resources",
+      "Regulators & web resources — links and references",
+      contentSort,
+    );
+    const demoContentCatAssess = await getOrInsertContentCategory(
+      ctx,
+      SEED_CONTENT_CATEGORY_ASSESSMENT,
+      "Quizzes & assessments — tests and assignments",
+      contentSort,
+    );
     const levelId = await ctx.db.insert("certificationLevels", {
       name: "Level 1 — Foundations",
+      certificationCategoryId: demoCertCat,
       summary:
         "Introduction to residential land lease community operations in Australia.",
       description:
@@ -130,6 +230,7 @@ export const bootstrapDemo = mutation({
       title: "Compliance orientation",
       description:
         "Key obligations under the Residential (Land Lease) Communities Act and operator duties.",
+      unitCategoryId: demoUnitCat,
     });
     await ctx.db.insert("certificationUnits", {
       levelId,
@@ -140,6 +241,7 @@ export const bootstrapDemo = mutation({
       type: "link",
       title: "NSW Fair Trading — Land lease communities",
       url: "https://www.fairtrading.nsw.gov.au/",
+      contentCategoryId: demoContentCatLink,
     });
     await ctx.db.insert("unitContents", {
       unitId,
@@ -150,6 +252,7 @@ export const bootstrapDemo = mutation({
       type: "assignment",
       title: "Orientation checkpoint",
       url: "",
+      contentCategoryId: demoContentCatAssess,
       assessment: {
         description: "Confirm you have reviewed the supporting material.",
         passingScore: 80,
@@ -176,13 +279,57 @@ export const bootstrapDemo = mutation({
 
 const CURRICULUM_MARKER = "Land Lease 101";
 
+/** Matches admin unit-category chips — one bucket per certification theme. */
+function seededUnitCategoryForCourse(courseName: string): string {
+  switch (courseName) {
+    case "Land Lease 101":
+      return "Foundations & day-to-day";
+    case "Compliance & the Act":
+      return "Law, agreements & disclosure";
+    case "Site Safety & WHS":
+      return "Hazards, controls & contractors";
+    case "Resident Experience & Fair Dealing":
+      return "Communications & complaints";
+    case "Commercials, Fees & Asset Care":
+      return "Fees, transparency & upkeep";
+    default:
+      return "Learning modules";
+  }
+}
+
+/** Matches admin content-category chips — by lesson media type. */
+function seededContentCategoryForLesson(type: SeedContent["type"]): string {
+  switch (type) {
+    case "video":
+      return "Video lessons";
+    case "slideshow":
+      return "Slide decks & walkthroughs";
+    case "link":
+      return "Regulators & web resources";
+    case "pdf":
+      return "PDFs & templates";
+    default:
+      return "Learning resources";
+  }
+}
+
 async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
   const levelIds: Id<"certificationLevels">[] = [];
   const unitIdBySeedKey = new Map<string, Id<"units">>();
+  const certSort = { n: 0 };
+  const unitSort = { n: 0 };
+  const contentSort = { n: 0 };
 
   for (const course of LAND_LEASE_CURRICULUM) {
+    const certCatId = await getOrInsertCertCategory(
+      ctx,
+      course.certificationCategory,
+      `${course.certificationCategory} — ${course.name}`,
+      certSort,
+    );
     const levelId = await ctx.db.insert("certificationLevels", {
       name: course.name,
+      certificationCategoryId: certCatId,
       summary: course.summary,
       description: course.description,
       tagline: course.tagline,
@@ -193,9 +340,17 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
     levelIds.push(levelId);
 
     for (const unit of course.units) {
+      const unitCatLabel = seededUnitCategoryForCourse(course.name);
+      const unitCatId = await getOrInsertUnitCategory(
+        ctx,
+        unitCatLabel,
+        `${unitCatLabel} — units in ${course.name}`,
+        unitSort,
+      );
       const unitId = await ctx.db.insert("units", {
         title: unit.title,
         description: unit.description,
+        unitCategoryId: unitCatId,
       });
       await ctx.db.insert("certificationUnits", {
         levelId,
@@ -204,10 +359,18 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       });
       unitIdBySeedKey.set(seedUnitKey(course.name, unit.title), unitId);
       for (const c of unit.content) {
+        const contentLabel = seededContentCategoryForLesson(c.type);
+        const contentCatId = await getOrInsertContentCategory(
+          ctx,
+          contentLabel,
+          `${contentLabel} — library content`,
+          contentSort,
+        );
         const contentId = await ctx.db.insert("contentItems", {
           type: c.type,
           title: c.title,
           url: c.url,
+          contentCategoryId: contentCatId,
           ...(c.duration !== undefined ? { duration: c.duration } : {}),
         });
         await ctx.db.insert("unitContents", {
@@ -218,10 +381,17 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       }
       let assessOrder = unit.content.length;
       if (unit.test) {
+        const assessCatId = await getOrInsertContentCategory(
+          ctx,
+          SEED_CONTENT_CATEGORY_ASSESSMENT,
+          "Quizzes & assessments — formal checks",
+          contentSort,
+        );
         const testContentId = await ctx.db.insert("contentItems", {
           type: "test",
           title: unit.test.title,
           url: "",
+          contentCategoryId: assessCatId,
           assessment: {
             description: unit.test.description,
             passingScore: unit.test.passingScore,
@@ -235,10 +405,17 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
         });
         assessOrder += 1;
       }
+      const assignCatId = await getOrInsertContentCategory(
+        ctx,
+        SEED_CONTENT_CATEGORY_ASSESSMENT,
+        "Quizzes & assessments — formal checks",
+        contentSort,
+      );
       const assessContentId = await ctx.db.insert("contentItems", {
         type: "assignment",
         title: unit.assignment.title,
         url: "",
+        contentCategoryId: assignCatId,
         assessment: {
           description: unit.assignment.description,
           passingScore: unit.assignment.passingScore,
@@ -336,6 +513,9 @@ export const adminClearTrainingData = mutation({
       assignments: 0,
       units: 0,
       certificationLevels: 0,
+      certificationCategories: 0,
+      unitCategories: 0,
+      contentCategories: 0,
     };
     for (const row of await ctx.db.query("testResults").collect()) {
       await ctx.db.delete(row._id);
@@ -372,6 +552,18 @@ export const adminClearTrainingData = mutation({
     for (const row of await ctx.db.query("certificationLevels").collect()) {
       await ctx.db.delete(row._id);
       counts.certificationLevels += 1;
+    }
+    for (const row of await ctx.db.query("certificationCategories").collect()) {
+      await ctx.db.delete(row._id);
+      counts.certificationCategories += 1;
+    }
+    for (const row of await ctx.db.query("unitCategories").collect()) {
+      await ctx.db.delete(row._id);
+      counts.unitCategories += 1;
+    }
+    for (const row of await ctx.db.query("contentCategories").collect()) {
+      await ctx.db.delete(row._id);
+      counts.contentCategories += 1;
     }
     return { ok: true as const, counts };
   },

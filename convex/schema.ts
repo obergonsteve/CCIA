@@ -38,8 +38,41 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_company", ["companyId"]),
 
+  /** Admin-defined categories for certifications (short code + long description). */
+  certificationCategories: defineTable({
+    shortCode: v.string(),
+    longDescription: v.string(),
+    sortOrder: v.number(),
+  })
+    .index("by_sort", ["sortOrder"])
+    .index("by_short_code", ["shortCode"]),
+
+  /** Admin-defined categories for units. */
+  unitCategories: defineTable({
+    shortCode: v.string(),
+    longDescription: v.string(),
+    sortOrder: v.number(),
+  })
+    .index("by_sort", ["sortOrder"])
+    .index("by_short_code", ["shortCode"]),
+
+  /** Admin-defined categories for library content. */
+  contentCategories: defineTable({
+    shortCode: v.string(),
+    longDescription: v.string(),
+    sortOrder: v.number(),
+  })
+    .index("by_sort", ["sortOrder"])
+    .index("by_short_code", ["shortCode"]),
+
   certificationLevels: defineTable({
     name: v.string(),
+    certificationCategoryId: v.optional(v.id("certificationCategories")),
+    /**
+     * Pre–FK era: free-form chip label. Strip via `migrateLegacyCategories.adminMigrateLegacyCategoryStrings`.
+     */
+    certificationCategory: v.optional(v.string()),
+    certificationCategoryShortDescription: v.optional(v.string()),
     /** Short summary for lists, admin rows, and card previews */
     summary: v.optional(v.string()),
     /** Long-form detail (level page, full catalog context) */
@@ -52,17 +85,23 @@ export default defineSchema({
     companyId: v.optional(v.id("companies")),
     /** Set when “deleted” — row retained, hidden from UI. */
     deletedAt: v.optional(v.number()),
-  }).index("by_company", ["companyId"]),
+  })
+    .index("by_company", ["companyId"])
+    .index("by_certification_category", ["certificationCategoryId"]),
 
   units: defineTable({
     title: v.string(),
     description: v.string(),
+    unitCategoryId: v.optional(v.id("unitCategories")),
+    /** Pre–FK era; strip via `migrateLegacyCategories.adminMigrateLegacyCategoryStrings`. */
+    unitCategory: v.optional(v.string()),
+    unitCategoryShortDescription: v.optional(v.string()),
     /** Legacy (pre–junction table). Remove after migrating or clearing training data. */
     levelId: v.optional(v.id("certificationLevels")),
     order: v.optional(v.number()),
     /** Set when “deleted” — row retained, hidden from UI. */
     deletedAt: v.optional(v.number()),
-  }),
+  }).index("by_unit_category", ["unitCategoryId"]),
 
   /**
    * Associates a reusable unit with a certification track. `order` is scoped to that certification.
@@ -96,6 +135,10 @@ export default defineSchema({
       v.literal("assignment"),
     ),
     title: v.string(),
+    contentCategoryId: v.optional(v.id("contentCategories")),
+    /** Pre–FK era; strip via `migrateLegacyCategories.adminMigrateLegacyCategoryStrings`. */
+    contentCategory: v.optional(v.string()),
+    contentCategoryShortDescription: v.optional(v.string()),
     /** Media URL or empty for test/assignment items. */
     url: v.string(),
     storageId: v.optional(v.id("_storage")),
@@ -121,7 +164,7 @@ export default defineSchema({
     order: v.optional(v.number()),
     /** Set when “deleted” — row retained, hidden from UI. */
     deletedAt: v.optional(v.number()),
-  }),
+  }).index("by_content_category", ["contentCategoryId"]),
 
   /** Content order within a specific unit (many-to-many link). */
   unitContents: defineTable({

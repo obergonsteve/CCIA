@@ -50,6 +50,8 @@ export function seedUnitKey(courseName: string, unitTitle: string) {
 
 export type SeedCourse = {
   name: string;
+  /** Admin courses board: groups this certification with related tracks (filter chips). */
+  certificationCategory: string;
   /** Short summary for cards and lists (distinct from full description). */
   summary: string;
   tagline: string;
@@ -78,6 +80,7 @@ function slideDeck(): string {
 export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   {
     name: "Land Lease 101",
+    certificationCategory: "Orientation & foundations",
     summary:
       "How land lease communities work in Australia — sites, homes, charges, and operator roles.",
     tagline: "Start here — foundations for new managers",
@@ -311,6 +314,7 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Compliance & the Act",
+    certificationCategory: "Orientation & foundations",
     summary:
       "Statutory duties, disclosure, and records that stand up to scrutiny under Australian land lease law themes.",
     tagline: "Rules, records, and home-site agreements",
@@ -535,6 +539,7 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Site Safety & WHS",
+    certificationCategory: "Operations & safety",
     summary:
       "Practical WHS for shared roads, amenities, worksites, and emergencies on occupied communities.",
     tagline: "Hazards, contractors, and resident wellbeing",
@@ -740,6 +745,7 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Resident Experience & Fair Dealing",
+    certificationCategory: "Residents & experience",
     summary:
       "Communication, complaints, and fair dealing — the human side of compliant operations.",
     tagline: "Communication, complaints, and trust",
@@ -930,6 +936,7 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
   },
   {
     name: "Commercials, Fees & Asset Care",
+    certificationCategory: "Commercial & assets",
     summary:
       "Recurrent charges, reserves, and explaining value — keeping the community financially sustainable.",
     tagline: "Budgets, transparency, and sustainable upkeep",

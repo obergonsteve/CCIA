@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {href === "/certifications" &&
                 certificationLevels &&
                 certificationLevels.length > 0 && (
-                  <ul className="space-y-0.5 pl-2 border-l border-brand-gold/35 ml-3">
+                  <ul className="space-y-0.5 border-l-2 border-brand-gold/35 pl-2 ml-3">
                     {certificationLevels.map((level) => {
                       const levelPath = `/certifications/${level._id}`;
                       const active =
@@ -172,7 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2 text-[15px] text-sidebar-foreground hover:bg-white/10"
+          className="w-full justify-start gap-2 text-[15px] text-brand-gold hover:bg-white/10 hover:!text-brand-gold"
           onClick={() => void logout()}
         >
           <LogOut className="h-[18px] w-[18px]" />

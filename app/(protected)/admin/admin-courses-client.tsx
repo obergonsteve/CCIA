@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AdminCategoryCrudSection } from "@/components/admin/admin-category-crud-section";
 import {
   closestCenter,
   DndContext,
@@ -53,18 +54,190 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
+import {
+  ContentLibraryDragRow,
+  DraggableUnitPaletteItem,
+  LevelRowDroppable,
+  libraryContentDisplayTitle,
+  SortableLevelRow,
+  SortableUnitContentRow,
+  SortableUnitRow,
+  UnitRowContentDropTarget,
+  type UnitAdminListRow,
+} from "./admin-shared";
 
-type ContentCategoryFilter =
-  | "all"
-  | "videos"
-  | "tests"
-  | "assignments"
-  | "decks"
-  | "references";
+/** Radix Select sentinel — no category on entity. */
+const CATEGORY_SELECT_NONE = "__none__" as const;
+
+/** Filter chip second line: only when long text differs from short code (migration often duplicated the legacy label). */
+function categoryChipSubtitle(
+  longDescription: string,
+  shortCode: string,
+): string | undefined {
+  const long = longDescription.trim();
+  const short = shortCode.trim();
+  if (!long) {
+    return undefined;
+  }
+  if (long.localeCompare(short, undefined, { sensitivity: "accent" }) === 0) {
+    return undefined;
+  }
+  return long;
+}
+
+/** Category dropdown row: short code plus long text when they differ. */
+function categorySelectLabel(shortCode: string, longDescription: string): string {
+  const sub = categoryChipSubtitle(longDescription, shortCode);
+  return sub ? `${shortCode.trim()} — ${sub}` : shortCode.trim();
+}
+
+/** Closed-trigger + `itemToStringLabel`: show category short code (FK stays in `value`). */
+function categoryTriggerLabel(shortCode: string): string {
+  return shortCode.trim();
+}
+
+/**
+ * Base UI Select shows the raw `value` string when it does not match any `SelectItem`
+ * (e.g. Convex id before `listAdmin` resolves). Never pass an orphan id as `value`.
+ */
+function filterCategorySelectValue(
+  value: "all" | string,
+  categories: { _id: string }[],
+): "all" | string {
+  if (value === "all") {
+    return "all";
+  }
+  return categories.some((c) => c._id === value) ? value : "all";
+}
+
+function entityCategorySelectValue(
+  stored: string,
+  noneToken: string,
+  rows: { _id: string }[],
+): string {
+  if (stored === noneToken) {
+    return noneToken;
+  }
+  return rows.some((r) => r._id === stored) ? stored : noneToken;
+}
+
+/**
+ * Base UI `Select.Root`: when `items` is not passed, `Select.Value` uses `itemToStringLabel(value)`
+ * for the closed trigger. Without this, the trigger shows the raw Convex id.
+ */
+function categorySelectItemToStringLabel(
+  rows: { _id: string; shortCode: string }[] | undefined,
+  options: {
+    noneLabel: string;
+    noneToken?: string;
+    allToken?: string;
+    allLabel?: string;
+  },
+): (value: string | null) => string {
+  const {
+    noneLabel,
+    noneToken = CATEGORY_SELECT_NONE,
+    allToken,
+    allLabel,
+  } = options;
+  return (value) => {
+    if (value == null) {
+      return noneLabel;
+    }
+    const v = String(value);
+    if (allToken != null && v === allToken) {
+      return allLabel ?? v;
+    }
+    if (v === noneToken) {
+      return noneLabel;
+    }
+    if (!rows?.length) {
+      return "…";
+    }
+    const row = rows.find((r) => r._id === v);
+    return row ? categoryTriggerLabel(row.shortCode) : "…";
+  };
+}
+
+/** List-column filter: same rows as category CRUD / edit dialogs (`listAdmin`), not ad-hoc chips. */
+function AdminCategoryFilterSelect({
+  htmlId,
+  label,
+  value,
+  onValueChange,
+  categories,
+}: {
+  htmlId: string;
+  label: string;
+  value: "all" | string;
+  onValueChange: (v: string) => void;
+  categories:
+    | { _id: string; shortCode: string; longDescription: string }[]
+    | undefined;
+}) {
+  if (categories === undefined) {
+    return (
+      <div className="mb-2 space-y-1">
+        <Label
+          htmlFor={htmlId}
+          className="text-xs font-medium text-muted-foreground"
+        >
+          {label}
+        </Label>
+        <div
+          id={htmlId}
+          aria-busy="true"
+          className="flex h-9 w-full max-w-full items-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/25 px-3 text-xs text-muted-foreground"
+        >
+          Loading categories…
+        </div>
+      </div>
+    );
+  }
+  const selectValue = filterCategorySelectValue(value, categories);
+  return (
+    <div className="mb-2 space-y-1">
+      <Label
+        htmlFor={htmlId}
+        className="text-xs font-medium text-muted-foreground"
+      >
+        {label}
+      </Label>
+      <Select
+        value={selectValue}
+        onValueChange={(v) => onValueChange(v ?? "all")}
+        itemToStringLabel={categorySelectItemToStringLabel(categories, {
+          noneLabel: "All categories",
+          allToken: "all",
+          allLabel: "All categories",
+        })}
+      >
+        <SelectTrigger id={htmlId} className="h-9 w-full max-w-full bg-card">
+          <SelectValue placeholder="All categories" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all" label="All categories">
+            All categories
+          </SelectItem>
+          {categories.map((c) => (
+            <SelectItem
+              key={c._id}
+              value={c._id}
+              label={categoryTriggerLabel(c.shortCode)}
+            >
+              {categorySelectLabel(c.shortCode, c.longDescription)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 type ContentDeleteDialogTarget =
   | {
@@ -130,44 +303,6 @@ function urlFieldForContentKind(kind: Doc<"contentItems">["type"]): {
       return null;
   }
 }
-
-function contentItemMatchesCategory(
-  item: Doc<"contentItems">,
-  cat: ContentCategoryFilter,
-): boolean {
-  if (cat === "all") {
-    return true;
-  }
-  if (cat === "videos") {
-    return item.type === "video";
-  }
-  if (cat === "tests") {
-    return item.type === "test";
-  }
-  if (cat === "assignments") {
-    return item.type === "assignment";
-  }
-  if (cat === "decks") {
-    return item.type === "slideshow";
-  }
-  if (cat === "references") {
-    return item.type === "link" || item.type === "pdf";
-  }
-  return true;
-}
-
-import {
-  ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
-  ContentLibraryDragRow,
-  DraggableUnitPaletteItem,
-  LevelRowDroppable,
-  libraryContentDisplayTitle,
-  SortableLevelRow,
-  SortableUnitContentRow,
-  SortableUnitRow,
-  UnitRowContentDropTarget,
-  type UnitAdminListRow,
-} from "./admin-shared";
 
 /** Prefer pointer-inside droppables so cross-column unit → certification drops register reliably. */
 const coursesDndCollision: CollisionDetection = (args) => {
@@ -264,10 +399,14 @@ function TrainingColumnChip({
   tone,
   label,
   count,
+  /** Extra content between title and count (e.g. units scope + icon). */
+  trailing,
 }: {
   tone: "lime" | "gold" | "sky";
-  label: string;
+  /** Omit or leave empty to show only `trailing` + count (all three columns use `trailing` + icon). */
+  label?: string;
   count: number | null;
+  trailing?: ReactNode;
 }) {
   const skin = {
     lime: "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]",
@@ -278,11 +417,18 @@ function TrainingColumnChip({
     <div className="relative z-10 -mt-3 mb-1 flex w-full shrink-0 justify-center border-b border-border/40 pb-1">
       <span
         className={cn(
-          "inline-flex max-w-full items-center gap-2 rounded-full border px-3.5 py-1 text-sm font-semibold leading-none shadow-sm",
+          "inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border px-3.5 py-1 text-[13px] font-bold leading-tight shadow-sm",
           skin,
         )}
       >
-        <span className="truncate">{label}</span>
+        {label?.trim() ? (
+          <span className="shrink-0">{label.trim()}</span>
+        ) : null}
+        {trailing != null ? (
+          <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-center">
+            {trailing}
+          </span>
+        ) : null}
         <span className="shrink-0 tabular-nums rounded-md bg-background px-1.5 py-0.5 text-xs font-bold leading-none text-foreground dark:bg-muted">
           {count === null ? "…" : count}
         </span>
@@ -317,9 +463,11 @@ export default function AdminCoursesClient() {
   const patchLegacyContentOrder = useMutation(api.content.patchLegacyContentOrder);
   const reorderContentOnUnit = useMutation(api.content.reorderContentOnUnit);
   const allLibraryContent = useQuery(api.content.listAllAdmin);
+  const certCategories = useQuery(api.certificationCategories.listAdmin);
+  const unitCategories = useQuery(api.unitCategories.listAdmin);
+  const contentCategories = useQuery(api.contentCategories.listAdmin);
   const deleteCertificationLevel = useMutation(api.certifications.remove);
   const deleteUnit = useMutation(api.units.remove);
-
   /** Certification chosen in the edit dialog or delete confirmation. */
   const [editCertId, setEditCertId] =
     useState<Id<"certificationLevels"> | null>(null);
@@ -380,15 +528,28 @@ export default function AdminCoursesClient() {
     useState<Id<"contentItems">[] | null>(null);
 
   const [certSearch, setCertSearch] = useState("");
+  /** Certifications column: filter list by admin-defined category (chips). */
+  const [certCategoryFilter, setCertCategoryFilter] = useState<"all" | string>(
+    "all",
+  );
   const [unitSearch, setUnitSearch] = useState("");
+  /** Units column: filter list by admin-defined category (chips). */
+  const [unitCategoryFilter, setUnitCategoryFilter] = useState<"all" | string>(
+    "all",
+  );
   const [contentSearch, setContentSearch] = useState("");
-  const [contentCategory, setContentCategory] =
-    useState<ContentCategoryFilter>("all");
+  /** Content / library column: filter by admin-defined content category (chips). */
+  const [contentLibraryCategoryFilter, setContentLibraryCategoryFilter] =
+    useState<"all" | string>("all");
 
   const [levelName, setLevelName] = useState("");
+  const [levelCertCategorySelect, setLevelCertCategorySelect] =
+    useState<string>(CATEGORY_SELECT_NONE);
   const [levelSummary, setLevelSummary] = useState("");
   const [levelDesc, setLevelDesc] = useState("");
   const [certDetailName, setCertDetailName] = useState("");
+  const [certDetailCertCategorySelect, setCertDetailCertCategorySelect] =
+    useState<string>(CATEGORY_SELECT_NONE);
   const [certDetailSummary, setCertDetailSummary] = useState("");
   const [certDetailDesc, setCertDetailDesc] = useState("");
   const [certDetailTagline, setCertDetailTagline] = useState("");
@@ -410,13 +571,19 @@ export default function AdminCoursesClient() {
   const [editContentOrder, setEditContentOrder] = useState("0");
   const [editContentStorageId, setEditContentStorageId] =
     useState<Id<"_storage"> | null>(null);
+  const [editContentCategorySelect, setEditContentCategorySelect] =
+    useState<string>(CATEGORY_SELECT_NONE);
 
   const [unitTitle, setUnitTitle] = useState("");
+  const [newUnitCategorySelect, setNewUnitCategorySelect] =
+    useState<string>(CATEGORY_SELECT_NONE);
   const [unitDesc, setUnitDesc] = useState("");
   const [editUnitOpen, setEditUnitOpen] = useState(false);
   const [editUnitId, setEditUnitId] = useState<Id<"units"> | null>(null);
   const [editUnitTitle, setEditUnitTitle] = useState("");
   const [editUnitDesc, setEditUnitDesc] = useState("");
+  const [editUnitCategorySelect, setEditUnitCategorySelect] =
+    useState<string>(CATEGORY_SELECT_NONE);
 
   const [certDeleteOpen, setCertDeleteOpen] = useState(false);
   const [certDeleteId, setCertDeleteId] = useState<
@@ -432,6 +599,8 @@ export default function AdminCoursesClient() {
   const [editUnitContentLinkId, setEditUnitContentLinkId] =
     useState<Id<"unitContents"> | null>(null);
   const [contentTitle, setContentTitle] = useState("");
+  const [newLibraryContentCategorySelect, setNewLibraryContentCategorySelect] =
+    useState<string>(CATEGORY_SELECT_NONE);
   const [contentUrl, setContentUrl] = useState("");
   const [contentKind, setContentKind] = useState<Doc<"contentItems">["type"]>(
     "link",
@@ -466,6 +635,76 @@ export default function AdminCoursesClient() {
     }
     return m;
   }, [unitPrereqAssignCounts]);
+
+  const certCategoryMetaById = useMemo(() => {
+    const m = new Map<
+      Id<"certificationCategories">,
+      { shortCode: string; longDescription: string }
+    >();
+    for (const c of certCategories ?? []) {
+      m.set(c._id, {
+        shortCode: c.shortCode,
+        longDescription: c.longDescription,
+      });
+    }
+    return m;
+  }, [certCategories]);
+
+  const unitCategoryMetaById = useMemo(() => {
+    const m = new Map<
+      Id<"unitCategories">,
+      { shortCode: string; longDescription: string }
+    >();
+    for (const c of unitCategories ?? []) {
+      m.set(c._id, {
+        shortCode: c.shortCode,
+        longDescription: c.longDescription,
+      });
+    }
+    return m;
+  }, [unitCategories]);
+
+  const contentCategoryMetaById = useMemo(() => {
+    const m = new Map<
+      Id<"contentCategories">,
+      { shortCode: string; longDescription: string }
+    >();
+    for (const c of contentCategories ?? []) {
+      m.set(c._id, {
+        shortCode: c.shortCode,
+        longDescription: c.longDescription,
+      });
+    }
+    return m;
+  }, [contentCategories]);
+
+  useEffect(() => {
+    if (!selectedDetailUnitId || unitCategoryFilter === "all") {
+      return;
+    }
+    const u = allUnits?.find((x) => x._id === selectedDetailUnitId);
+    if (!u) {
+      return;
+    }
+    const catId = u.unitCategoryId ?? "";
+    if (catId === unitCategoryFilter) {
+      return;
+    }
+    const meta = unitCategoryMetaById.get(
+      unitCategoryFilter as Id<"unitCategories">,
+    );
+    const legacy = u.unitCategory?.trim() ?? "";
+    if (meta && legacy === meta.shortCode) {
+      return;
+    }
+    setSelectedDetailUnitId(null);
+    setPrereqsPanelUnitId(null);
+  }, [
+    selectedDetailUnitId,
+    allUnits,
+    unitCategoryFilter,
+    unitCategoryMetaById,
+  ]);
 
   const unitCountByLevelId = useMemo(() => {
     const m = new Map<Id<"certificationLevels">, number>();
@@ -508,14 +747,43 @@ export default function AdminCoursesClient() {
       if (!certSearchLower) {
         return true;
       }
+      const catMeta = l.certificationCategoryId
+        ? certCategoryMetaById.get(l.certificationCategoryId)
+        : undefined;
+      const legacyCat = (l.certificationCategory?.trim() ?? "").toLowerCase();
+      const catHay = [
+        catMeta?.shortCode ?? "",
+        catMeta?.longDescription ?? "",
+        legacyCat,
+      ]
+        .join(" ")
+        .toLowerCase();
       return (
         l.name.toLowerCase().includes(certSearchLower) ||
         l.description.toLowerCase().includes(certSearchLower) ||
         (l.summary?.toLowerCase().includes(certSearchLower) ?? false) ||
-        (l.tagline?.toLowerCase().includes(certSearchLower) ?? false)
+        (l.tagline?.toLowerCase().includes(certSearchLower) ?? false) ||
+        (catHay.trim().length > 0 && catHay.includes(certSearchLower))
       );
     },
-    [certSearchLower],
+    [certSearchLower, certCategoryMetaById],
+  );
+
+  const levelMatchesCategoryChip = useCallback(
+    (l: Doc<"certificationLevels">) => {
+      if (certCategoryFilter === "all") {
+        return true;
+      }
+      if ((l.certificationCategoryId ?? "") === certCategoryFilter) {
+        return true;
+      }
+      const meta = certCategoryMetaById.get(
+        certCategoryFilter as Id<"certificationCategories">,
+      );
+      const legacy = l.certificationCategory?.trim() ?? "";
+      return Boolean(meta && legacy === meta.shortCode);
+    },
+    [certCategoryFilter, certCategoryMetaById],
   );
 
   const unitMatchesSearch = useCallback(
@@ -523,23 +791,71 @@ export default function AdminCoursesClient() {
       title: string;
       description: string;
       certificationSummary?: string;
+      unitCategoryId?: Id<"unitCategories">;
+      unitCategory?: string;
     }) => {
       if (!unitSearchLower) {
         return true;
       }
       const summary = (u.certificationSummary ?? "").toLowerCase();
+      const catMeta = u.unitCategoryId
+        ? unitCategoryMetaById.get(u.unitCategoryId)
+        : undefined;
+      const legacy = (u.unitCategory?.trim() ?? "").toLowerCase();
+      const catHay = [
+        catMeta?.shortCode ?? "",
+        catMeta?.longDescription ?? "",
+        legacy,
+      ]
+        .join(" ")
+        .toLowerCase();
       return (
         u.title.toLowerCase().includes(unitSearchLower) ||
         u.description.toLowerCase().includes(unitSearchLower) ||
-        summary.includes(unitSearchLower)
+        summary.includes(unitSearchLower) ||
+        (catHay.trim().length > 0 && catHay.includes(unitSearchLower))
       );
     },
-    [unitSearchLower],
+    [unitSearchLower, unitCategoryMetaById],
+  );
+
+  const unitMatchesCategoryChip = useCallback(
+    (u: { unitCategoryId?: Id<"unitCategories">; unitCategory?: string }) => {
+      if (unitCategoryFilter === "all") {
+        return true;
+      }
+      if ((u.unitCategoryId ?? "") === unitCategoryFilter) {
+        return true;
+      }
+      const meta = unitCategoryMetaById.get(
+        unitCategoryFilter as Id<"unitCategories">,
+      );
+      const legacy = u.unitCategory?.trim() ?? "";
+      return Boolean(meta && legacy === meta.shortCode);
+    },
+    [unitCategoryFilter, unitCategoryMetaById],
+  );
+
+  const contentMatchesLibraryCategoryChip = useCallback(
+    (item: Doc<"contentItems">) => {
+      if (contentLibraryCategoryFilter === "all") {
+        return true;
+      }
+      if ((item.contentCategoryId ?? "") === contentLibraryCategoryFilter) {
+        return true;
+      }
+      const meta = contentCategoryMetaById.get(
+        contentLibraryCategoryFilter as Id<"contentCategories">,
+      );
+      const legacy = item.contentCategory?.trim() ?? "";
+      return Boolean(meta && legacy === meta.shortCode);
+    },
+    [contentLibraryCategoryFilter, contentCategoryMetaById],
   );
 
   const contentMatchesSearch = useCallback(
     (item: Doc<"contentItems">) => {
-      if (!contentItemMatchesCategory(item, contentCategory)) {
+      if (!contentMatchesLibraryCategoryChip(item)) {
         return false;
       }
       if (!contentSearchLower) {
@@ -551,20 +867,58 @@ export default function AdminCoursesClient() {
         item.type !== "test" && item.type !== "assignment"
           ? (item.url ?? "").toLowerCase()
           : "";
+      const catMeta = item.contentCategoryId
+        ? contentCategoryMetaById.get(item.contentCategoryId)
+        : undefined;
+      const legacy = (item.contentCategory?.trim() ?? "").toLowerCase();
+      const catHay = [
+        catMeta?.shortCode ?? "",
+        catMeta?.longDescription ?? "",
+        legacy,
+      ]
+        .join(" ")
+        .toLowerCase();
       return (
         item.title.toLowerCase().includes(q) ||
         displayTitle.includes(q) ||
         item.type.toLowerCase().includes(q) ||
         (urlHaystack.length > 0 && urlHaystack.includes(q)) ||
-        (item.assessment?.description?.toLowerCase().includes(q) ?? false)
+        (item.assessment?.description?.toLowerCase().includes(q) ?? false) ||
+        (catHay.trim().length > 0 && catHay.includes(q))
       );
     },
-    [contentSearchLower, contentCategory],
+    [
+      contentSearchLower,
+      contentMatchesLibraryCategoryChip,
+      contentCategoryMetaById,
+    ],
   );
 
   useEffect(() => {
     setSelectedDetailUnitId(null);
   }, [filterCertId]);
+
+  useEffect(() => {
+    if (!filterCertId || !levels?.length || certCategoryFilter === "all") {
+      return;
+    }
+    const level = levels.find((l) => l._id === filterCertId);
+    if (!level) {
+      return;
+    }
+    const catId = level.certificationCategoryId ?? "";
+    if (catId === certCategoryFilter) {
+      return;
+    }
+    const meta = certCategoryMetaById.get(
+      certCategoryFilter as Id<"certificationCategories">,
+    );
+    const legacy = level.certificationCategory?.trim() ?? "";
+    if (meta && legacy === meta.shortCode) {
+      return;
+    }
+    setFilterCertId(null);
+  }, [filterCertId, levels, certCategoryFilter, certCategoryMetaById]);
 
   const detailContent = useQuery(
     api.content.listByUnit,
@@ -787,6 +1141,9 @@ export default function AdminCoursesClient() {
       return;
     }
     setCertDetailName(selectedCert.name);
+    setCertDetailCertCategorySelect(
+      selectedCert.certificationCategoryId ?? CATEGORY_SELECT_NONE,
+    );
     setCertDetailSummary(selectedCert.summary ?? "");
     setCertDetailDesc(selectedCert.description);
     setCertDetailTagline(selectedCert.tagline ?? "");
@@ -868,8 +1225,50 @@ export default function AdminCoursesClient() {
     setEditUnitId(uid);
     setEditUnitTitle(u.title);
     setEditUnitDesc(u.description);
+    setEditUnitCategorySelect(u.unitCategoryId ?? CATEGORY_SELECT_NONE);
     setEditUnitOpen(true);
   }
+
+  /** Radix Select: if stored id is missing from the list, fall back to None (stale id / deleted category). */
+  useEffect(() => {
+    if (!certDetailsOpen || certCategories === undefined) {
+      return;
+    }
+    if (
+      certDetailCertCategorySelect !== CATEGORY_SELECT_NONE &&
+      !certCategories.some((c) => c._id === certDetailCertCategorySelect)
+    ) {
+      setCertDetailCertCategorySelect(CATEGORY_SELECT_NONE);
+    }
+  }, [
+    certDetailsOpen,
+    certCategories,
+    certDetailCertCategorySelect,
+  ]);
+
+  useEffect(() => {
+    if (!editUnitOpen || unitCategories === undefined) {
+      return;
+    }
+    if (
+      editUnitCategorySelect !== CATEGORY_SELECT_NONE &&
+      !unitCategories.some((c) => c._id === editUnitCategorySelect)
+    ) {
+      setEditUnitCategorySelect(CATEGORY_SELECT_NONE);
+    }
+  }, [editUnitOpen, unitCategories, editUnitCategorySelect]);
+
+  useEffect(() => {
+    if (!editContentOpen || contentCategories === undefined) {
+      return;
+    }
+    if (
+      editContentCategorySelect !== CATEGORY_SELECT_NONE &&
+      !contentCategories.some((c) => c._id === editContentCategorySelect)
+    ) {
+      setEditContentCategorySelect(CATEGORY_SELECT_NONE);
+    }
+  }, [editContentOpen, contentCategories, editContentCategorySelect]);
 
   const handleDragStart = useCallback((e: DragStartEvent) => {
     const id = String(e.active.id);
@@ -986,7 +1385,7 @@ export default function AdminCoursesClient() {
       if (
         selectedDetailUnitId &&
         !libraryShowAll &&
-        contentCategory === "all" &&
+        contentLibraryCategoryFilter === "all" &&
         !contentSearchLower &&
         displayedDetailContent &&
         displayedDetailContent.length >= 2
@@ -1026,7 +1425,11 @@ export default function AdminCoursesClient() {
         }
       }
 
-      if (displayedLevels && !certSearchLower) {
+      if (
+        displayedLevels &&
+        !certSearchLower &&
+        certCategoryFilter === "all"
+      ) {
         const activeLevelKey = resolveLevelSortCollisionId(String(active.id));
         const overLevelKey = resolveLevelSortCollisionId(overStr);
         const oldIndex = displayedLevels.findIndex(
@@ -1055,6 +1458,7 @@ export default function AdminCoursesClient() {
         filterCertId &&
         !centreUnitsShowAll &&
         !unitSearchLower &&
+        unitCategoryFilter === "all" &&
         displayedUnitsInFilteredCert &&
         displayedUnitsInFilteredCert.length
       ) {
@@ -1095,7 +1499,9 @@ export default function AdminCoursesClient() {
       displayedUnitsInFilteredCert,
       displayedDetailContent,
       certSearchLower,
+      certCategoryFilter,
       unitSearchLower,
+      unitCategoryFilter,
       filterCertId,
       centreUnitsShowAll,
       reorderLevels,
@@ -1103,7 +1509,7 @@ export default function AdminCoursesClient() {
       selectedDetailUnitId,
       libraryShowAll,
       reorderContentOnUnit,
-      contentCategory,
+      contentLibraryCategoryFilter,
       contentSearchLower,
     ],
   );
@@ -1206,36 +1612,78 @@ export default function AdminCoursesClient() {
     "rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
 
   const levelsListForUi = displayedLevels ?? levels ?? [];
+
+  useEffect(() => {
+    if (certCategoryFilter === "all" || certCategories === undefined) {
+      return;
+    }
+    if (!certCategories.some((c) => c._id === certCategoryFilter)) {
+      setCertCategoryFilter("all");
+    }
+  }, [certCategoryFilter, certCategories]);
+
+  useEffect(() => {
+    if (unitCategoryFilter === "all" || unitCategories === undefined) {
+      return;
+    }
+    if (!unitCategories.some((c) => c._id === unitCategoryFilter)) {
+      setUnitCategoryFilter("all");
+    }
+  }, [unitCategoryFilter, unitCategories]);
+
+  useEffect(() => {
+    if (
+      contentLibraryCategoryFilter === "all" ||
+      contentCategories === undefined
+    ) {
+      return;
+    }
+    if (
+      !contentCategories.some((c) => c._id === contentLibraryCategoryFilter)
+    ) {
+      setContentLibraryCategoryFilter("all");
+    }
+  }, [contentLibraryCategoryFilter, contentCategories]);
+
   const unitsInCertListForUi =
     displayedUnitsInFilteredCert ?? unitsInFilteredCert;
   const detailContentListForUi =
     displayedDetailContent ?? detailContent;
 
-  const certFilterActive = certSearchLower.length > 0;
-  const unitFilterActive = unitSearchLower.length > 0;
+  const certFilterActive =
+    certSearchLower.length > 0 || certCategoryFilter !== "all";
+  const unitFilterActive =
+    unitSearchLower.length > 0 || unitCategoryFilter !== "all";
 
   const levelsVisibleForUi = useMemo(
-    () => levelsListForUi.filter((l) => levelMatchesSearch(l)),
-    [levelsListForUi, levelMatchesSearch],
+    () =>
+      levelsListForUi.filter(
+        (l) => levelMatchesSearch(l) && levelMatchesCategoryChip(l),
+      ),
+    [levelsListForUi, levelMatchesSearch, levelMatchesCategoryChip],
   );
 
   const unitsInCertVisibleForUi = useMemo(() => {
     if (!unitsInCertListForUi) {
       return [];
     }
-    return unitsInCertListForUi.filter((u) => unitMatchesSearch(u));
-  }, [unitsInCertListForUi, unitMatchesSearch]);
+    return unitsInCertListForUi.filter(
+      (u) => unitMatchesSearch(u) && unitMatchesCategoryChip(u),
+    );
+  }, [unitsInCertListForUi, unitMatchesSearch, unitMatchesCategoryChip]);
 
   const allUnitsVisibleForUi = useMemo(() => {
     if (!allUnits?.length) {
       return [];
     }
-    return allUnits.filter((u) => unitMatchesSearch(u));
-  }, [allUnits, unitMatchesSearch]);
+    return allUnits.filter(
+      (u) => unitMatchesSearch(u) && unitMatchesCategoryChip(u),
+    );
+  }, [allUnits, unitMatchesSearch, unitMatchesCategoryChip]);
 
   /** When set, unit content list is filtered — reorder would be ambiguous, so drag is disabled. */
   const contentFilterActive =
-    contentCategory !== "all" || contentSearchLower.length > 0;
+    contentLibraryCategoryFilter !== "all" || contentSearchLower.length > 0;
 
   const filteredLibraryContent = useMemo(() => {
     if (allLibraryContent === undefined) {
@@ -1320,8 +1768,16 @@ export default function AdminCoursesClient() {
           <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] px-4 pb-4 pt-0 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
             <TrainingColumnChip
               tone="lime"
-              label="Certifications"
               count={certListCount}
+              trailing={
+                <>
+                  <GraduationCap
+                    className="h-4 w-4 shrink-0 text-brand-lime"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 truncate">Certifications</span>
+                </>
+              }
             />
             <h2 className="sr-only">Certifications</h2>
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
@@ -1329,7 +1785,7 @@ export default function AdminCoursesClient() {
                 <Input
                   id="admin-cert-search"
                   aria-label="Filter certifications"
-                  placeholder="Filter list…"
+                  placeholder="Filter..."
                   value={certSearch}
                   onChange={(e) => setCertSearch(e.target.value)}
                   className={cn(
@@ -1360,6 +1816,13 @@ export default function AdminCoursesClient() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
+            <AdminCategoryFilterSelect
+              htmlId="admin-cert-category-filter"
+              label="Certification category"
+              value={certCategoryFilter}
+              onValueChange={setCertCategoryFilter}
+              categories={certCategories}
+            />
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-lime/50 dark:border-brand-lime/40" />
             {!filterCertId ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
@@ -1430,33 +1893,31 @@ export default function AdminCoursesClient() {
           >
             <TrainingColumnChip
               tone="gold"
-              label="Units"
               count={unitsListCount}
+              trailing={
+                <>
+                  <Layers
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      filterCertId ? "text-brand-lime" : "text-brand-gold",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 truncate">
+                    {filterCertId && !centreUnitsShowAll
+                      ? (filterCertName ?? "…")
+                      : "All units"}
+                  </span>
+                </>
+              }
             />
             <h2 className="sr-only">Units</h2>
-            <div className="mb-2 flex shrink-0 justify-center">
-              <p className="flex min-w-0 max-w-full items-center justify-center gap-2 text-center text-sm font-bold text-foreground">
-                <Layers
-                  className={cn(
-                    "shrink-0",
-                    filterCertId ? "text-brand-lime" : "text-brand-gold",
-                  )}
-                  size={20}
-                  aria-hidden
-                />
-                <span className="truncate">
-                  {filterCertId && !centreUnitsShowAll
-                    ? (filterCertName ?? "…")
-                    : "All units"}
-                </span>
-              </p>
-            </div>
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <div className="relative w-[min(100%,13rem)] shrink-0">
                 <Input
                   id="admin-unit-search"
                   aria-label="Filter units"
-                  placeholder="Filter list…"
+                  placeholder="Filter..."
                   value={unitSearch}
                   onChange={(e) => setUnitSearch(e.target.value)}
                   className={cn(
@@ -1487,14 +1948,21 @@ export default function AdminCoursesClient() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
+            <AdminCategoryFilterSelect
+              htmlId="admin-unit-category-filter"
+              label="Unit category"
+              value={unitCategoryFilter}
+              onValueChange={setUnitCategoryFilter}
+              categories={unitCategories}
+            />
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-gold/50 dark:border-brand-gold/40" />
             {filterCertId && filterCertName ? (
               <button
                 type="button"
                 className={cn(
-                  "mb-2 inline-flex max-w-full items-center rounded-full border px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors",
-                  ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
-                  "hover:border-brand-lime/55 hover:bg-brand-lime/[0.16] dark:hover:border-brand-lime/45 dark:hover:bg-brand-lime/[0.18]",
+                  "mb-2 inline-flex max-w-full items-center rounded-full border-2 px-3 py-1.5 text-left text-xs font-medium text-foreground shadow-sm transition-colors",
+                  "border-brand-lime/55 bg-card hover:border-brand-lime hover:bg-muted",
+                  "dark:border-brand-lime/50 dark:bg-card dark:hover:bg-muted",
                 )}
                 onClick={() => setCentreUnitsShowAll((v) => !v)}
               >
@@ -1526,7 +1994,13 @@ export default function AdminCoursesClient() {
                   ) : unitsInCertListForUi!.length > 0 &&
                     unitsInCertVisibleForUi.length === 0 ? (
                     <p className="py-6 text-center text-sm text-muted-foreground">
-                      No units match &ldquo;{unitSearch.trim()}&rdquo;.
+                      {unitSearch.trim() ? (
+                        <>
+                          No units match &ldquo;{unitSearch.trim()}&rdquo;.
+                        </>
+                      ) : (
+                        <>No units in this category.</>
+                      )}
                     </p>
                   ) : (
                     <SortableContext
@@ -1548,6 +2022,12 @@ export default function AdminCoursesClient() {
                                 selected={selectedDetailUnitId === u._id}
                                 expandDrawerOpen={prereqsPanelUnitId === u._id}
                                 disableDrag={unitFilterActive}
+                                unitCategoryShortCode={
+                                  u.unitCategoryId
+                                    ? unitCategoryMetaById.get(u.unitCategoryId)
+                                        ?.shortCode
+                                    : u.unitCategory?.trim() || undefined
+                                }
                                 prerequisiteCount={
                                   countsByUnitId.get(u._id)?.prereqCount ?? 0
                                 }
@@ -1601,7 +2081,13 @@ export default function AdminCoursesClient() {
                   </p>
                 ) : allUnitsVisibleForUi.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
-                    No units match &ldquo;{unitSearch.trim()}&rdquo;.
+                    {unitSearch.trim() ? (
+                      <>
+                        No units match &ldquo;{unitSearch.trim()}&rdquo;.
+                      </>
+                    ) : (
+                      <>No units in this category.</>
+                    )}
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -1622,6 +2108,12 @@ export default function AdminCoursesClient() {
                               false
                             }
                             expandDrawerOpen={prereqsPanelUnitId === u._id}
+                            unitCategoryShortCode={
+                              u.unitCategoryId
+                                ? unitCategoryMetaById.get(u.unitCategoryId)
+                                    ?.shortCode
+                                : u.unitCategory?.trim() || undefined
+                            }
                             prerequisiteCount={
                               countsByUnitId.get(u._id)?.prereqCount ?? 0
                             }
@@ -1702,37 +2194,35 @@ export default function AdminCoursesClient() {
           >
             <TrainingColumnChip
               tone="sky"
-              label="Content"
               count={contentListCount}
+              trailing={
+                <>
+                  <BookMarked
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      selectedDetailUnitId
+                        ? "text-brand-gold"
+                        : "text-brand-sky",
+                    )}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 truncate">
+                    {selectedDetailUnitId &&
+                    selectedDetailUnit &&
+                    !libraryShowAll
+                      ? (filterUnitTitle ?? selectedDetailUnit.title)
+                      : "All content"}
+                  </span>
+                </>
+              }
             />
             <h2 className="sr-only">Content</h2>
-            <div className="mb-2 flex shrink-0 justify-center">
-              <p className="flex min-w-0 max-w-full items-center justify-center gap-2 text-center text-sm font-bold text-foreground">
-                <BookMarked
-                  className={cn(
-                    "shrink-0",
-                    selectedDetailUnitId
-                      ? "text-brand-gold"
-                      : "text-brand-sky",
-                  )}
-                  size={20}
-                  aria-hidden
-                />
-                <span className="truncate">
-                  {selectedDetailUnitId &&
-                  selectedDetailUnit &&
-                  !libraryShowAll
-                    ? (filterUnitTitle ?? selectedDetailUnit.title)
-                    : "All content"}
-                </span>
-              </p>
-            </div>
             <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <div className="relative w-[min(100%,13rem)] shrink-0">
                 <Input
                   id="admin-content-search"
                   aria-label="Filter content"
-                  placeholder="Filter list…"
+                  placeholder="Filter..."
                   value={contentSearch}
                   onChange={(e) => setContentSearch(e.target.value)}
                   className={cn(
@@ -1763,34 +2253,22 @@ export default function AdminCoursesClient() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <div className="mb-2 flex flex-wrap gap-1">
-              {(
-                [
-                  ["all", "All"],
-                  ["videos", "Videos"],
-                  ["tests", "Tests"],
-                  ["assignments", "Assignments"],
-                  ["decks", "Decks"],
-                  ["references", "References"],
-                ] as const
-              ).map(([id, label]) => (
-                <Button
-                  key={id}
-                  type="button"
-                  size="sm"
-                  variant={contentCategory === id ? "default" : "outline"}
-                  className="h-7 rounded-full px-2.5 text-xs"
-                  onClick={() => setContentCategory(id)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
+            <AdminCategoryFilterSelect
+              htmlId="admin-content-category-filter"
+              label="Content category"
+              value={contentLibraryCategoryFilter}
+              onValueChange={setContentLibraryCategoryFilter}
+              categories={contentCategories}
+            />
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-sky/50 dark:border-brand-sky/40" />
             {selectedDetailUnitId && filterUnitTitle ? (
               <button
                 type="button"
-                className="mb-2 inline-flex max-w-full items-center rounded-full border border-brand-gold/40 bg-brand-gold/20 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-brand-gold/55 hover:bg-brand-gold/30 dark:bg-brand-gold/15 dark:hover:bg-brand-gold/25"
+                className={cn(
+                  "mb-2 inline-flex max-w-full items-center rounded-full border-2 px-3 py-1.5 text-left text-xs font-medium text-foreground shadow-sm transition-colors",
+                  "border-brand-gold/55 bg-card hover:border-brand-gold hover:bg-muted",
+                  "dark:border-brand-gold/50 dark:bg-card dark:hover:bg-muted",
+                )}
                 onClick={() => setLibraryShowAll((v) => !v)}
               >
                 {libraryShowAll
@@ -1848,6 +2326,13 @@ export default function AdminCoursesClient() {
                             <SortableUnitContentRow
                               item={item}
                               disableDrag={contentFilterActive}
+                              contentCategoryShortCode={
+                                item.contentCategoryId
+                                  ? contentCategoryMetaById.get(
+                                      item.contentCategoryId,
+                                    )?.shortCode
+                                  : item.contentCategory?.trim() || undefined
+                              }
                               selected={
                                 Boolean(editContentOpen) &&
                                 editContentId === item._id
@@ -1872,6 +2357,9 @@ export default function AdminCoursesClient() {
                                     item.type === "assignment"
                                     ? item.assessment ?? null
                                     : null,
+                                );
+                                setEditContentCategorySelect(
+                                  item.contentCategoryId ?? CATEGORY_SELECT_NONE,
                                 );
                                 setEditContentOpen(true);
                               }}
@@ -1921,6 +2409,13 @@ export default function AdminCoursesClient() {
                         <li key={item._id}>
                           <ContentLibraryDragRow
                             item={item}
+                            contentCategoryShortCode={
+                              item.contentCategoryId
+                                ? contentCategoryMetaById.get(
+                                    item.contentCategoryId,
+                                  )?.shortCode
+                                : item.contentCategory?.trim() || undefined
+                            }
                             selected={
                               Boolean(editContentOpen) &&
                               editContentId === item._id
@@ -1950,6 +2445,9 @@ export default function AdminCoursesClient() {
                                   item.type === "assignment"
                                   ? item.assessment ?? null
                                   : null,
+                              );
+                              setEditContentCategorySelect(
+                                item.contentCategoryId ?? CATEGORY_SELECT_NONE,
                               );
                               setEditContentOpen(true);
                             }}
@@ -2001,6 +2499,8 @@ export default function AdminCoursesClient() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <AdminCategoryCrudSection />
 
       <Dialog
         open={pendingAddUnitToCert !== null}
@@ -2124,7 +2624,18 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addCertOpen} onOpenChange={setAddCertOpen}>
+      <Dialog
+        open={addCertOpen}
+        onOpenChange={(open) => {
+          setAddCertOpen(open);
+          if (!open) {
+            setLevelName("");
+            setLevelCertCategorySelect(CATEGORY_SELECT_NONE);
+            setLevelSummary("");
+            setLevelDesc("");
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>New certification</DialogTitle>
@@ -2141,6 +2652,55 @@ export default function AdminCoursesClient() {
                 value={levelName}
                 onChange={(e) => setLevelName(e.target.value)}
               />
+            </div>
+            <div className="space-y-1">
+              <Label>Certification category</Label>
+              {certCategories === undefined ? (
+                <div
+                  aria-busy="true"
+                  className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/25 px-3 text-sm text-muted-foreground"
+                >
+                  Loading categories…
+                </div>
+              ) : (
+                <Select
+                  value={entityCategorySelectValue(
+                    levelCertCategorySelect,
+                    CATEGORY_SELECT_NONE,
+                    certCategories,
+                  )}
+                  onValueChange={(v) =>
+                    setLevelCertCategorySelect(v ?? CATEGORY_SELECT_NONE)
+                  }
+                  itemToStringLabel={categorySelectItemToStringLabel(
+                    certCategories,
+                    { noneLabel: "None" },
+                  )}
+                >
+                  <SelectTrigger id="add-cert-category">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CATEGORY_SELECT_NONE} label="None">
+                      None
+                    </SelectItem>
+                    {certCategories.map((c) => (
+                      <SelectItem
+                        key={c._id}
+                        value={c._id}
+                        label={categoryTriggerLabel(c.shortCode)}
+                      >
+                        {categorySelectLabel(c.shortCode, c.longDescription)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                {certCategories === undefined
+                  ? "Loading categories…"
+                  : "Manage categories in the section below this page."}
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="add-cert-summary">Short summary</Label>
@@ -2182,11 +2742,16 @@ export default function AdminCoursesClient() {
                 try {
                   const newId = await createLevel({
                     name: levelName.trim(),
+                    certificationCategoryId:
+                      levelCertCategorySelect === CATEGORY_SELECT_NONE
+                        ? undefined
+                        : (levelCertCategorySelect as Id<"certificationCategories">),
                     summary: levelSummary.trim() || undefined,
                     description: levelDesc.trim() || "—",
                     order: n,
                   });
                   setLevelName("");
+                  setLevelCertCategorySelect(CATEGORY_SELECT_NONE);
                   setLevelSummary("");
                   setLevelDesc("");
                   setAddCertOpen(false);
@@ -2204,7 +2769,17 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={addUnitOpen} onOpenChange={setAddUnitOpen}>
+      <Dialog
+        open={addUnitOpen}
+        onOpenChange={(open) => {
+          setAddUnitOpen(open);
+          if (!open) {
+            setUnitTitle("");
+            setNewUnitCategorySelect(CATEGORY_SELECT_NONE);
+            setUnitDesc("");
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>New unit</DialogTitle>
@@ -2222,6 +2797,55 @@ export default function AdminCoursesClient() {
                 value={unitTitle}
                 onChange={(e) => setUnitTitle(e.target.value)}
               />
+            </div>
+            <div className="space-y-1">
+              <Label>Unit category</Label>
+              {unitCategories === undefined ? (
+                <div
+                  aria-busy="true"
+                  className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/25 px-3 text-sm text-muted-foreground"
+                >
+                  Loading categories…
+                </div>
+              ) : (
+                <Select
+                  value={entityCategorySelectValue(
+                    newUnitCategorySelect,
+                    CATEGORY_SELECT_NONE,
+                    unitCategories,
+                  )}
+                  onValueChange={(v) =>
+                    setNewUnitCategorySelect(v ?? CATEGORY_SELECT_NONE)
+                  }
+                  itemToStringLabel={categorySelectItemToStringLabel(
+                    unitCategories,
+                    { noneLabel: "None" },
+                  )}
+                >
+                  <SelectTrigger id="add-unit-category">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CATEGORY_SELECT_NONE} label="None">
+                      None
+                    </SelectItem>
+                    {unitCategories.map((c) => (
+                      <SelectItem
+                        key={c._id}
+                        value={c._id}
+                        label={categoryTriggerLabel(c.shortCode)}
+                      >
+                        {categorySelectLabel(c.shortCode, c.longDescription)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                {unitCategories === undefined
+                  ? "Loading categories…"
+                  : "Manage categories in the section below this page."}
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="add-unit-desc">Description</Label>
@@ -2253,8 +2877,13 @@ export default function AdminCoursesClient() {
                   await createUnit({
                     title: unitTitle.trim(),
                     description: unitDesc.trim() || "—",
+                    unitCategoryId:
+                      newUnitCategorySelect === CATEGORY_SELECT_NONE
+                        ? undefined
+                        : (newUnitCategorySelect as Id<"unitCategories">),
                   });
                   setUnitTitle("");
+                  setNewUnitCategorySelect(CATEGORY_SELECT_NONE);
                   setUnitDesc("");
                   setAddUnitOpen(false);
                   toast.success("Unit created");
@@ -2275,6 +2904,7 @@ export default function AdminCoursesClient() {
           setAddLibraryOpen(open);
           if (!open) {
             setAddLibraryAssessment(null);
+            setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
             return;
           }
           if (contentKind === "test" || contentKind === "assignment") {
@@ -2301,6 +2931,55 @@ export default function AdminCoursesClient() {
                 value={contentTitle}
                 onChange={(e) => setContentTitle(e.target.value)}
               />
+            </div>
+            <div className="space-y-1">
+              <Label>Content category</Label>
+              {contentCategories === undefined ? (
+                <div
+                  aria-busy="true"
+                  className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/25 px-3 text-sm text-muted-foreground"
+                >
+                  Loading categories…
+                </div>
+              ) : (
+                <Select
+                  value={entityCategorySelectValue(
+                    newLibraryContentCategorySelect,
+                    CATEGORY_SELECT_NONE,
+                    contentCategories,
+                  )}
+                  onValueChange={(v) =>
+                    setNewLibraryContentCategorySelect(v ?? CATEGORY_SELECT_NONE)
+                  }
+                  itemToStringLabel={categorySelectItemToStringLabel(
+                    contentCategories,
+                    { noneLabel: "None" },
+                  )}
+                >
+                  <SelectTrigger id="add-lib-category">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CATEGORY_SELECT_NONE} label="None">
+                      None
+                    </SelectItem>
+                    {contentCategories.map((c) => (
+                      <SelectItem
+                        key={c._id}
+                        value={c._id}
+                        label={categoryTriggerLabel(c.shortCode)}
+                      >
+                        {categorySelectLabel(c.shortCode, c.longDescription)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                {contentCategories === undefined
+                  ? "Loading categories…"
+                  : "Manage categories in the section below this page."}
+              </p>
             </div>
             <div className="space-y-1">
               <Label>Type</Label>
@@ -2523,6 +3202,10 @@ export default function AdminCoursesClient() {
                       type: contentKind,
                       title: contentTitle.trim(),
                       url: "",
+                      contentCategoryId:
+                        newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
+                          ? undefined
+                          : (newLibraryContentCategorySelect as Id<"contentCategories">),
                       assessment: {
                         ...addLibraryAssessment,
                         description: contentUrl.trim() || "—",
@@ -2548,6 +3231,10 @@ export default function AdminCoursesClient() {
                       type: contentKind,
                       title: contentTitle.trim(),
                       url: contentUrl.trim() || "#",
+                      contentCategoryId:
+                        newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
+                          ? undefined
+                          : (newLibraryContentCategorySelect as Id<"contentCategories">),
                     });
                     if (selectedDetailUnitId) {
                       await attachContentToUnit({
@@ -2560,6 +3247,7 @@ export default function AdminCoursesClient() {
                     }
                   }
                   setContentTitle("");
+                  setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
                   setContentUrl("");
                   setAddLibraryAssessment(null);
                   setAddLibraryOpen(false);
@@ -2601,6 +3289,52 @@ export default function AdminCoursesClient() {
                     value={certDetailName}
                     onChange={(e) => setCertDetailName(e.target.value)}
                   />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label>Certification category</Label>
+                  {certCategories === undefined ? (
+                    <div
+                      aria-busy="true"
+                      className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/25 px-3 text-sm text-muted-foreground"
+                    >
+                      Loading categories…
+                    </div>
+                  ) : (
+                    <Select
+                      value={entityCategorySelectValue(
+                        certDetailCertCategorySelect,
+                        CATEGORY_SELECT_NONE,
+                        certCategories,
+                      )}
+                      onValueChange={(v) =>
+                        setCertDetailCertCategorySelect(
+                          v ?? CATEGORY_SELECT_NONE,
+                        )
+                      }
+                      itemToStringLabel={categorySelectItemToStringLabel(
+                        certCategories,
+                        { noneLabel: "None" },
+                      )}
+                    >
+                      <SelectTrigger id="cert-category">
+                        <SelectValue placeholder="Optional" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={CATEGORY_SELECT_NONE} label="None">
+                          None
+                        </SelectItem>
+                        {certCategories.map((c) => (
+                          <SelectItem
+                            key={c._id}
+                            value={c._id}
+                            label={categoryTriggerLabel(c.shortCode)}
+                          >
+                            {categorySelectLabel(c.shortCode, c.longDescription)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label htmlFor="cert-summary">Short summary</Label>
@@ -2657,16 +3391,24 @@ export default function AdminCoursesClient() {
                         v === "__global__" ? "" : (v ?? ""),
                       )
                     }
+                    itemToStringLabel={(v) => {
+                      if (v == null || v === "" || v === "__global__") {
+                        return "All companies (global)";
+                      }
+                      const id = String(v);
+                      const row = companies?.find((c) => c._id === id);
+                      return row?.name ?? "…";
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__global__">
+                      <SelectItem value="__global__" label="All companies (global)">
                         All companies (global)
                       </SelectItem>
                       {(companies ?? []).map((c) => (
-                        <SelectItem key={c._id} value={c._id}>
+                        <SelectItem key={c._id} value={c._id} label={c.name}>
                           {c.name}
                         </SelectItem>
                       ))}
@@ -2698,6 +3440,10 @@ export default function AdminCoursesClient() {
                       await updateLevel({
                         levelId: editCertId,
                         name: certDetailName.trim(),
+                        certificationCategoryId:
+                          certDetailCertCategorySelect === CATEGORY_SELECT_NONE
+                            ? null
+                            : (certDetailCertCategorySelect as Id<"certificationCategories">),
                         summary: certDetailSummary.trim() || undefined,
                         description: certDetailDesc.trim() || "—",
                         order: orderNum,
@@ -2732,6 +3478,7 @@ export default function AdminCoursesClient() {
             setEditContentStorageId(null);
             setEditUnitContentLinkId(null);
             setEditContentAssessment(null);
+            setEditContentCategorySelect(CATEGORY_SELECT_NONE);
           }
         }}
       >
@@ -2751,6 +3498,50 @@ export default function AdminCoursesClient() {
                 value={editContentTitle}
                 onChange={(e) => setEditContentTitle(e.target.value)}
               />
+            </div>
+            <div className="space-y-1">
+              <Label>Content category</Label>
+              {contentCategories === undefined ? (
+                <div
+                  aria-busy="true"
+                  className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/25 px-3 text-sm text-muted-foreground"
+                >
+                  Loading categories…
+                </div>
+              ) : (
+                <Select
+                  value={entityCategorySelectValue(
+                    editContentCategorySelect,
+                    CATEGORY_SELECT_NONE,
+                    contentCategories,
+                  )}
+                  onValueChange={(v) =>
+                    setEditContentCategorySelect(v ?? CATEGORY_SELECT_NONE)
+                  }
+                  itemToStringLabel={categorySelectItemToStringLabel(
+                    contentCategories,
+                    { noneLabel: "None" },
+                  )}
+                >
+                  <SelectTrigger id="ec-category">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CATEGORY_SELECT_NONE} label="None">
+                      None
+                    </SelectItem>
+                    {contentCategories.map((c) => (
+                      <SelectItem
+                        key={c._id}
+                        value={c._id}
+                        label={categoryTriggerLabel(c.shortCode)}
+                      >
+                        {categorySelectLabel(c.shortCode, c.longDescription)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Type</Label>
@@ -3006,6 +3797,10 @@ export default function AdminCoursesClient() {
                         title: editContentTitle.trim(),
                         url: "",
                         type: editContentKind,
+                        contentCategoryId:
+                          editContentCategorySelect === CATEGORY_SELECT_NONE
+                            ? null
+                            : (editContentCategorySelect as Id<"contentCategories">),
                         storageId: editContentStorageId ?? undefined,
                         assessment: {
                           ...editContentAssessment,
@@ -3021,6 +3816,10 @@ export default function AdminCoursesClient() {
                         title: editContentTitle.trim(),
                         url: editContentUrl.trim() || "#",
                         type: editContentKind,
+                        contentCategoryId:
+                          editContentCategorySelect === CATEGORY_SELECT_NONE
+                            ? null
+                            : (editContentCategorySelect as Id<"contentCategories">),
                         storageId: editContentStorageId ?? undefined,
                       });
                     }
@@ -3051,20 +3850,80 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editUnitOpen} onOpenChange={setEditUnitOpen}>
+      <Dialog
+        open={editUnitOpen}
+        onOpenChange={(open) => {
+          setEditUnitOpen(open);
+          if (!open) {
+            setEditUnitCategorySelect(CATEGORY_SELECT_NONE);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit unit</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input
-              value={editUnitTitle}
-              onChange={(e) => setEditUnitTitle(e.target.value)}
-            />
-            <Textarea
-              value={editUnitDesc}
-              onChange={(e) => setEditUnitDesc(e.target.value)}
-            />
+            <div className="space-y-1">
+              <Label htmlFor="edit-unit-title">Title</Label>
+              <Input
+                id="edit-unit-title"
+                value={editUnitTitle}
+                onChange={(e) => setEditUnitTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Unit category</Label>
+              {unitCategories === undefined ? (
+                <div
+                  aria-busy="true"
+                  className="flex h-10 w-full items-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/25 px-3 text-sm text-muted-foreground"
+                >
+                  Loading categories…
+                </div>
+              ) : (
+                <Select
+                  value={entityCategorySelectValue(
+                    editUnitCategorySelect,
+                    CATEGORY_SELECT_NONE,
+                    unitCategories,
+                  )}
+                  onValueChange={(v) =>
+                    setEditUnitCategorySelect(v ?? CATEGORY_SELECT_NONE)
+                  }
+                  itemToStringLabel={categorySelectItemToStringLabel(
+                    unitCategories,
+                    { noneLabel: "None" },
+                  )}
+                >
+                  <SelectTrigger id="edit-unit-category">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={CATEGORY_SELECT_NONE} label="None">
+                      None
+                    </SelectItem>
+                    {unitCategories.map((c) => (
+                      <SelectItem
+                        key={c._id}
+                        value={c._id}
+                        label={categoryTriggerLabel(c.shortCode)}
+                      >
+                        {categorySelectLabel(c.shortCode, c.longDescription)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-unit-desc">Description</Label>
+              <Textarea
+                id="edit-unit-desc"
+                value={editUnitDesc}
+                onChange={(e) => setEditUnitDesc(e.target.value)}
+              />
+            </div>
             <Button
               onClick={async () => {
                 if (!editUnitId) {
@@ -3074,6 +3933,10 @@ export default function AdminCoursesClient() {
                   unitId: editUnitId,
                   title: editUnitTitle,
                   description: editUnitDesc,
+                  unitCategoryId:
+                    editUnitCategorySelect === CATEGORY_SELECT_NONE
+                      ? null
+                      : (editUnitCategorySelect as Id<"unitCategories">),
                 });
                 toast.success("Unit updated");
                 setEditUnitOpen(false);

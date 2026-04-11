@@ -26,11 +26,7 @@ export const removeInternal = internalMutation({
   },
 });
 
-export type UnitAdminListRow = {
-  _id: Id<"units">;
-  _creationTime: number;
-  title: string;
-  description: string;
+export type UnitAdminListRow = Doc<"units"> & {
   certificationSummary: string;
   /** Certification levels this unit belongs to (links + legacy levelId). */
   certificationLevelIds: Id<"certificationLevels">[];
@@ -68,11 +64,9 @@ export const listAllAdmin = query({
         }
       }
       names.sort((a, b) => a.localeCompare(b));
+      /** Spread full `units` row so admin UI can read legacy `unitCategory` until FK-only. */
       out.push({
-        _id: u._id,
-        _creationTime: u._creationTime,
-        title: u.title,
-        description: u.description,
+        ...u,
         certificationSummary: names.length ? names.join(", ") : "—",
         certificationLevelIds: levelIds,
       });
@@ -142,10 +136,15 @@ export const create = mutation({
   args: {
     title: v.string(),
     description: v.string(),
+    unitCategoryId: v.optional(v.id("unitCategories")),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    return await ctx.db.insert("units", args);
+    const { unitCategoryId, ...rest } = args;
+    return await ctx.db.insert("units", {
+      ...rest,
+      ...(unitCategoryId ? { unitCategoryId } : {}),
+    });
   },
 });
 
@@ -154,14 +153,25 @@ export const update = mutation({
     unitId: v.id("units"),
     title: v.string(),
     description: v.string(),
+    unitCategoryId: v.optional(
+      v.union(v.id("unitCategories"), v.null()),
+    ),
   },
-  handler: async (ctx, { unitId, ...fields }) => {
+  handler: async (ctx, { unitId, unitCategoryId, ...fields }) => {
     await requireAdminOrCreator(ctx);
     const row = await ctx.db.get(unitId);
     if (!isLive(row)) {
       throw new Error("Unit not found");
     }
-    await ctx.db.patch(unitId, fields);
+    await ctx.db.patch(unitId, {
+      ...fields,
+      ...(unitCategoryId !== undefined
+        ? {
+            unitCategoryId:
+              unitCategoryId === null ? undefined : unitCategoryId,
+          }
+        : {}),
+    });
   },
 });
 

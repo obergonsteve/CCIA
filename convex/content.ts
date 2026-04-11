@@ -130,13 +130,17 @@ export const create = mutation({
     type: contentTypeValidator,
     title: v.string(),
     url: v.string(),
+    contentCategoryId: v.optional(v.id("contentCategories")),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
     assessment: v.optional(assessmentPayloadValidator),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    const { assessment, type, ...rest } = args;
+    const { assessment, type, contentCategoryId, ...rest } = args;
+    const categoryFields = contentCategoryId
+      ? { contentCategoryId }
+      : {};
     if (isAssessmentType(type)) {
       if (!assessment) {
         throw new Error("test and assignment content requires assessment data");
@@ -144,13 +148,18 @@ export const create = mutation({
       return await ctx.db.insert("contentItems", {
         type,
         ...rest,
+        ...categoryFields,
         assessment,
       });
     }
     if (assessment !== undefined) {
       throw new Error("assessment is only valid for test or assignment type");
     }
-    return await ctx.db.insert("contentItems", { type, ...rest });
+    return await ctx.db.insert("contentItems", {
+      type,
+      ...rest,
+      ...categoryFields,
+    });
   },
 });
 
@@ -160,22 +169,33 @@ export const update = mutation({
     title: v.string(),
     url: v.string(),
     type: contentTypeValidator,
+    contentCategoryId: v.optional(
+      v.union(v.id("contentCategories"), v.null()),
+    ),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
     assessment: v.optional(assessmentPayloadValidator),
   },
-  handler: async (ctx, { contentId, assessment, type, ...fields }) => {
+  handler: async (ctx, { contentId, assessment, type, contentCategoryId, ...fields }) => {
     await requireAdminOrCreator(ctx);
     const existing = await ctx.db.get(contentId);
     if (!isLive(existing)) {
       throw new Error("Content not found");
     }
+    const cat =
+      contentCategoryId !== undefined
+        ? {
+            contentCategoryId:
+              contentCategoryId === null ? undefined : contentCategoryId,
+          }
+        : {};
     if (isAssessmentType(type)) {
       if (!assessment) {
         throw new Error("test and assignment content requires assessment data");
       }
       await ctx.db.patch(contentId, {
         ...fields,
+        ...cat,
         type,
         assessment,
       });
@@ -183,6 +203,7 @@ export const update = mutation({
     }
     await ctx.db.patch(contentId, {
       ...fields,
+      ...cat,
       type,
       assessment: undefined,
     });

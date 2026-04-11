@@ -251,6 +251,7 @@ export const get = query({
 export const create = mutation({
   args: {
     name: v.string(),
+    certificationCategoryId: v.optional(v.id("certificationCategories")),
     summary: v.optional(v.string()),
     description: v.string(),
     order: v.number(),
@@ -260,7 +261,13 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    return await ctx.db.insert("certificationLevels", { ...args });
+    const { certificationCategoryId, ...rest } = args;
+    return await ctx.db.insert("certificationLevels", {
+      ...rest,
+      ...(certificationCategoryId
+        ? { certificationCategoryId }
+        : {}),
+    });
   },
 });
 
@@ -268,6 +275,9 @@ export const update = mutation({
   args: {
     levelId: v.id("certificationLevels"),
     name: v.string(),
+    certificationCategoryId: v.optional(
+      v.union(v.id("certificationCategories"), v.null()),
+    ),
     summary: v.optional(v.string()),
     description: v.string(),
     order: v.number(),
@@ -275,13 +285,23 @@ export const update = mutation({
     tagline: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
   },
-  handler: async (ctx, { levelId, ...fields }) => {
+  handler: async (ctx, { levelId, certificationCategoryId, ...fields }) => {
     await requireAdminOrCreator(ctx);
     const row = await ctx.db.get(levelId);
     if (!isLive(row)) {
       throw new Error("Certification not found");
     }
-    await ctx.db.patch(levelId, fields);
+    await ctx.db.patch(levelId, {
+      ...fields,
+      ...(certificationCategoryId !== undefined
+        ? {
+            certificationCategoryId:
+              certificationCategoryId === null
+                ? undefined
+                : certificationCategoryId,
+          }
+        : {}),
+    });
   },
 });
 
