@@ -11,8 +11,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
-
 export async function POST() {
   const cookieStore = await cookies();
   const raw = cookieStore.get(AUTH_COOKIE)?.value;
@@ -25,6 +23,14 @@ export async function POST() {
   const session = verifyPasswordSessionCookie(raw);
   if (!session) {
     return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
+  if (!convexUrl) {
+    return NextResponse.json(
+      { error: "Missing NEXT_PUBLIC_CONVEX_URL" },
+      { status: 503 },
+    );
   }
 
   const convex = new ConvexHttpClient(convexUrl);

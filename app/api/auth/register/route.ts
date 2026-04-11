@@ -1,14 +1,14 @@
 import { ConvexHttpClient } from "convex/browser";
+import type { FunctionReturnType } from "convex/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
 import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/auth-cookie";
+import { formatConvexHttpFailure } from "@/lib/convex-http-failure-format";
 import { signPasswordSessionCookie } from "@/lib/password-session";
 
 export const dynamic = "force-dynamic";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL!;
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -27,6 +27,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
+  if (!convexUrl) {
+    return NextResponse.json(
+      {
+        error:
+          "Missing NEXT_PUBLIC_CONVEX_URL. Set it in Vercel to your Convex production URL, then redeploy.",
+      },
+      { status: 503 },
+    );
+  }
+
   const convex = new ConvexHttpClient(convexUrl);
 
   try {
@@ -37,14 +48,34 @@ export async function POST(request: Request) {
       companyId: body.companyId as Id<"companies">,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Registration failed";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: formatConvexHttpFailure(e, {
+          operation: "auth:register (Convex action)",
+          convexUrl,
+        }),
+      },
+      { status: 400 },
+    );
   }
 
-  const user = await convex.action(api.auth.login, {
-    email: body.email.trim(),
-    password: body.password,
-  });
+  let user: FunctionReturnType<typeof api.auth.login>;
+  try {
+    user = await convex.action(api.auth.login, {
+      email: body.email.trim(),
+      password: body.password,
+    });
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error: formatConvexHttpFailure(e, {
+          operation: "auth:login after register (Convex action)",
+          convexUrl,
+        }),
+      },
+      { status: 502 },
+    );
+  }
   if (!user) {
     return NextResponse.json(
       { error: "Account created but login failed" },
