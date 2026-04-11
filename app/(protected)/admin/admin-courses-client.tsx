@@ -1980,8 +1980,8 @@ export default function AdminCoursesClient() {
                 type="button"
                 className={cn(
                   "mb-2 inline-flex max-w-full items-center rounded-full border-2 px-3 py-1.5 text-left text-xs font-medium text-foreground shadow-sm transition-colors",
-                  "border-brand-lime/55 bg-card hover:border-brand-lime hover:bg-muted",
-                  "dark:border-brand-lime/50 dark:bg-card dark:hover:bg-muted",
+                  "border-brand-gold/50 bg-brand-gold/[0.14] hover:border-brand-gold/70 hover:bg-brand-gold/[0.22]",
+                  "dark:border-brand-gold/45 dark:bg-brand-gold/[0.12] dark:hover:bg-brand-gold/[0.18]",
                 )}
                 onClick={() => setCentreUnitsShowAll((v) => !v)}
               >
@@ -2285,8 +2285,8 @@ export default function AdminCoursesClient() {
                 type="button"
                 className={cn(
                   "mb-2 inline-flex max-w-full items-center rounded-full border-2 px-3 py-1.5 text-left text-xs font-medium text-foreground shadow-sm transition-colors",
-                  "border-brand-gold/55 bg-card hover:border-brand-gold hover:bg-muted",
-                  "dark:border-brand-gold/50 dark:bg-card dark:hover:bg-muted",
+                  "border-brand-sky/50 bg-brand-sky/[0.12] hover:border-brand-sky/70 hover:bg-brand-sky/[0.18]",
+                  "dark:border-brand-sky/45 dark:bg-brand-sky/[0.10] dark:hover:bg-brand-sky/[0.16]",
                 )}
                 onClick={() => setLibraryShowAll((v) => !v)}
               >
