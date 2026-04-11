@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
+  ArrowRight,
   CheckCircle2,
   ChevronRight,
   Circle,
@@ -87,7 +88,7 @@ function PathStepNode({
   );
 
   const caption = (
-    <span className="max-w-[5.5rem] text-center text-[10px] leading-tight text-muted-foreground line-clamp-2">
+    <span className="max-w-[5.25rem] text-center text-[10px] leading-tight text-muted-foreground line-clamp-2">
       {step.title}
     </span>
   );
@@ -95,7 +96,7 @@ function PathStepNode({
   if (blocked) {
     return (
       <span
-        className="inline-flex max-w-[5.75rem] cursor-not-allowed flex-col items-center gap-1 opacity-80"
+        className="inline-flex max-w-[5.25rem] cursor-not-allowed flex-col items-center gap-1 opacity-80"
         title={step.title}
       >
         {shell}
@@ -107,7 +108,7 @@ function PathStepNode({
   return (
     <Link
       href={href}
-      className="inline-flex max-w-[5.75rem] flex-col items-center gap-1 rounded-md outline-none ring-offset-background transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-brand-sky/50"
+      className="inline-flex max-w-[5.25rem] flex-col items-center gap-1 rounded-md outline-none ring-offset-background transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-brand-sky/50"
       title={step.title}
       scroll={true}
     >
@@ -203,7 +204,7 @@ export default function CertificationLevelClient({
             units in Admin → Courses.
           </p>
         ) : (
-          <ol className="mt-6 flex w-full flex-col gap-8 border-t border-border/60 pt-6">
+          <ol className="mt-6 flex w-full flex-col gap-6 border-t border-border/60 pt-6">
             {roadmap.units.map((u, i) => {
               const pathSteps = u.pathSteps satisfies PathStep[];
               const pct =
@@ -215,13 +216,13 @@ export default function CertificationLevelClient({
               return (
                 <li
                   key={u.unitId}
-                  className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-4"
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2 md:gap-3"
                 >
-                  <div className="w-full shrink-0 sm:max-w-[min(100%,280px)] sm:w-[240px]">
+                  <div className="w-full shrink-0 sm:max-w-[min(100%,260px)] sm:w-[216px]">
                     <Link
                       href={`/units/${u.unitId}?level=${levelId}`}
                       className={cn(
-                        "block w-full rounded-xl border-2 bg-card px-4 py-3 shadow-sm transition-colors hover:border-brand-sky/40 hover:bg-muted/40",
+                        "block w-full rounded-xl border-2 bg-card px-3 py-3 shadow-sm transition-colors hover:border-brand-sky/40 hover:bg-muted/40",
                         u.completed && "border-brand-lime/50 bg-brand-lime/[0.06]",
                         !u.completed &&
                           !u.locked &&
@@ -289,13 +290,14 @@ export default function CertificationLevelClient({
 
                   {pathSteps.length > 0 ? (
                     <>
-                      <div
-                        className="hidden h-px w-8 shrink-0 rounded-full bg-border sm:block md:w-12"
+                      <ArrowRight
+                        className="hidden h-4 w-6 shrink-0 text-muted-foreground/40 sm:block md:h-5 md:w-8"
                         aria-hidden
+                        strokeWidth={2}
                       />
                       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch]">
                         <ol
-                          className="flex w-max list-none flex-row flex-nowrap items-center gap-x-0 pr-2"
+                          className="flex w-max list-none flex-row flex-nowrap items-center gap-x-0 pr-1"
                           aria-label={`Steps in unit: ${u.title}`}
                         >
                           {pathSteps.map((step, si) => (
@@ -310,9 +312,10 @@ export default function CertificationLevelClient({
                               className="flex items-center"
                             >
                               {si > 0 ? (
-                                <span
-                                  className="mx-0.5 h-0.5 w-3 shrink-0 rounded-full bg-border sm:w-4"
+                                <ArrowRight
+                                  className="mx-0 h-3 w-3.5 shrink-0 text-muted-foreground/40 sm:h-3 sm:w-4"
                                   aria-hidden
+                                  strokeWidth={2}
                                 />
                               ) : null}
                               <PathStepNode

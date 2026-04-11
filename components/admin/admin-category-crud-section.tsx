@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQuery } from "convex/react";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -145,7 +145,7 @@ function CategoryCrudColumn({
           {rows.map((row) => (
             <li
               key={row._id}
-              className="space-y-2 rounded-md border border-border/60 bg-background/80 p-2.5"
+              className="group space-y-2 rounded-md border border-border/60 bg-background/80 p-2.5"
             >
               {editingId === row._id ? (
                 <>
@@ -179,32 +179,39 @@ function CategoryCrudColumn({
                   </div>
                 </>
               ) : (
-                <>
-                  <p className="truncate text-sm font-medium">{row.shortCode}</p>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">
-                    {row.longDescription}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex gap-3">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <p className="truncate text-sm font-medium">
+                      {row.shortCode}
+                    </p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      {row.longDescription}
+                    </p>
+                  </div>
+                  <div
+                    className="flex shrink-0 flex-col items-end gap-1.5 self-start opacity-100 transition-opacity duration-150 md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100"
+                  >
                     <Button
                       type="button"
-                      size="sm"
+                      size="icon-sm"
                       variant="outline"
+                      aria-label={`Edit ${title}`}
                       onClick={() => startEdit(row)}
                     >
-                      Edit
+                      <Pencil className="size-3.5" aria-hidden />
                     </Button>
                     <Button
                       type="button"
-                      size="sm"
+                      size="icon-sm"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
+                      aria-label={`Delete ${title}`}
                       onClick={() => void handleRemove(row._id)}
                     >
-                      <Trash2 className="mr-1 h-3 w-3" aria-hidden />
-                      Delete
+                      <Trash2 className="size-3.5" aria-hidden />
                     </Button>
                   </div>
-                </>
+                </div>
               )}
             </li>
           ))}

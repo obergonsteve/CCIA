@@ -77,7 +77,7 @@ export function RegisterForm() {
       setError(data.error ?? "Registration failed");
       return;
     }
-    window.location.assign("/certifications");
+    window.location.assign("/dashboard");
   }
 
   return (

@@ -2,30 +2,47 @@
 
 import { ContentItemView } from "@/components/content-item-view";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
+  ArrowRight,
   CheckCircle2,
+  ChevronDown,
   Circle,
+  CircleDashed,
   Lock,
   Route,
 } from "lucide-react";
 import Link from "next/link";
+import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+function unitStepPathHref(
+  unitId: Id<"units">,
+  levelId: Id<"certificationLevels"> | undefined,
+  st: {
+    kind: "content" | "legacy_assignment";
+    contentId?: Id<"contentItems">;
+    assignmentId?: Id<"assignments">;
+  },
+): string {
+  const q = levelId ? `?level=${levelId}` : "";
+  const base = `/units/${unitId}${q}`;
+  if (st.kind === "content" && st.contentId) {
+    return `${base}#step-${st.contentId}`;
+  }
+  if (st.kind === "legacy_assignment" && st.assignmentId) {
+    return `${base}#step-a-${st.assignmentId}`;
+  }
+  return base;
+}
 
 function LegacyAssignmentStartRecorder({
   unitId,
@@ -68,29 +85,146 @@ function LegacyLastResult({
   );
 }
 
-function stepLabel(
-  kind: "content" | "legacy_assignment",
-  contentType?: string,
-): string {
-  if (kind === "legacy_assignment") {
-    return "Assessment (legacy)";
-  }
-  switch (contentType) {
-    case "video":
-      return "Video";
-    case "pdf":
-      return "Reading";
-    case "slideshow":
-      return "Slideshow";
-    case "link":
-      return "Resource";
-    case "test":
-      return "Test";
-    case "assignment":
-      return "Assignment";
-    default:
-      return "Step";
-  }
+function LegacyAssignmentStepBlock({
+  row,
+  assignment,
+  unitId,
+  levelId,
+  blocked,
+  answers,
+  setAnswersByAssignment,
+  onSubmitLegacyAssignment,
+}: {
+  row: { done: boolean; locked: boolean; active: boolean };
+  assignment: Doc<"assignments">;
+  unitId: Id<"units">;
+  levelId?: Id<"certificationLevels">;
+  blocked: boolean;
+  answers: Record<string, string>;
+  setAnswersByAssignment: Dispatch<
+    SetStateAction<Record<string, Record<string, string>>>
+  >;
+  onSubmitLegacyAssignment: (assignmentId: Id<"assignments">) => void;
+}) {
+  const [expanded, setExpanded] = useState<boolean | undefined>(undefined);
+  const isOpen = expanded === undefined ? !row.done : expanded;
+  const bodyId = `legacy-step-body-${assignment._id}`;
+
+  return (
+    <Card
+      className={cn(
+        (blocked || row.locked) && "pointer-events-none opacity-60",
+      )}
+    >
+      <CardHeader className="pb-2">
+        <button
+          type="button"
+          className="-m-1 flex w-full items-start gap-2 rounded-md p-1 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          aria-expanded={isOpen}
+          aria-controls={bodyId}
+          onClick={() => setExpanded(!isOpen)}
+        >
+          {row.done ? (
+            <CheckCircle2
+              className="mt-0.5 h-5 w-5 shrink-0 text-brand-lime"
+              aria-hidden
+            />
+          ) : row.locked ? (
+            <Lock
+              className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+          ) : null}
+          <span className="min-w-0 flex-1 space-y-1">
+            <span className="font-heading block text-lg font-medium leading-snug text-foreground">
+              {assignment.title}
+            </span>
+            <span className="block text-sm text-muted-foreground">
+              {assignment.description}
+            </span>
+            <span className="block text-sm text-muted-foreground">
+              Passing score: {assignment.passingScore}%
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "mt-1 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200",
+              isOpen && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </button>
+      </CardHeader>
+      {isOpen ? (
+        <CardContent id={bodyId} className="space-y-6">
+          <LegacyAssignmentStartRecorder
+            unitId={unitId}
+            assignmentId={assignment._id}
+            levelId={levelId}
+            enabled={!blocked && !row.locked && row.active}
+          />
+          {blocked || row.locked ? (
+            <p className="text-sm text-muted-foreground">
+              Complete earlier steps to unlock this assessment.
+            </p>
+          ) : (
+            <>
+              {assignment.questions.map((question) => (
+                <div key={question.id} className="space-y-2">
+                  <Label className="text-base">{question.question}</Label>
+                  {question.type === "multiple_choice" && question.options && (
+                    <div className="flex flex-wrap gap-2">
+                      {question.options.map((opt) => (
+                        <Button
+                          key={opt}
+                          type="button"
+                          size="sm"
+                          variant={
+                            answers[question.id] === opt ? "default" : "outline"
+                          }
+                          onClick={() =>
+                            setAnswersByAssignment((prev) => ({
+                              ...prev,
+                              [assignment._id]: {
+                                ...(prev[assignment._id] ?? {}),
+                                [question.id]: opt,
+                              },
+                            }))
+                          }
+                        >
+                          {opt}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  {question.type === "text" && (
+                    <Input
+                      value={answers[question.id] ?? ""}
+                      onChange={(e) =>
+                        setAnswersByAssignment((prev) => ({
+                          ...prev,
+                          [assignment._id]: {
+                            ...(prev[assignment._id] ?? {}),
+                            [question.id]: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  )}
+                </div>
+              ))}
+              <Button
+                onClick={() => void onSubmitLegacyAssignment(assignment._id)}
+              >
+                Submit assessment
+              </Button>
+              <LegacyLastResult assignmentId={assignment._id} />
+            </>
+          )}
+        </CardContent>
+      ) : null}
+    </Card>
+  );
 }
 
 export default function UnitClient({
@@ -264,72 +398,133 @@ export default function UnitClient({
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 md:p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Route className="h-4 w-4 text-brand-gold" aria-hidden />
-            Your path through this unit
+      <div className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/45 bg-muted/25 shadow-sm dark:border-brand-gold/40">
+        <div
+          className="h-1.5 w-full bg-gradient-to-r from-brand-lime/70 via-brand-gold/75 to-brand-sky/70"
+          aria-hidden
+        />
+        <div className="p-3 md:p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-brand-gold/40 bg-brand-gold/15 shadow-sm">
+                <Route className="h-4 w-4 text-brand-gold" aria-hidden />
+              </span>
+              Your path through this unit
+            </div>
+            <Button
+              type="button"
+              variant={showCompletedSteps ? "secondary" : "outline"}
+              size="sm"
+              className="h-7 shrink-0 rounded-full px-3 text-xs font-medium"
+              aria-pressed={showCompletedSteps}
+              onClick={() => setShowCompletedSteps((v) => !v)}
+            >
+              {showCompletedSteps ? "Hide completed" : "Show completed"}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant={showCompletedSteps ? "secondary" : "outline"}
-            size="sm"
-            className="h-7 shrink-0 rounded-full px-3 text-xs font-medium"
-            aria-pressed={showCompletedSteps}
-            onClick={() => setShowCompletedSteps((v) => !v)}
-          >
-            {showCompletedSteps ? "Hide completed" : "Show completed"}
-          </Button>
-        </div>
-        <ScrollArea className="w-full">
           {visibleSteps.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-5 text-center text-sm text-muted-foreground">
               Nothing to show here. Turn{" "}
               <span className="font-medium text-foreground">Show completed</span>{" "}
               on to see finished steps again.
             </p>
           ) : (
-            <ol className="flex min-w-0 gap-2 pb-1 md:flex-wrap md:gap-3">
-              {visibleSteps.map((row) => {
-                const st = row.step;
-                const title = st.title;
-                const label =
-                  st.kind === "legacy_assignment"
-                    ? stepLabel("legacy_assignment")
-                    : stepLabel("content", st.contentType);
-                const stepIndexInUnit = roadmap.steps.indexOf(row);
-                return (
-                  <li
-                    key={
-                      st.kind === "content"
-                        ? `c-${st.contentId}`
-                        : `a-${st.assignmentId}`
-                    }
-                    className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl border bg-background/80 px-3 py-2 text-xs md:min-w-[160px]"
-                  >
-                    <div className="flex items-center gap-2">
-                      {row.done ? (
-                        <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-lime" />
-                      ) : row.locked ? (
-                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      ) : row.active ? (
-                        <Circle className="h-4 w-4 shrink-0 text-brand-sky fill-brand-sky/25" />
-                      ) : (
-                        <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="relative min-w-0 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch]">
+              <ol className="flex w-max list-none flex-row flex-nowrap items-start gap-x-0 pr-1">
+                {visibleSteps.map((row, si) => {
+                  const st = row.step;
+                  const title = st.title;
+                  const stepLocked = blocked || row.locked;
+                  const href = unitStepPathHref(unitId, levelId, st);
+                  const nodeIcon =
+                    row.done ? (
+                      <CheckCircle2
+                        className="h-4 w-4 text-brand-lime"
+                        aria-hidden
+                      />
+                    ) : stepLocked ? (
+                      <Lock
+                        className="h-4 w-4 text-muted-foreground"
+                        aria-hidden
+                      />
+                    ) : row.active ? (
+                      <CircleDashed
+                        className="h-4 w-4 text-brand-gold"
+                        aria-hidden
+                      />
+                    ) : (
+                      <Circle
+                        className="h-4 w-4 text-muted-foreground/75"
+                        aria-hidden
+                      />
+                    );
+                  const shell = (
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 bg-background/95 shadow-sm transition-transform",
+                        row.done &&
+                          "border-brand-lime/75 bg-brand-lime/[0.12] shadow-sm",
+                        !row.done &&
+                          row.active &&
+                          !stepLocked &&
+                          "border-brand-gold/80 bg-brand-gold/[0.12] ring-2 ring-brand-gold/20",
+                        !row.done &&
+                          !row.active &&
+                          !stepLocked &&
+                          "border-border/80",
+                        stepLocked && "border-muted bg-muted/45",
                       )}
-                      <span className="font-semibold text-foreground line-clamp-2">
-                        {title}
-                      </span>
-                    </div>
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      {label} · Step {stepIndexInUnit + 1}
+                    >
+                      {nodeIcon}
                     </span>
-                  </li>
-                );
-              })}
-            </ol>
+                  );
+                  const caption = (
+                    <span className="max-w-[5.25rem] text-center text-[10px] font-medium leading-tight text-muted-foreground line-clamp-3">
+                      {title}
+                    </span>
+                  );
+                  return (
+                    <li
+                      key={
+                        st.kind === "content"
+                          ? `c-${st.contentId}`
+                          : `a-${st.assignmentId}`
+                      }
+                      className="flex items-start"
+                    >
+                      {si > 0 ? (
+                        <ArrowRight
+                          className="mx-0.5 mt-2 h-3.5 w-4 shrink-0 text-muted-foreground/50 sm:mt-2 sm:h-4 sm:w-5"
+                          aria-hidden
+                          strokeWidth={2}
+                        />
+                      ) : null}
+                      {stepLocked ? (
+                        <span
+                          className="inline-flex cursor-not-allowed flex-col items-center gap-1.5 opacity-75"
+                          title={title}
+                        >
+                          {shell}
+                          {caption}
+                        </span>
+                      ) : (
+                        <Link
+                          href={href}
+                          className="inline-flex flex-col items-center gap-1.5 rounded-md outline-none ring-offset-background transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-brand-sky/45"
+                          title={title}
+                          scroll
+                        >
+                          {shell}
+                          {caption}
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
           )}
-        </ScrollArea>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -380,97 +575,16 @@ export default function UnitClient({
                 row.active && "ring-2 ring-brand-sky/40 ring-offset-2 ring-offset-background",
               )}
             >
-              <Card
-                className={cn(
-                  (blocked || row.locked) && "opacity-60 pointer-events-none",
-                )}
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    {row.done ? (
-                      <CheckCircle2 className="h-5 w-5 text-brand-lime" />
-                    ) : row.locked ? (
-                      <Lock className="h-5 w-5 text-muted-foreground" />
-                    ) : null}
-                    {assignment.title}
-                  </CardTitle>
-                  <CardDescription>{assignment.description}</CardDescription>
-                  <p className="text-sm text-muted-foreground">
-                    Passing score: {assignment.passingScore}%
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <LegacyAssignmentStartRecorder
-                    unitId={unitId}
-                    assignmentId={assignment._id}
-                    levelId={levelId}
-                    enabled={!blocked && !row.locked && row.active}
-                  />
-                  {blocked || row.locked ? (
-                    <p className="text-sm text-muted-foreground">
-                      Complete earlier steps to unlock this assessment.
-                    </p>
-                  ) : (
-                    <>
-                      {assignment.questions.map((question) => (
-                        <div key={question.id} className="space-y-2">
-                          <Label className="text-base">{question.question}</Label>
-                          {question.type === "multiple_choice" &&
-                            question.options && (
-                            <div className="flex flex-wrap gap-2">
-                              {question.options.map((opt) => (
-                                <Button
-                                  key={opt}
-                                  type="button"
-                                  size="sm"
-                                  variant={
-                                    answers[question.id] === opt
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  onClick={() =>
-                                    setAnswersByAssignment((prev) => ({
-                                      ...prev,
-                                      [assignment._id]: {
-                                        ...(prev[assignment._id] ?? {}),
-                                        [question.id]: opt,
-                                      },
-                                    }))
-                                  }
-                                >
-                                  {opt}
-                                </Button>
-                              ))}
-                            </div>
-                          )}
-                          {question.type === "text" && (
-                            <Input
-                              value={answers[question.id] ?? ""}
-                              onChange={(e) =>
-                                setAnswersByAssignment((prev) => ({
-                                  ...prev,
-                                  [assignment._id]: {
-                                    ...(prev[assignment._id] ?? {}),
-                                    [question.id]: e.target.value,
-                                  },
-                                }))
-                              }
-                            />
-                          )}
-                        </div>
-                      ))}
-                      <Button
-                        onClick={() =>
-                          void onSubmitLegacyAssignment(assignment._id)
-                        }
-                      >
-                        Submit assessment
-                      </Button>
-                      <LegacyLastResult assignmentId={assignment._id} />
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+              <LegacyAssignmentStepBlock
+                row={row}
+                assignment={assignment}
+                unitId={unitId}
+                levelId={levelId}
+                blocked={blocked}
+                answers={answers}
+                setAnswersByAssignment={setAnswersByAssignment}
+                onSubmitLegacyAssignment={onSubmitLegacyAssignment}
+              />
             </div>
           );
         })}

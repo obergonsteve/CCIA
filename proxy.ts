@@ -36,7 +36,7 @@ export async function proxy(request: NextRequest) {
     session.role !== "admin" &&
     session.role !== "content_creator"
   ) {
-    return NextResponse.redirect(new URL("/certifications", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();

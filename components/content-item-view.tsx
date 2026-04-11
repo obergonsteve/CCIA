@@ -3,19 +3,15 @@
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseSlideshowUrls } from "@/lib/slideshow";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import {
+  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -80,6 +76,15 @@ export function ContentItemView({
     (myStepProgress.outcome === "completed" ||
       myStepProgress.outcome === "passed");
 
+  const isStepComplete =
+    isAssessment && item.assessment
+      ? lastAssessmentResult?.passed === true
+      : Boolean(unitId && !isAssessment && nonAssessmentComplete);
+
+  const [expanded, setExpanded] = useState<boolean | undefined>(undefined);
+  const isOpen = expanded === undefined ? !isStepComplete : expanded;
+  const stepBodyId = `step-body-${item._id}`;
+
   useEffect(() => {
     if (!unitId || locked || !isActive) {
       return;
@@ -102,18 +107,48 @@ export function ContentItemView({
 
   return (
     <Card
-      className={cn(locked && "opacity-70")}
+      className={cn(
+        locked && "opacity-70",
+        isStepComplete &&
+          "border-2 border-brand-lime/50 bg-brand-lime/[0.05] dark:border-brand-lime/45 dark:bg-brand-lime/[0.06]",
+      )}
     >
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
+      <CardHeader className="pb-2">
+        <button
+          type="button"
+          className="flex w-full items-start gap-2 rounded-md p-1 text-left -m-1 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          aria-expanded={isOpen}
+          aria-controls={stepBodyId}
+          onClick={() => setExpanded(!isOpen)}
+        >
           {locked ? (
-            <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Lock className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+          ) : isStepComplete ? (
+            <CheckCircle2
+              className="mt-0.5 h-4 w-4 shrink-0 text-brand-lime"
+              aria-hidden
+            />
           ) : null}
-          {item.title}
-        </CardTitle>
-        <CardDescription className="capitalize">{typeLabel}</CardDescription>
+          <span className="min-w-0 flex-1 space-y-1">
+            <span className="font-heading text-base leading-snug font-medium text-foreground block">
+              {item.title}
+            </span>
+            <span className="text-sm text-muted-foreground capitalize block">
+              {typeLabel}
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200",
+              isOpen && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </button>
       </CardHeader>
+      {isOpen ? (
       <CardContent
+        id={stepBodyId}
         className={cn("space-y-3", locked && "pointer-events-none select-none")}
       >
         {locked ? (
@@ -334,6 +369,7 @@ export function ContentItemView({
           </div>
         )}
       </CardContent>
+      ) : null}
     </Card>
   );
 }

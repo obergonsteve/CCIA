@@ -37,7 +37,7 @@ const schema = z.object({
 
 type Values = z.infer<typeof schema>;
 
-const DEFAULT_AFTER_LOGIN = "/certifications";
+const DEFAULT_AFTER_LOGIN = "/dashboard";
 
 /** Only allow post-login redirects to routes that exist (avoid silent 404 after auth). */
 const ALLOWED_AFTER_LOGIN_PREFIXES = [
