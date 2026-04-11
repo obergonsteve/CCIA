@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import {
   internalMutation,
   internalQuery,
@@ -19,10 +19,20 @@ export const resolveDeploymentUserIdInternal = internalQuery({
 export const getByEmailInternal = internalQuery({
   args: { email: v.string() },
   handler: async (ctx, { email }) => {
-    return await ctx.db
+    const key = email.toLowerCase().trim();
+    const rows = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email.toLowerCase().trim()))
-      .unique();
+      .withIndex("by_email", (q) => q.eq("email", key))
+      .collect();
+    if (rows.length === 0) {
+      return null;
+    }
+    if (rows.length > 1) {
+      throw new ConvexError(
+        `Multiple users share email "${key}". Open Convex Dashboard → Data → users and delete duplicate rows.`,
+      );
+    }
+    return rows[0] ?? null;
   },
 });
 

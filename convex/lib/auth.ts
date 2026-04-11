@@ -1,11 +1,15 @@
+import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { isLive } from "./softDelete";
 
 /**
  * Convex “acting user” for browser queries (no Convex Auth JWT in this app).
- * 1) `CONVEX_DEV_USER_ID` on the deployment if set.
- * 2) Else the seeded admin `steve.moore@ccia-landlease.com` (must match `seed.ts`).
+ * 1) `CONVEX_DEV_USER_ID` on the deployment if set (must be an existing `users` id).
+ * 2) Else exactly one `users` row with email `steve.moore@ccia-landlease.com` (see `seed.ts`).
+ *
+ * Note: `.unique()` on `by_email` throws if there are 0 or 2+ matches — that surfaced as a
+ * generic client “Server Error”. We use `.collect()` and explicit errors instead.
  */
 const FALLBACK_ADMIN_EMAIL = "steve.moore@ccia-landlease.com";
 
@@ -14,21 +18,42 @@ export async function resolveDeploymentUserId(
 ): Promise<Id<"users">> {
   const raw = process.env.CONVEX_DEV_USER_ID?.trim();
   if (raw) {
-    return raw as Id<"users">;
+    let row;
+    try {
+      row = await ctx.db.get(raw as Id<"users">);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new ConvexError(
+        `CONVEX_DEV_USER_ID "${raw}" is not a valid users id (${msg}). Remove or fix it under Convex → Deployment → Environment Variables.`,
+      );
+    }
+    if (!row) {
+      throw new ConvexError(
+        `CONVEX_DEV_USER_ID is "${raw}" but no users row exists. Remove it or set it to a real users document _id from the dashboard.`,
+      );
+    }
+    return row._id;
   }
-  const seeded = await ctx.db
+
+  const email = FALLBACK_ADMIN_EMAIL.toLowerCase();
+  const candidates = await ctx.db
     .query("users")
-    .withIndex("by_email", (q) =>
-      q.eq("email", FALLBACK_ADMIN_EMAIL.toLowerCase()),
-    )
-    .unique();
-  if (seeded) {
-    return seeded._id;
+    .withIndex("by_email", (q) => q.eq("email", email))
+    .collect();
+
+  if (candidates.length === 0) {
+    throw new ConvexError(
+      `No deployment fallback user: no users row with email "${email}". Run: npx convex run seed:seedCommunityOperatorsAndAdmins` +
+        " (add --prod for production). Or set CONVEX_DEV_USER_ID to a users document id.",
+    );
   }
-  throw new Error(
-    "No Convex user identity: run `npx convex run seed:seedCommunityOperatorsAndAdmins`, " +
-      "or set deployment env CONVEX_DEV_USER_ID to a `users` document id.",
-  );
+  if (candidates.length > 1) {
+    throw new ConvexError(
+      `${candidates.length} users share email "${email}"; Convex requires exactly one fallback. Delete duplicates in Dashboard → Data → users, or set CONVEX_DEV_USER_ID to one _id.`,
+    );
+  }
+
+  return candidates[0]!._id;
 }
 
 export async function requireUserId(

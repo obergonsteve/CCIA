@@ -65,7 +65,9 @@ function CertificationBucketSection({
           <Icon className={cn("h-5 w-5", iconClassName)} aria-hidden />
           {title}
         </h2>
-        <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+        {rows.length > 0 ? (
+          <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+        ) : null}
       </div>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground border rounded-lg px-4 py-6 text-center bg-muted/20">
