@@ -25,6 +25,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { SidebarBreadcrumbs } from "@/components/layout/sidebar-breadcrumbs";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -275,6 +276,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <PwaInstallPrompt />
             <OfflineTrainingBanner />
+            <SidebarBreadcrumbs />
             {children}
           </main>
           <footer className="shrink-0 border-t border-border/60 text-center text-xs text-muted-foreground py-3 px-4">

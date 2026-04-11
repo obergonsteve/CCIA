@@ -243,6 +243,37 @@ function resolveUnitIdForPaletteContentDrop(
     : null;
 }
 
+function TrainingColumnChip({
+  tone,
+  label,
+  count,
+}: {
+  tone: "lime" | "gold" | "sky";
+  label: string;
+  count: number | null;
+}) {
+  const skin = {
+    lime: "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]",
+    gold: "border-brand-gold/55 bg-[color-mix(in_oklab,var(--brand-gold)_32%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-gold)_26%,var(--card))]",
+    sky: "border-brand-sky/55 bg-[color-mix(in_oklab,var(--brand-sky)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-sky)_24%,var(--card))]",
+  }[tone];
+  return (
+    <div className="relative z-10 -mt-3 mb-1 flex w-full shrink-0 justify-center border-b border-border/40 pb-1">
+      <span
+        className={cn(
+          "inline-flex max-w-full items-center gap-2 rounded-full border px-3.5 py-1 text-sm font-semibold leading-none shadow-sm",
+          skin,
+        )}
+      >
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 tabular-nums rounded-md bg-background px-1.5 py-0.5 text-xs font-bold leading-none text-foreground dark:bg-muted">
+          {count === null ? "…" : count}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export default function AdminCoursesClient() {
   const companies = useQuery(api.companies.list);
   const levels = useQuery(api.certifications.listAllAdmin);
@@ -1126,7 +1157,7 @@ export default function AdminCoursesClient() {
   }
 
   const cyanPlusBtn =
-    "h-7 w-7 shrink-0 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
+    "rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500";
 
   const levelsListForUi = displayedLevels ?? levels ?? [];
   const unitsInCertListForUi =
@@ -1156,30 +1187,48 @@ export default function AdminCoursesClient() {
     ? filteredDetailContentForUi
     : (detailContentListForUi ?? []);
 
+  const certListCount = levelsListForUi.length;
+  const unitsListCount: number | null =
+    filterCertId && !centreUnitsShowAll
+      ? unitsInCertListForUi === undefined
+        ? null
+        : unitsInCertListForUi.length
+      : allUnits === undefined
+        ? null
+        : allUnits.length;
+  const contentListCount: number | null =
+    selectedDetailUnitId && selectedDetailUnit && !libraryShowAll
+      ? detailContent === undefined
+        ? null
+        : unitContentSortableList.length
+      : allLibraryContent === undefined
+        ? null
+        : (filteredLibraryContent?.length ?? 0);
+
   return (
     <TooltipProvider delayDuration={400}>
       <div className="min-h-0 space-y-4">
-      <div>
+      <div className="pb-2">
         <h1 className="text-2xl font-bold tracking-tight">Training Content</h1>
         <p className="text-base leading-snug text-muted-foreground">
-          Build structured training material by attaching units and content to
-          certifications.
+          Build and maintain structured Certifications by assembling Units and
+          Content.
         </p>
         <p
           className={cn(
-            "mt-2 flex max-w-3xl flex-wrap items-center gap-x-2 gap-y-1 border-l-2 pl-3 text-sm leading-snug",
+            "mx-auto mt-3 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border px-2.5 py-1 text-center text-sm leading-none",
             "border-[oklch(0.58_0.11_232/0.88)] text-[oklch(0.44_0.095_232)]",
             "dark:border-[oklch(0.55_0.095_232/0.65)] dark:text-[oklch(0.82_0.065_232)]",
           )}
         >
           <GripHorizontal
-            className="h-4 w-4 shrink-0 text-current opacity-90"
+            className="h-3 w-3 shrink-0 text-current opacity-90"
             aria-hidden
           />
           <span>drag up or down to reorder</span>
           <span className="text-current opacity-45">·</span>
           <GripVertical
-            className="h-4 w-4 shrink-0 text-current opacity-90"
+            className="h-3 w-3 shrink-0 text-current opacity-90"
             aria-hidden
           />
           <span>drag left to attach units and content</span>
@@ -1196,50 +1245,38 @@ export default function AdminCoursesClient() {
       >
         {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
         <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[repeat(3,minmax(0,1fr))]">
-          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] p-4 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
-            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
-                <GraduationCap
-                  className="shrink-0 text-brand-lime"
-                  size={20}
-                  aria-hidden
+          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] px-4 pb-4 pt-0 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
+            <TrainingColumnChip
+              tone="lime"
+              label="Certifications"
+              count={certListCount}
+            />
+            <h2 className="sr-only">Certifications</h2>
+            <div className="mb-2 flex shrink-0 items-center justify-start gap-2">
+              <div className="w-[min(100%,13rem)] shrink-0">
+                <Input
+                  id="admin-cert-search"
+                  aria-label="Filter certifications"
+                  placeholder="Filter list…"
+                  value={certSearch}
+                  onChange={(e) => setCertSearch(e.target.value)}
+                  className="h-9 w-full bg-card"
                 />
-                <span className="truncate">
-                  Certifications
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">
-                    ({levels?.length ?? 0})
-                  </span>
-                </span>
-              </h2>
+              </div>
               <Button
                 type="button"
-                size="icon"
-                className={cyanPlusBtn}
+                size="icon-lg"
+                className={cn(cyanPlusBtn, "shrink-0")}
                 aria-label="Add certification"
                 onClick={() => setAddCertOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <div className="mb-1 shrink-0">
-              <label
-                htmlFor="admin-cert-search"
-                className="mb-0.5 block text-xs text-muted-foreground"
-              >
-                Search
-              </label>
-              <Input
-                id="admin-cert-search"
-                placeholder="Filter list…"
-                value={certSearch}
-                onChange={(e) => setCertSearch(e.target.value)}
-                className="h-9 bg-card"
-              />
-            </div>
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-lime/50 dark:border-brand-lime/40" />
             {!filterCertId ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Drag and drop Units onto a Certification to attach them.
+                Drag and drop Units onto a Certification.
               </p>
             ) : (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
@@ -1298,14 +1335,20 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] p-4 shadow-lg dark:bg-brand-gold/[0.12]",
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] px-4 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
               filterCertId
                 ? "border-brand-lime/40 border-l-brand-lime border-r-brand-lime dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime"
                 : "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold",
             )}
           >
-            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
+            <TrainingColumnChip
+              tone="gold"
+              label="Units"
+              count={unitsListCount}
+            />
+            <h2 className="sr-only">Units</h2>
+            <div className="mb-2 flex shrink-0 justify-center">
+              <p className="flex min-w-0 max-w-full items-center justify-center gap-2 text-center text-sm font-bold text-foreground">
                 <Layers
                   className={cn(
                     "shrink-0",
@@ -1316,43 +1359,31 @@ export default function AdminCoursesClient() {
                 />
                 <span className="truncate">
                   {filterCertId && !centreUnitsShowAll
-                    ? `Units for ${filterCertName ?? "…"}`
-                    : "All Units"}
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">
-                    (
-                    {filterCertId && !centreUnitsShowAll
-                      ? unitsInFilteredCert === undefined
-                        ? "…"
-                        : unitsInFilteredCert.length
-                      : (allUnits?.length ?? 0)}
-                    )
-                  </span>
+                    ? (filterCertName ?? "…")
+                    : "All units"}
                 </span>
-              </h2>
+              </p>
+            </div>
+            <div className="mb-2 flex shrink-0 items-center justify-start gap-2">
+              <div className="w-[min(100%,13rem)] shrink-0">
+                <Input
+                  id="admin-unit-search"
+                  aria-label="Filter units"
+                  placeholder="Filter list…"
+                  value={unitSearch}
+                  onChange={(e) => setUnitSearch(e.target.value)}
+                  className="h-9 w-full bg-card"
+                />
+              </div>
               <Button
                 type="button"
-                size="icon"
-                className={cyanPlusBtn}
+                size="icon-lg"
+                className={cn(cyanPlusBtn, "shrink-0")}
                 aria-label="Add unit"
                 onClick={() => setAddUnitOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
-            </div>
-            <div className="mb-1 shrink-0">
-              <label
-                htmlFor="admin-unit-search"
-                className="mb-0.5 block text-xs text-muted-foreground"
-              >
-                Search
-              </label>
-              <Input
-                id="admin-unit-search"
-                placeholder="Filter list…"
-                value={unitSearch}
-                onChange={(e) => setUnitSearch(e.target.value)}
-                className="h-9 bg-card"
-              />
             </div>
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-gold/50 dark:border-brand-gold/40" />
             {filterCertId && filterCertName ? (
@@ -1551,14 +1582,20 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-sky/[0.10] p-4 shadow-lg dark:bg-brand-sky/[0.12]",
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-sky/[0.10] px-4 pb-4 pt-0 shadow-lg dark:bg-brand-sky/[0.12]",
               selectedDetailUnitId
                 ? "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold"
                 : "border-brand-sky/40 border-l-brand-sky border-r-brand-sky dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky",
             )}
           >
-            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-foreground">
+            <TrainingColumnChip
+              tone="sky"
+              label="Content"
+              count={contentListCount}
+            />
+            <h2 className="sr-only">Content</h2>
+            <div className="mb-2 flex shrink-0 justify-center">
+              <p className="flex min-w-0 max-w-full items-center justify-center gap-2 text-center text-sm font-bold text-foreground">
                 <BookMarked
                   className={cn(
                     "shrink-0",
@@ -1573,49 +1610,31 @@ export default function AdminCoursesClient() {
                   {selectedDetailUnitId &&
                   selectedDetailUnit &&
                   !libraryShowAll
-                    ? `Content for ${filterUnitTitle ?? selectedDetailUnit.title}`
-                    : "All Content"}
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">
-                    (
-                    {selectedDetailUnitId &&
-                    selectedDetailUnit &&
-                    !libraryShowAll
-                      ? detailContent === undefined
-                        ? "…"
-                        : contentFilterActive
-                          ? filteredDetailContentForUi.length
-                          : detailContent.length
-                      : filteredLibraryContent === undefined
-                        ? "…"
-                        : filteredLibraryContent.length}
-                    )
-                  </span>
+                    ? (filterUnitTitle ?? selectedDetailUnit.title)
+                    : "All content"}
                 </span>
-              </h2>
+              </p>
+            </div>
+            <div className="mb-2 flex shrink-0 items-center justify-start gap-2">
+              <div className="w-[min(100%,13rem)] shrink-0">
+                <Input
+                  id="admin-content-search"
+                  aria-label="Filter content"
+                  placeholder="Filter list…"
+                  value={contentSearch}
+                  onChange={(e) => setContentSearch(e.target.value)}
+                  className="h-9 w-full bg-card"
+                />
+              </div>
               <Button
                 type="button"
-                size="icon"
-                className={cyanPlusBtn}
+                size="icon-lg"
+                className={cn(cyanPlusBtn, "shrink-0")}
                 aria-label="Add content to library"
                 onClick={() => setAddLibraryOpen(true)}
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
-            </div>
-            <div className="mb-1 shrink-0">
-              <label
-                htmlFor="admin-content-search"
-                className="mb-0.5 block text-xs text-muted-foreground"
-              >
-                Search
-              </label>
-              <Input
-                id="admin-content-search"
-                placeholder="Filter list…"
-                value={contentSearch}
-                onChange={(e) => setContentSearch(e.target.value)}
-                className="h-9 bg-card"
-              />
             </div>
             <div className="mb-2 flex flex-wrap gap-1">
               {(

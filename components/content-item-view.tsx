@@ -13,18 +13,26 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseSlideshowUrls } from "@/lib/slideshow";
+import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, ExternalLink, Lock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export function ContentItemView({
   item,
   unitId,
+  levelId,
+  locked = false,
+  isActive = true,
 }: {
   item: Doc<"contentItems">;
   /** Required to submit tests/assignments on the unit page. */
   unitId?: Id<"units">;
+  /** When set, enforces certification unit order on the server. */
+  levelId?: Id<"certificationLevels">;
+  locked?: boolean;
+  isActive?: boolean;
 }) {
   const storageUrl = useQuery(
     api.content.getUrl,
@@ -47,6 +55,21 @@ export function ContentItemView({
   const submitAssessmentContent = useMutation(
     api.progress.submitAssessmentContent,
   );
+  const recordContentStart = useMutation(api.contentProgress.recordContentStart);
+  const recordContentComplete = useMutation(
+    api.contentProgress.recordContentComplete,
+  );
+
+  useEffect(() => {
+    if (!unitId || locked || !isActive) {
+      return;
+    }
+    void recordContentStart({ unitId, contentId: item._id, levelId }).catch(
+      () => {
+        /* surfaced on explicit actions */
+      },
+    );
+  }, [unitId, item._id, locked, isActive, levelId, recordContentStart]);
 
   const typeLabel =
     item.type === "slideshow"
@@ -58,12 +81,26 @@ export function ContentItemView({
           : item.type;
 
   return (
-    <Card>
+    <Card
+      className={cn(locked && "opacity-70")}
+    >
       <CardHeader>
-        <CardTitle className="text-base">{item.title}</CardTitle>
+        <CardTitle className="text-base flex items-center gap-2">
+          {locked ? (
+            <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : null}
+          {item.title}
+        </CardTitle>
         <CardDescription className="capitalize">{typeLabel}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent
+        className={cn("space-y-3", locked && "pointer-events-none select-none")}
+      >
+        {locked ? (
+          <p className="text-sm text-muted-foreground pointer-events-none">
+            Finish the previous step to unlock this content.
+          </p>
+        ) : null}
         {item.type === "video" && (
           <video
             src={mediaUrl}
@@ -178,7 +215,7 @@ export function ContentItemView({
             ))}
             <Button
               type="button"
-              disabled={!unitId}
+              disabled={!unitId || locked}
               onClick={async () => {
                 if (!unitId) {
                   return;
@@ -192,6 +229,7 @@ export function ContentItemView({
                     unitId,
                     assessmentContentId: item._id,
                     answers: arr,
+                    levelId,
                   });
                   if (res.passed) {
                     toast.success(`Passed — ${res.score}%`);
@@ -217,6 +255,28 @@ export function ContentItemView({
               </p>
             ) : null}
           </div>
+        )}
+        {!isAssessment && unitId && !locked && (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={async () => {
+              try {
+                await recordContentComplete({
+                  unitId,
+                  contentId: item._id,
+                  levelId,
+                });
+                toast.success("Step marked complete");
+              } catch (e) {
+                toast.error(
+                  e instanceof Error ? e.message : "Could not save progress",
+                );
+              }
+            }}
+          >
+            Mark step complete
+          </Button>
         )}
       </CardContent>
     </Card>

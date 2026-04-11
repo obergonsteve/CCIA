@@ -2,18 +2,17 @@
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useQuery } from "convex/react";
-import { CheckCircle2, ChevronRight, Circle, Lock } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Circle,
+  Lock,
+  Route,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 export default function CertificationLevelClient({
@@ -24,37 +23,18 @@ export default function CertificationLevelClient({
   const levelId = levelIdRaw as Id<"certificationLevels">;
 
   const level = useQuery(api.certifications.get, { levelId });
-  const units = useQuery(api.units.listByLevel, { levelId });
-  const progressList = useQuery(api.progress.listForUser);
-  const prereqSummaries = useQuery(api.prerequisites.summariesForLevel, {
+  const roadmap = useQuery(api.contentProgress.roadmapForCertification, {
     levelId,
   });
 
-  const rows = useMemo(() => {
-    if (!units || !progressList) {
-      return [];
-    }
-    const readyMap = new Map(
-      (prereqSummaries ?? []).map((s) => [s.unitId, s.ready]),
-    );
-    return units.map((unit) => {
-      const p = progressList.find((x) => x.unitId === unit._id);
-      const pct = p?.completed ? 100 : p ? 45 : 0;
-      const unlocked = readyMap.get(unit._id) ?? true;
-      return { unit, p, pct, unlocked };
-    });
-  }, [units, progressList, prereqSummaries]);
-
-  if (
-    level === undefined ||
-    units === undefined ||
-    prereqSummaries === undefined
-  ) {
+  if (level === undefined || roadmap === undefined) {
     return <div className="animate-pulse h-48 bg-muted rounded" />;
   }
 
-  if (level === null) {
-    return <p className="text-muted-foreground">Level not found or access denied.</p>;
+  if (level === null || roadmap === null) {
+    return (
+      <p className="text-muted-foreground">Level not found or access denied.</p>
+    );
   }
 
   return (
@@ -93,6 +73,100 @@ export default function CertificationLevelClient({
           ) : null}
         </div>
       )}
+
+      <section
+        id="certification-path"
+        aria-labelledby="certification-path-heading"
+        className="rounded-2xl border-2 border-brand-gold/25 bg-muted/30 p-4 shadow-sm md:p-6"
+      >
+        <h2
+          id="certification-path-heading"
+          className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground md:text-xl"
+        >
+          <Route className="h-5 w-5 shrink-0 text-brand-gold" aria-hidden />
+          Your certification path
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
+          Units unlock in order. Open a unit to follow lessons and assessments
+          step by step; the next step opens when the current one is completed
+          successfully.
+        </p>
+        {roadmap.units.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No units are linked to this certification yet. An admin can attach
+            units in Admin → Courses.
+          </p>
+        ) : (
+          <div className="mt-4 w-full overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch]">
+            <ol className="flex w-max min-w-full flex-nowrap gap-3 md:flex-wrap md:w-full">
+              {roadmap.units.map((u, i) => {
+                const pct =
+                  u.stepTotal > 0
+                    ? Math.round((u.stepsCompleted / u.stepTotal) * 100)
+                    : u.completed
+                      ? 100
+                      : 0;
+                return (
+                  <li
+                    key={u.unitId}
+                    className="w-[min(100%,240px)] shrink-0 md:w-[min(100%,260px)] md:shrink"
+                  >
+                    <Link
+                      href={`/units/${u.unitId}?level=${levelId}`}
+                      className={cn(
+                        "block h-full rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-brand-sky/40 hover:bg-muted/50",
+                        u.locked && "cursor-not-allowed opacity-75",
+                      )}
+                      aria-disabled={u.locked}
+                      onClick={(e) => {
+                        if (u.locked) {
+                          e.preventDefault();
+                        }
+                      }}
+                    >
+                      <div className="flex items-start gap-2">
+                        {u.completed ? (
+                          <CheckCircle2 className="h-5 w-5 text-brand-lime shrink-0 mt-0.5" />
+                        ) : u.locked ? (
+                          <Lock className="h-5 w-5 text-brand-gold shrink-0 mt-0.5" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-brand-sky shrink-0 mt-0.5" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Unit {i + 1}
+                          </p>
+                          <p className="font-semibold leading-snug text-foreground">
+                            {u.title}
+                          </p>
+                          {u.locked && u.lockReason === "prerequisite" ? (
+                            <p className="mt-1 text-[11px] text-brand-gold">
+                              Prerequisites required
+                            </p>
+                          ) : u.locked && u.lockReason === "previous_unit" ? (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Complete the previous unit first
+                            </p>
+                          ) : null}
+                          <Progress
+                            value={u.locked ? 0 : pct}
+                            className="mt-2 h-1.5"
+                          />
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {u.stepsCompleted}/{u.stepTotal || 0} steps in unit
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
+      </section>
+
       <div className="max-w-3xl space-y-4">
         {level.summary?.trim() ? (
           <p className="text-base font-medium text-foreground/90 leading-relaxed">
@@ -103,46 +177,6 @@ export default function CertificationLevelClient({
           {level.description}
         </p>
       </div>
-
-      <ul className="space-y-3">
-        {rows.map(({ unit, p, pct, unlocked }) => (
-          <li key={unit._id}>
-            <Link href={`/units/${unit._id}`}>
-              <Card
-                className={cn(
-                  "transition-colors hover:bg-muted/40",
-                  !unlocked && "opacity-80 border-dashed",
-                )}
-              >
-                <CardHeader className="space-y-3">
-                  <div className="flex flex-row items-start gap-3">
-                    {p?.completed ? (
-                      <CheckCircle2 className="h-5 w-5 text-brand-lime shrink-0 mt-0.5" />
-                    ) : !unlocked ? (
-                      <Lock className="h-5 w-5 text-brand-gold shrink-0 mt-0.5" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg">{unit.title}</CardTitle>
-                      <CardDescription>
-                        {unit.description}
-                        {!unlocked && prereqSummaries ? (
-                          <span className="mt-2 block text-xs font-medium text-brand-gold">
-                            Prerequisites required — open unit to see details.
-                          </span>
-                        ) : null}
-                      </CardDescription>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-                  </div>
-                  <Progress value={unlocked ? pct : 0} className="h-2" />
-                </CardHeader>
-              </Card>
-            </Link>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

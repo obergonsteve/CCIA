@@ -165,4 +165,60 @@ export default defineSchema({
     .index("by_user_assignment", ["userId", "assignmentId"])
     .index("by_user_assessment_content", ["userId", "assessmentContentId"])
     .index("by_assessment_content", ["assessmentContentId"]),
+
+  /**
+   * Latest state per user × unit × content step (sequential training).
+   * Assessments stay "incomplete" until a passing attempt (retries allowed).
+   */
+  userContentProgress: defineTable({
+    userId: v.id("users"),
+    unitId: v.id("units"),
+    contentId: v.id("contentItems"),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    /** Wall-clock ms for the last completed session (or successful attempt). */
+    durationMs: v.optional(v.number()),
+    outcome: v.optional(
+      v.union(
+        v.literal("completed"),
+        v.literal("passed"),
+        v.literal("failed"),
+      ),
+    ),
+    score: v.optional(v.number()),
+  })
+    .index("by_user_unit", ["userId", "unitId"])
+    .index("by_user_unit_content", ["userId", "unitId", "contentId"]),
+
+  /** Append-only audit trail for starts, completions, and assessment attempts. */
+  contentProgressEvents: defineTable({
+    userId: v.id("users"),
+    unitId: v.id("units"),
+    contentId: v.optional(v.id("contentItems")),
+    assignmentId: v.optional(v.id("assignments")),
+    kind: v.union(
+      v.literal("start"),
+      v.literal("complete"),
+      v.literal("assessment_attempt"),
+    ),
+    at: v.number(),
+    durationMs: v.optional(v.number()),
+    score: v.optional(v.number()),
+    passed: v.optional(v.boolean()),
+  }).index("by_user_unit", ["userId", "unitId"]),
+
+  /** Legacy tab assessment: one row per user × assignment when used as a sequential step. */
+  userAssignmentProgress: defineTable({
+    userId: v.id("users"),
+    unitId: v.id("units"),
+    assignmentId: v.id("assignments"),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    outcome: v.optional(
+      v.union(v.literal("passed"), v.literal("failed")),
+    ),
+    score: v.optional(v.number()),
+  })
+    .index("by_user_unit_assignment", ["userId", "unitId", "assignmentId"]),
 });

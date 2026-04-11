@@ -1,7 +1,5 @@
 "use client";
 
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { ContentItemView } from "@/components/content-item-view";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,68 +13,145 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { AlertTriangle, Lock } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Lock,
+  Route,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-export default function UnitClient({ unitId: unitIdRaw }: { unitId: string }) {
+function LegacyAssignmentStartRecorder({
+  unitId,
+  assignmentId,
+  levelId,
+  enabled,
+}: {
+  unitId: Id<"units">;
+  assignmentId: Id<"assignments">;
+  levelId?: Id<"certificationLevels">;
+  enabled: boolean;
+}) {
+  const record = useMutation(api.contentProgress.recordLegacyAssignmentStart);
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    void record({ unitId, assignmentId, levelId }).catch(() => {});
+  }, [enabled, unitId, assignmentId, levelId, record]);
+  return null;
+}
+
+function LegacyLastResult({
+  assignmentId,
+}: {
+  assignmentId: Id<"assignments">;
+}) {
+  const lastLegacyResult = useQuery(api.progress.myResultsForAssignment, {
+    assignmentId,
+  });
+  if (!lastLegacyResult) {
+    return null;
+  }
+  return (
+    <p className="text-sm text-muted-foreground">
+      Last attempt: {lastLegacyResult.score}% —{" "}
+      {lastLegacyResult.passed ? "Passed" : "Not passed"} on{" "}
+      {new Date(lastLegacyResult.completedAt).toLocaleString()}
+    </p>
+  );
+}
+
+function stepLabel(
+  kind: "content" | "legacy_assignment",
+  contentType?: string,
+): string {
+  if (kind === "legacy_assignment") {
+    return "Assessment (legacy)";
+  }
+  switch (contentType) {
+    case "video":
+      return "Video";
+    case "pdf":
+      return "Reading";
+    case "slideshow":
+      return "Slideshow";
+    case "link":
+      return "Resource";
+    case "test":
+      return "Test";
+    case "assignment":
+      return "Assignment";
+    default:
+      return "Step";
+  }
+}
+
+export default function UnitClient({
+  unitId: unitIdRaw,
+  levelId: levelIdRaw,
+}: {
+  unitId: string;
+  levelId?: string;
+}) {
   const unitId = unitIdRaw as Id<"units">;
+  const levelId =
+    levelIdRaw && levelIdRaw.length > 0
+      ? (levelIdRaw as Id<"certificationLevels">)
+      : undefined;
 
   const unit = useQuery(api.units.get, { unitId });
   const items = useQuery(api.content.listByUnit, { unitId });
   const assignments = useQuery(api.assignments.listByUnit, { unitId });
-  const progress = useQuery(api.progress.getForUserAndUnit, { unitId });
+  const roadmap = useQuery(api.contentProgress.roadmapForUnit, {
+    unitId,
+    levelId,
+  });
   const prereqStatus = useQuery(api.prerequisites.statusForUnit, { unitId });
 
-  const assignment = assignments?.[0];
-  const lastResult = useQuery(
-    api.progress.myResultsForAssignment,
-    assignment ? { assignmentId: assignment._id } : "skip",
-  );
-
-  const markComplete = useMutation(api.progress.markUnitComplete);
-  const touchUnit = useMutation(api.progress.touchUnit);
   const submitAssignment = useMutation(api.progress.submitAssignment);
 
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answersByAssignment, setAnswersByAssignment] = useState<
+    Record<string, Record<string, string>>
+  >({});
 
-  const sortedItems = useMemo(
-    () => (items ? [...items].sort((a, b) => a.order - b.order) : []),
-    [items],
-  );
+  const itemsById = useMemo(() => {
+    if (!items) {
+      return new Map();
+    }
+    return new Map(items.map((c) => [c._id, c] as const));
+  }, [items]);
 
-  useEffect(() => {
-    if (
-      unit === undefined ||
-      unit === null ||
-      prereqStatus === undefined ||
-      prereqStatus === null
-    ) {
-      return;
+  const assignmentsById = useMemo((): Map<
+    Id<"assignments">,
+    Doc<"assignments">
+  > => {
+    if (!assignments) {
+      return new Map();
     }
-    if (!prereqStatus.ready) {
-      return;
-    }
-    void touchUnit({ unitId }).catch(() => {
-      /* touch errors surfaced via toast on explicit actions */
-    });
-  }, [unitId, unit, touchUnit, prereqStatus]);
+    return new Map(assignments.map((a) => [a._id, a] as const));
+  }, [assignments]);
 
   if (
     unit === undefined ||
     items === undefined ||
     assignments === undefined ||
-    progress === undefined ||
+    roadmap === undefined ||
     prereqStatus === undefined
   ) {
     return <div className="animate-pulse h-64 bg-muted rounded" />;
   }
 
   if (unit === null) {
-    return <p className="text-muted-foreground">Unit not found or access denied.</p>;
+    return (
+      <p className="text-muted-foreground">Unit not found or access denied.</p>
+    );
   }
 
   if (prereqStatus === null) {
@@ -87,29 +162,31 @@ export default function UnitClient({ unitId: unitIdRaw }: { unitId: string }) {
     );
   }
 
-  const locked = !prereqStatus.ready;
-
-  async function onMarkComplete() {
-    try {
-      await markComplete({ unitId });
-      toast.success("Unit marked complete");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save progress");
-    }
+  if (roadmap === null) {
+    return (
+      <p className="text-muted-foreground">Unable to load training roadmap.</p>
+    );
   }
 
-  async function onSubmitAssessment() {
+  const lockedByPrereq = !prereqStatus.ready;
+  const sequentialBlockedMessage = roadmap.sequentialUnitBlocked;
+  const blocked = lockedByPrereq || sequentialBlockedMessage !== null;
+
+  async function onSubmitLegacyAssignment(assignmentId: Id<"assignments">) {
+    const assignment = assignmentsById.get(assignmentId);
     if (!assignment) {
       return;
     }
+    const answers = answersByAssignment[assignmentId] ?? {};
     try {
-      const arr = assignment.questions.map((q) => ({
-        questionId: q.id,
-        value: answers[q.id] ?? "",
+      const arr = assignment.questions.map((question) => ({
+        questionId: question.id,
+        value: answers[question.id] ?? "",
       }));
       const res = await submitAssignment({
         assignmentId: assignment._id,
         answers: arr,
+        levelId,
       });
       if (res.passed) {
         toast.success(`Passed — ${res.score}%`);
@@ -127,21 +204,26 @@ export default function UnitClient({ unitId: unitIdRaw }: { unitId: string }) {
         <h1 className="text-2xl font-bold tracking-tight">{unit.title}</h1>
         <p className="text-muted-foreground">{unit.description}</p>
         <div className="mt-3 flex items-center gap-3">
-          <Progress
-            value={locked ? 0 : progress?.completed ? 100 : 30}
-            className="h-2 flex-1 max-w-xs"
-          />
-          <span className="text-xs text-muted-foreground">
-            {locked
-              ? "Locked"
-              : progress?.completed
-                ? "Completed"
-                : "In progress"}
+          <Progress value={roadmap.fraction} className="h-2 flex-1 max-w-md" />
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {roadmap.completedSteps}/{roadmap.totalSteps || 0} steps
           </span>
         </div>
       </div>
 
-      {locked && prereqStatus.prerequisites.length > 0 ? (
+      {levelId ? (
+        <p className="text-xs text-muted-foreground">
+          Certification path: units unlock in order.{" "}
+          <Link
+            href={`/certifications/${levelId}`}
+            className="text-brand-sky underline-offset-4 hover:underline"
+          >
+            Back to certification overview
+          </Link>
+        </p>
+      ) : null}
+
+      {lockedByPrereq && prereqStatus.prerequisites.length > 0 ? (
         <div
           className="flex gap-3 rounded-xl border border-brand-gold/35 bg-brand-gold/10 px-4 py-3 text-sm"
           role="status"
@@ -173,103 +255,206 @@ export default function UnitClient({ unitId: unitIdRaw }: { unitId: string }) {
         </div>
       ) : null}
 
-      <Tabs defaultValue="content">
-        <TabsList>
-          <TabsTrigger value="content" disabled={locked}>
-            Content
-          </TabsTrigger>
-          <TabsTrigger value="assessment" disabled={locked || !assignment}>
-            Assessment
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="content" className="mt-4 space-y-4">
-          <ScrollArea className="h-[calc(100vh-280px)] md:h-auto md:max-h-none">
-            <div className="space-y-4 pr-4">
-              {locked ? (
-                <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-brand-gold mt-0.5" />
-                  Content is available after prerequisites are completed.
-                </p>
-              ) : null}
-              {!locked &&
-                sortedItems.map((item) => (
-                  <ContentItemView
-                    key={item._id}
-                    item={item}
-                    unitId={unitId}
-                  />
-                ))}
-              {!locked && !sortedItems.length && (
-                <p className="text-sm text-muted-foreground">
-                  No content published for this unit yet.
-                </p>
-              )}
-            </div>
-          </ScrollArea>
-          <Button
-            disabled={locked}
-            onClick={() => void onMarkComplete()}
-          >
-            Mark content complete
-          </Button>
-        </TabsContent>
-        <TabsContent value="assessment" className="mt-4">
-          {assignment && !locked && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{assignment.title}</CardTitle>
-                <CardDescription>{assignment.description}</CardDescription>
-                <p className="text-sm text-muted-foreground">
-                  Passing score: {assignment.passingScore}%
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {assignment.questions.map((q) => (
-                  <div key={q.id} className="space-y-2">
-                    <Label className="text-base">{q.question}</Label>
-                    {q.type === "multiple_choice" && q.options && (
-                      <div className="flex flex-wrap gap-2">
-                        {q.options.map((opt) => (
-                          <Button
-                            key={opt}
-                            type="button"
-                            size="sm"
-                            variant={answers[q.id] === opt ? "default" : "outline"}
-                            onClick={() =>
-                              setAnswers((a) => ({ ...a, [q.id]: opt }))
-                            }
-                          >
-                            {opt}
-                          </Button>
-                        ))}
-                      </div>
+      {sequentialBlockedMessage ? (
+        <div
+          className="flex gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm"
+          role="status"
+        >
+          <Route className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <p className="text-muted-foreground">{sequentialBlockedMessage}</p>
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 md:p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
+          <Route className="h-4 w-4 text-brand-gold" />
+          Your path through this unit
+        </div>
+        <ScrollArea className="w-full">
+          <ol className="flex min-w-0 gap-2 pb-1 md:flex-wrap md:gap-3">
+            {roadmap.steps.map((row, i) => {
+              const st = row.step;
+              const title = st.title;
+              const label =
+                st.kind === "legacy_assignment"
+                  ? stepLabel("legacy_assignment")
+                  : stepLabel("content", st.contentType);
+              return (
+                <li
+                  key={
+                    st.kind === "content"
+                      ? `c-${st.contentId}`
+                      : `a-${st.assignmentId}`
+                  }
+                  className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl border bg-background/80 px-3 py-2 text-xs md:min-w-[160px]"
+                >
+                  <div className="flex items-center gap-2">
+                    {row.done ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-lime" />
+                    ) : row.locked ? (
+                      <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : row.active ? (
+                      <Circle className="h-4 w-4 shrink-0 text-brand-sky fill-brand-sky/25" />
+                    ) : (
+                      <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
-                    {q.type === "text" && (
-                      <Input
-                        value={answers[q.id] ?? ""}
-                        onChange={(e) =>
-                          setAnswers((a) => ({
-                            ...a,
-                            [q.id]: e.target.value,
-                          }))
-                        }
-                      />
-                    )}
+                    <span className="font-semibold text-foreground line-clamp-2">
+                      {title}
+                    </span>
                   </div>
-                ))}
-                <Button onClick={() => void onSubmitAssessment()}>Submit assessment</Button>
-                {lastResult && (
-                  <p className="text-sm text-muted-foreground">
-                    Last attempt: {lastResult.score}% —{" "}
-                    {lastResult.passed ? "Passed" : "Not passed"} on{" "}
-                    {new Date(lastResult.completedAt).toLocaleString()}
-                  </p>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {label} · Step {i + 1}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </ScrollArea>
+      </div>
+
+      <div className="space-y-6">
+        {roadmap.steps.map((row) => {
+          const st = row.step;
+          if (st.kind === "content") {
+            const doc = itemsById.get(st.contentId);
+            if (!doc) {
+              return null;
+            }
+            return (
+              <div
+                key={st.contentId}
+                id={`step-${st.contentId}`}
+                className={cn(
+                  "scroll-mt-24 rounded-xl transition-shadow",
+                  row.active && "ring-2 ring-brand-sky/40 ring-offset-2 ring-offset-background",
                 )}
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+              >
+                <ContentItemView
+                  item={doc}
+                  unitId={unitId}
+                  levelId={levelId}
+                  locked={blocked || row.locked}
+                  isActive={row.active}
+                />
+              </div>
+            );
+          }
+          const assignment = assignmentsById.get(st.assignmentId);
+          if (!assignment) {
+            return null;
+          }
+          const answers = answersByAssignment[assignment._id] ?? {};
+          return (
+            <div
+              key={st.assignmentId}
+              id={`step-a-${st.assignmentId}`}
+              className={cn(
+                "scroll-mt-24 transition-shadow",
+                row.active && "ring-2 ring-brand-sky/40 ring-offset-2 ring-offset-background",
+              )}
+            >
+              <Card
+                className={cn(
+                  (blocked || row.locked) && "opacity-60 pointer-events-none",
+                )}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    {row.done ? (
+                      <CheckCircle2 className="h-5 w-5 text-brand-lime" />
+                    ) : row.locked ? (
+                      <Lock className="h-5 w-5 text-muted-foreground" />
+                    ) : null}
+                    {assignment.title}
+                  </CardTitle>
+                  <CardDescription>{assignment.description}</CardDescription>
+                  <p className="text-sm text-muted-foreground">
+                    Passing score: {assignment.passingScore}%
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <LegacyAssignmentStartRecorder
+                    unitId={unitId}
+                    assignmentId={assignment._id}
+                    levelId={levelId}
+                    enabled={!blocked && !row.locked && row.active}
+                  />
+                  {blocked || row.locked ? (
+                    <p className="text-sm text-muted-foreground">
+                      Complete earlier steps to unlock this assessment.
+                    </p>
+                  ) : (
+                    <>
+                      {assignment.questions.map((question) => (
+                        <div key={question.id} className="space-y-2">
+                          <Label className="text-base">{question.question}</Label>
+                          {question.type === "multiple_choice" &&
+                            question.options && (
+                            <div className="flex flex-wrap gap-2">
+                              {question.options.map((opt) => (
+                                <Button
+                                  key={opt}
+                                  type="button"
+                                  size="sm"
+                                  variant={
+                                    answers[question.id] === opt
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  onClick={() =>
+                                    setAnswersByAssignment((prev) => ({
+                                      ...prev,
+                                      [assignment._id]: {
+                                        ...(prev[assignment._id] ?? {}),
+                                        [question.id]: opt,
+                                      },
+                                    }))
+                                  }
+                                >
+                                  {opt}
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+                          {question.type === "text" && (
+                            <Input
+                              value={answers[question.id] ?? ""}
+                              onChange={(e) =>
+                                setAnswersByAssignment((prev) => ({
+                                  ...prev,
+                                  [assignment._id]: {
+                                    ...(prev[assignment._id] ?? {}),
+                                    [question.id]: e.target.value,
+                                  },
+                                }))
+                              }
+                            />
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        onClick={() =>
+                          void onSubmitLegacyAssignment(assignment._id)
+                        }
+                      >
+                        Submit assessment
+                      </Button>
+                      <LegacyLastResult assignmentId={assignment._id} />
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
+      </div>
+
+      {!blocked && roadmap.totalSteps === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No published steps for this unit yet. An administrator can add
+          content and assessments.
+        </p>
+      ) : null}
     </div>
   );
 }

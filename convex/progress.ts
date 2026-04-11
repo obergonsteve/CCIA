@@ -1,6 +1,15 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { type MutationCtx, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
+import { collectContentInUnit } from "./content";
+import {
+  applyAssessmentContentAfterSubmit,
+  applyLegacyAssignmentAfterSubmit,
+  assertPreviousStepsComplete,
+  assertSequentialUnitAccess,
+  getOrderedStepsForUnit,
+  unitStepsFullyDone,
+} from "./contentProgress";
 import { requireUserId } from "./lib/auth";
 import { userCanAccessUnit } from "./lib/auth";
 import { getIncompletePrerequisites } from "./lib/prerequisites";
@@ -48,35 +57,6 @@ function scoreFromAnswers(
   return { score, passed, passingScore };
 }
 
-async function markUnitCompleteIfPassed(
-  ctx: MutationCtx,
-  userId: Id<"users">,
-  unitId: Id<"units">,
-) {
-  const now = Date.now();
-  const existing = await ctx.db
-    .query("userProgress")
-    .withIndex("by_user_unit", (q) =>
-      q.eq("userId", userId).eq("unitId", unitId),
-    )
-    .unique();
-  if (existing) {
-    await ctx.db.patch(existing._id, {
-      completed: true,
-      completedAt: now,
-      lastAccessed: now,
-    });
-  } else {
-    await ctx.db.insert("userProgress", {
-      userId,
-      unitId,
-      completed: true,
-      completedAt: now,
-      lastAccessed: now,
-    });
-  }
-}
-
 export const getForUserAndUnit = query({
   args: { unitId: v.id("units") },
   handler: async (ctx, { unitId }) => {
@@ -117,6 +97,12 @@ export const markUnitComplete = mutation({
     if (missing.length > 0) {
       throw new Error(
         `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+      );
+    }
+    const stepsOk = await unitStepsFullyDone(ctx, userId, unitId);
+    if (!stepsOk) {
+      throw new Error(
+        "Complete every step in this unit in order (including assessments) before marking complete.",
       );
     }
     const now = Date.now();
@@ -187,8 +173,9 @@ export const submitAssignment = mutation({
         value: v.string(),
       }),
     ),
+    levelId: v.optional(v.id("certificationLevels")),
   },
-  handler: async (ctx, { assignmentId, answers }) => {
+  handler: async (ctx, { assignmentId, answers, levelId }) => {
     const userId = await requireUserId(ctx);
     const assignment = await ctx.db.get(assignmentId);
     if (!assignment) {
@@ -208,6 +195,16 @@ export const submitAssignment = mutation({
         `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
       );
     }
+    const steps = await getOrderedStepsForUnit(ctx, assignment.unitId);
+    const stepIdx = steps.findIndex(
+      (s) =>
+        s.kind === "legacy_assignment" && s.assignmentId === assignmentId,
+    );
+    if (stepIdx < 0) {
+      throw new Error("This assessment is not part of this unit’s sequence");
+    }
+    await assertSequentialUnitAccess(ctx, userId, levelId, assignment.unitId);
+    await assertPreviousStepsComplete(ctx, userId, assignment.unitId, stepIdx);
 
     const { score, passed, passingScore } = scoreFromAnswers(
       assignment.questions,
@@ -215,18 +212,25 @@ export const submitAssignment = mutation({
       assignment.passingScore,
     );
 
+    const completedAt = Date.now();
     await ctx.db.insert("testResults", {
       userId,
       assignmentId,
       score,
       answers,
       passed,
-      completedAt: Date.now(),
+      completedAt,
     });
 
-    if (passed) {
-      await markUnitCompleteIfPassed(ctx, userId, assignment.unitId);
-    }
+    await applyLegacyAssignmentAfterSubmit(
+      ctx,
+      userId,
+      assignment.unitId,
+      assignmentId,
+      score,
+      passed,
+      completedAt,
+    );
 
     return { score, passed, passingScore };
   },
@@ -242,8 +246,9 @@ export const submitAssessmentContent = mutation({
         value: v.string(),
       }),
     ),
+    levelId: v.optional(v.id("certificationLevels")),
   },
-  handler: async (ctx, { unitId, assessmentContentId, answers }) => {
+  handler: async (ctx, { unitId, assessmentContentId, answers, levelId }) => {
     const userId = await requireUserId(ctx);
     const ok = await userCanAccessUnit(ctx, unitId);
     if (!ok) {
@@ -255,15 +260,19 @@ export const submitAssessmentContent = mutation({
         `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
       );
     }
-    const link = await ctx.db
-      .query("unitContents")
-      .withIndex("by_unit_and_content", (q) =>
-        q.eq("unitId", unitId).eq("contentId", assessmentContentId),
-      )
-      .unique();
-    if (!link) {
+    const itemsOnUnit = await collectContentInUnit(ctx, unitId);
+    if (!itemsOnUnit.some((c) => c._id === assessmentContentId)) {
       throw new Error("This assessment is not part of this unit");
     }
+    const steps = await getOrderedStepsForUnit(ctx, unitId);
+    const stepIdx = steps.findIndex(
+      (s) => s.kind === "content" && s.contentId === assessmentContentId,
+    );
+    if (stepIdx < 0) {
+      throw new Error("This assessment is not part of this unit’s sequence");
+    }
+    await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    await assertPreviousStepsComplete(ctx, userId, unitId, stepIdx);
     const content = await ctx.db.get(assessmentContentId);
     if (
       !content ||
@@ -277,17 +286,24 @@ export const submitAssessmentContent = mutation({
       answers,
       content.assessment.passingScore,
     );
+    const completedAt = Date.now();
     await ctx.db.insert("testResults", {
       userId,
       assessmentContentId,
       score,
       answers,
       passed,
-      completedAt: Date.now(),
+      completedAt,
     });
-    if (passed) {
-      await markUnitCompleteIfPassed(ctx, userId, unitId);
-    }
+    await applyAssessmentContentAfterSubmit(
+      ctx,
+      userId,
+      unitId,
+      assessmentContentId,
+      score,
+      passed,
+      completedAt,
+    );
     return { score, passed, passingScore };
   },
 });
@@ -326,13 +342,8 @@ export const myResultsForAssessmentContent = query({
     if (!ok) {
       return null;
     }
-    const link = await ctx.db
-      .query("unitContents")
-      .withIndex("by_unit_and_content", (q) =>
-        q.eq("unitId", unitId).eq("contentId", assessmentContentId),
-      )
-      .unique();
-    if (!link) {
+    const itemsOnUnit = await collectContentInUnit(ctx, unitId);
+    if (!itemsOnUnit.some((c) => c._id === assessmentContentId)) {
       return null;
     }
     const rows = await ctx.db

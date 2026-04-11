@@ -6,6 +6,7 @@ import {
   requireUserId,
   userCanAccessUnit,
 } from "./lib/auth";
+import type { QueryCtx } from "./_generated/server";
 
 const assessmentQuestionValidator = v.object({
   id: v.string(),
@@ -36,6 +37,47 @@ export type ContentInUnit = Doc<"contentItems"> & {
   unitContentId: Id<"unitContents"> | null;
 };
 
+/** Ordered content for a unit (junction + legacy). Caller must enforce access. */
+export async function collectContentInUnit(
+  ctx: QueryCtx,
+  unitId: Id<"units">,
+): Promise<ContentInUnit[]> {
+  const links = await ctx.db
+    .query("unitContents")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+    .collect();
+  links.sort((a, b) => a.order - b.order);
+  const out: ContentInUnit[] = [];
+  const linkedContentIds = new Set<Id<"contentItems">>();
+  for (const link of links) {
+    const doc = await ctx.db.get(link.contentId);
+    if (doc) {
+      linkedContentIds.add(doc._id);
+      out.push({
+        ...doc,
+        order: link.order,
+        unitContentId: link._id,
+      });
+    }
+  }
+  const legacyRows = await ctx.db
+    .query("contentItems")
+    .filter((q) => q.eq(q.field("unitId"), unitId))
+    .collect();
+  for (const doc of legacyRows) {
+    if (linkedContentIds.has(doc._id)) {
+      continue;
+    }
+    out.push({
+      ...doc,
+      order: doc.order ?? 0,
+      unitContentId: null,
+    });
+  }
+  out.sort((a, b) => a.order - b.order);
+  return out;
+}
+
 export const listByUnit = query({
   args: { unitId: v.id("units") },
   handler: async (ctx, { unitId }): Promise<ContentInUnit[]> => {
@@ -44,40 +86,7 @@ export const listByUnit = query({
     if (!ok) {
       return [];
     }
-    const links = await ctx.db
-      .query("unitContents")
-      .withIndex("by_unit", (q) => q.eq("unitId", unitId))
-      .collect();
-    links.sort((a, b) => a.order - b.order);
-    const out: ContentInUnit[] = [];
-    const linkedContentIds = new Set<Id<"contentItems">>();
-    for (const link of links) {
-      const doc = await ctx.db.get(link.contentId);
-      if (doc) {
-        linkedContentIds.add(doc._id);
-        out.push({
-          ...doc,
-          order: link.order,
-          unitContentId: link._id,
-        });
-      }
-    }
-    const legacyRows = await ctx.db
-      .query("contentItems")
-      .filter((q) => q.eq(q.field("unitId"), unitId))
-      .collect();
-    for (const doc of legacyRows) {
-      if (linkedContentIds.has(doc._id)) {
-        continue;
-      }
-      out.push({
-        ...doc,
-        order: doc.order ?? 0,
-        unitContentId: null,
-      });
-    }
-    out.sort((a, b) => a.order - b.order);
-    return out;
+    return collectContentInUnit(ctx, unitId);
   },
 });
 

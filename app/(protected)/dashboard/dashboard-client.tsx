@@ -133,7 +133,7 @@ export default function DashboardClient() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Welcome, {me.name}</h1>
-        <p className="text-muted-foreground">Certification roadmap</p>
+        <p className="text-muted-foreground">Certification Dashboard</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2 text-sm">

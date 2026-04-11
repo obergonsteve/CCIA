@@ -60,6 +60,24 @@ async function deleteUnitCascade(ctx: MutationCtx, unitId: Id<"units">) {
     .collect()) {
     await ctx.db.delete(pr._id);
   }
+  for (const row of await ctx.db
+    .query("userContentProgress")
+    .filter((q) => q.eq(q.field("unitId"), unitId))
+    .collect()) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of await ctx.db
+    .query("userAssignmentProgress")
+    .filter((q) => q.eq(q.field("unitId"), unitId))
+    .collect()) {
+    await ctx.db.delete(row._id);
+  }
+  for (const row of await ctx.db
+    .query("contentProgressEvents")
+    .filter((q) => q.eq(q.field("unitId"), unitId))
+    .collect()) {
+    await ctx.db.delete(row._id);
+  }
   await ctx.db.delete(unitId);
 }
 

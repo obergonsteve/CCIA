@@ -138,6 +138,9 @@ export default function CertificationsClient() {
                         {level.assessmentCount} assessments
                       </Badge>
                     </div>
+                    <p className="text-xs font-medium text-brand-gold/90">
+                      Next: your ordered unit path and step-by-step training
+                    </p>
                     <span
                       className={cn(
                         buttonVariants({ variant: "lime", size: "sm" }),

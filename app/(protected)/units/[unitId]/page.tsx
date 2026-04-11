@@ -6,6 +6,12 @@ type PageProps = {
 };
 
 export default async function UnitPage({ params, searchParams }: PageProps) {
-  const [resolvedParams] = await Promise.all([params, searchParams]);
-  return <UnitClient unitId={resolvedParams.unitId} />;
+  const [resolvedParams, resolvedSearch] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  const levelRaw = resolvedSearch.level;
+  const levelId =
+    typeof levelRaw === "string" && levelRaw.length > 0 ? levelRaw : undefined;
+  return <UnitClient unitId={resolvedParams.unitId} levelId={levelId} />;
 }
