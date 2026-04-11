@@ -7,6 +7,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Fragment, Suspense } from "react";
+import { cn } from "@/lib/utils";
 
 /** Exact paths that match primary sidebar entries — no breadcrumb strip. */
 const SIDEBAR_EXACT = new Set([
@@ -17,23 +18,64 @@ const SIDEBAR_EXACT = new Set([
   "/admin/database",
 ]);
 
-type Crumb = { href?: string; label: string };
+type CrumbTone = "dashboard" | "hub" | "cert" | "unit" | "content" | "admin";
 
-function ChipLink({ href, children }: { href: string; children: React.ReactNode }) {
+type Crumb = { href?: string; label: string; tone: CrumbTone };
+
+const chipBase =
+  "inline-flex max-w-[min(100%,260px)] shrink-0 items-center truncate rounded-full border px-2.5 py-1 text-xs font-medium text-foreground shadow-sm transition-colors";
+
+const chipTone: Record<CrumbTone, string> = {
+  dashboard:
+    "border-border/80 bg-muted/45 hover:border-border hover:bg-muted/70",
+  hub: "border-brand-sky/40 bg-brand-sky/12 hover:border-brand-sky/55 hover:bg-brand-sky/18 dark:border-brand-sky/45 dark:bg-brand-sky/14",
+  cert: "border-brand-gold/40 bg-brand-gold/10 hover:border-brand-gold/55 hover:bg-brand-gold/16 dark:border-brand-gold/45",
+  unit: "border-brand-lime/45 bg-brand-lime/12 hover:border-brand-lime/60 hover:bg-brand-lime/18 dark:border-brand-lime/40",
+  content:
+    "border-brand-charcoal/35 bg-brand-charcoal/[0.07] hover:border-brand-charcoal/50 hover:bg-brand-charcoal/12 dark:border-foreground/30 dark:bg-foreground/[0.06]",
+  admin:
+    "border-brand-gold/30 bg-muted/55 hover:border-brand-gold/45 hover:bg-muted/75",
+};
+
+const chipCurrentRing: Record<CrumbTone, string> = {
+  dashboard: "border-border bg-muted/55 ring-1 ring-border/60",
+  hub: "border-brand-sky/45 bg-brand-sky/14 ring-1 ring-brand-sky/25 dark:bg-brand-sky/16",
+  cert: "border-brand-gold/45 bg-brand-gold/12 ring-1 ring-brand-gold/25 dark:bg-brand-gold/14",
+  unit: "border-brand-lime/50 bg-brand-lime/14 ring-1 ring-brand-lime/25 dark:bg-brand-lime/12",
+  content:
+    "border-brand-charcoal/40 bg-brand-charcoal/[0.09] ring-1 ring-brand-charcoal/20 dark:border-foreground/35",
+  admin: "border-brand-gold/40 bg-muted/65 ring-1 ring-brand-gold/20",
+};
+
+function ChipLink({
+  href,
+  tone,
+  children,
+}: {
+  href: string;
+  tone: CrumbTone;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
-      className="inline-flex max-w-[min(100%,220px)] shrink-0 items-center truncate rounded-full border border-border bg-muted/50 px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-brand-sky/40 hover:bg-muted"
+      className={cn(chipBase, chipTone[tone])}
     >
       {children}
     </Link>
   );
 }
 
-function ChipCurrent({ children }: { children: React.ReactNode }) {
+function ChipCurrent({
+  tone,
+  children,
+}: {
+  tone: CrumbTone;
+  children: React.ReactNode;
+}) {
   return (
     <span
-      className="inline-flex max-w-[min(100%,280px)] shrink-0 items-center truncate rounded-full border border-brand-gold/30 bg-brand-gold/10 px-3 py-1.5 text-sm font-medium text-foreground"
+      className={cn(chipBase, chipCurrentRing[tone])}
       aria-current="page"
     >
       {children}
@@ -59,9 +101,11 @@ function CrumbTrail({ items }: { items: Crumb[] }) {
             />
           ) : null}
           {item.href ? (
-            <ChipLink href={item.href}>{item.label}</ChipLink>
+            <ChipLink href={item.href} tone={item.tone}>
+              {item.label}
+            </ChipLink>
           ) : (
-            <ChipCurrent>{item.label}</ChipCurrent>
+            <ChipCurrent tone={item.tone}>{item.label}</ChipCurrent>
           )}
         </Fragment>
       ))}
@@ -77,9 +121,9 @@ function CertificationLevelBreadcrumbs({
   const levelId = levelIdRaw as Id<"certificationLevels">;
   const level = useQuery(api.certifications.get, { levelId });
   const items: Crumb[] = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/certifications", label: "Certifications" },
-    { label: level?.name ?? "Course" },
+    { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
+    { href: "/certifications", label: "Certifications", tone: "hub" },
+    { label: level?.name ?? "Course", tone: "cert" },
   ];
   return <CrumbTrail items={items} />;
 }
@@ -100,16 +144,17 @@ function UnitBreadcrumbsInner({ unitIdRaw }: { unitIdRaw: string }) {
   );
 
   const items: Crumb[] = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/certifications", label: "Certifications" },
+    { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
+    { href: "/certifications", label: "Certifications", tone: "hub" },
   ];
   if (levelId) {
     items.push({
       href: `/certifications/${levelId}`,
       label: level?.name ?? "Course",
+      tone: "cert",
     });
   }
-  items.push({ label: unit?.title ?? "Unit" });
+  items.push({ label: unit?.title ?? "Unit", tone: "unit" });
   return <CrumbTrail items={items} />;
 }
 
@@ -117,9 +162,9 @@ function UnitBreadcrumbsFallback({ unitIdRaw }: { unitIdRaw: string }) {
   const unitId = unitIdRaw as Id<"units">;
   const unit = useQuery(api.units.get, { unitId });
   const items: Crumb[] = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/certifications", label: "Certifications" },
-    { label: unit?.title ?? "Unit" },
+    { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
+    { href: "/certifications", label: "Certifications", tone: "hub" },
+    { label: unit?.title ?? "Unit", tone: "unit" },
   ];
   return <CrumbTrail items={items} />;
 }
@@ -136,8 +181,8 @@ function AdminOtherBreadcrumbs({ pathname }: { pathname: string }) {
   return (
     <CrumbTrail
       items={[
-        { href: "/dashboard", label: "Dashboard" },
-        { href: section.href, label: section.label },
+        { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
+        { href: section.href, label: section.label, tone: "admin" },
       ]}
     />
   );

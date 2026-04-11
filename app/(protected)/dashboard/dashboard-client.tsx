@@ -185,7 +185,7 @@ export default function DashboardClient() {
   return (
     <div className="-mt-2 space-y-8">
       <div className="space-y-5">
-        <h2 className="text-xl font-semibold tracking-tight text-[oklch(0.43_0.095_232)] dark:text-brand-sky/95">
+        <h2 className="text-center text-2xl font-semibold tracking-tight text-[oklch(0.43_0.095_232)] dark:text-brand-sky/95">
           Welcome, {firstName}!
         </h2>
 

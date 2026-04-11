@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -23,6 +24,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  AUTH_INPUT,
+  AUTH_INPUT_PASSWORD,
+} from "@/lib/auth-page-field-classes";
+import { cn } from "@/lib/utils";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -118,6 +124,7 @@ function buildSignInProblemReport(parts: {
 }
 
 export function LoginForm() {
+  const [showPassword, setShowPassword] = useState(false);
   const [signInProblemOpen, setSignInProblemOpen] = useState(false);
   const [signInProblemReport, setSignInProblemReport] = useState<
     string | null
@@ -231,11 +238,14 @@ export function LoginForm() {
     }
   }
 
+  const isSubmitting = form.formState.isSubmitting;
+
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4 max-w-sm"
+        aria-busy={isSubmitting}
       >
         <FormField
           control={form.control}
@@ -244,7 +254,13 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" {...field} />
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  className={AUTH_INPUT}
+                  disabled={isSubmitting}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -257,14 +273,54 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input type="password" autoComplete="current-password" {...field} />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    className={cn("pr-9", AUTH_INPUT_PASSWORD)}
+                    disabled={isSubmitting}
+                    {...field}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:bg-zinc-100/90 hover:text-foreground dark:hover:bg-white/15"
+                    disabled={isSubmitting}
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden />
+                    )}
+                  </Button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-          Sign in
+        <Button
+          type="submit"
+          className="w-full border-0 bg-brand-sky font-semibold text-white shadow-md hover:bg-brand-sky/90 dark:hover:bg-brand-sky/85 disabled:opacity-90"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2
+                className="mr-2 h-4 w-4 shrink-0 animate-spin"
+                aria-hidden
+              />
+              Signing in…
+            </>
+          ) : (
+            "Sign in"
+          )}
         </Button>
       </form>
 

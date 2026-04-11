@@ -39,7 +39,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const showAdmin =
     me?.role === "admin" || me?.role === "content_creator";
 
-  const [navOpen, setNavOpen] = useState(false);
+  /** Open by default so learners see nav immediately after sign-in (menu still toggles). */
+  const [navOpen, setNavOpen] = useState(true);
 
   const sidebarNav = (
     <>

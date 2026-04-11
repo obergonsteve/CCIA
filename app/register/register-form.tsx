@@ -17,6 +17,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
+  AUTH_INPUT,
+  AUTH_INPUT_NAME,
+  AUTH_INPUT_PASSWORD,
+} from "@/lib/auth-page-field-classes";
+import { cn } from "@/lib/utils";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -87,7 +93,11 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>Full name</FormLabel>
               <FormControl>
-                <Input autoComplete="name" {...field} />
+                <Input
+                  autoComplete="name"
+                  className={AUTH_INPUT_NAME}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -100,7 +110,12 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" autoComplete="email" {...field} />
+                <Input
+                  type="email"
+                  autoComplete="email"
+                  className={AUTH_INPUT}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -113,7 +128,12 @@ export function RegisterForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input type="password" autoComplete="new-password" {...field} />
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  className={AUTH_INPUT_PASSWORD}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -127,7 +147,9 @@ export function RegisterForm() {
               <FormLabel>Company</FormLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger
+                    className={cn(AUTH_INPUT, "w-full min-w-0 justify-between")}
+                  >
                     <SelectValue placeholder="Select operator company" />
                   </SelectTrigger>
                 </FormControl>
@@ -148,7 +170,11 @@ export function RegisterForm() {
             {error}
           </p>
         )}
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+        <Button
+          type="submit"
+          className="w-full border-0 bg-brand-sky font-semibold text-white shadow-md hover:bg-brand-sky/90 dark:hover:bg-brand-sky/85"
+          disabled={form.formState.isSubmitting}
+        >
           Create account
         </Button>
       </form>
