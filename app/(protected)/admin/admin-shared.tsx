@@ -612,7 +612,7 @@ export function SortableUnitContentRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-muted-foreground hover:text-foreground"
+              className="h-7 w-7 rounded-none text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
               title="Unlink from this unit"
               onClick={(e) => {
                 e.stopPropagation();
@@ -1056,7 +1056,7 @@ export function SortableUnitRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-muted-foreground hover:text-foreground"
+              className="h-7 w-7 rounded-none text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
               title="Unlink from this certification"
               onClick={(e) => {
                 e.stopPropagation();

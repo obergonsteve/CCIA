@@ -138,7 +138,6 @@ export function PrerequisiteDropEditor({
         <CardTitle className="text-base">Prerequisites</CardTitle>
         <CardDescription>
           Drag a unit onto the dashed area to require it before &ldquo;{targetTitle}&rdquo;.
-          Learners must complete prerequisites first.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
