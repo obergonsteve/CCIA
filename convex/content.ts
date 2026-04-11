@@ -6,6 +6,12 @@ import {
   requireUserId,
   userCanAccessUnit,
 } from "./lib/auth";
+import {
+  allocateUniqueContentCode,
+  assertUniqueContentCode,
+  normalizeEntityCode,
+  validateEntityCodeFormat,
+} from "./lib/entityCodes";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
 import type { QueryCtx } from "./_generated/server";
 
@@ -129,6 +135,8 @@ export const create = mutation({
   args: {
     type: contentTypeValidator,
     title: v.string(),
+    /** Omit or leave blank to auto-allocate from the title. */
+    code: v.optional(v.string()),
     url: v.string(),
     contentCategoryId: v.optional(v.id("contentCategories")),
     storageId: v.optional(v.id("_storage")),
@@ -137,7 +145,14 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    const { assessment, type, contentCategoryId, ...rest } = args;
+    const { assessment, type, contentCategoryId, code: codeRaw, ...rest } =
+      args;
+    const code =
+      codeRaw !== undefined && String(codeRaw).trim() !== ""
+        ? normalizeEntityCode(codeRaw)
+        : await allocateUniqueContentCode(ctx, args.title);
+    validateEntityCodeFormat(code);
+    await assertUniqueContentCode(ctx, code);
     const categoryFields = contentCategoryId
       ? { contentCategoryId }
       : {};
@@ -148,6 +163,7 @@ export const create = mutation({
       return await ctx.db.insert("contentItems", {
         type,
         ...rest,
+        code,
         ...categoryFields,
         assessment,
       });
@@ -158,6 +174,7 @@ export const create = mutation({
     return await ctx.db.insert("contentItems", {
       type,
       ...rest,
+      code,
       ...categoryFields,
     });
   },
@@ -167,6 +184,7 @@ export const update = mutation({
   args: {
     contentId: v.id("contentItems"),
     title: v.string(),
+    code: v.string(),
     url: v.string(),
     type: contentTypeValidator,
     contentCategoryId: v.optional(
@@ -176,12 +194,22 @@ export const update = mutation({
     duration: v.optional(v.number()),
     assessment: v.optional(assessmentPayloadValidator),
   },
-  handler: async (ctx, { contentId, assessment, type, contentCategoryId, ...fields }) => {
+  handler: async (ctx, {
+    contentId,
+    assessment,
+    type,
+    contentCategoryId,
+    code,
+    ...fields
+  }) => {
     await requireAdminOrCreator(ctx);
     const existing = await ctx.db.get(contentId);
     if (!isLive(existing)) {
       throw new Error("Content not found");
     }
+    const normalizedCode = normalizeEntityCode(code);
+    validateEntityCodeFormat(normalizedCode);
+    await assertUniqueContentCode(ctx, normalizedCode, contentId);
     const cat =
       contentCategoryId !== undefined
         ? {
@@ -195,6 +223,7 @@ export const update = mutation({
       }
       await ctx.db.patch(contentId, {
         ...fields,
+        code: normalizedCode,
         ...cat,
         type,
         assessment,
@@ -203,6 +232,7 @@ export const update = mutation({
     }
     await ctx.db.patch(contentId, {
       ...fields,
+      code: normalizedCode,
       ...cat,
       type,
       assessment: undefined,

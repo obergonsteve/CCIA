@@ -57,6 +57,7 @@ import {
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { suggestEntityCodeFromLabel } from "@/lib/entity-code-form";
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
@@ -543,11 +544,13 @@ export default function AdminCoursesClient() {
     useState<"all" | string>("all");
 
   const [levelName, setLevelName] = useState("");
+  const [levelCode, setLevelCode] = useState("");
   const [levelCertCategorySelect, setLevelCertCategorySelect] =
     useState<string>(CATEGORY_SELECT_NONE);
   const [levelSummary, setLevelSummary] = useState("");
   const [levelDesc, setLevelDesc] = useState("");
   const [certDetailName, setCertDetailName] = useState("");
+  const [certDetailCode, setCertDetailCode] = useState("");
   const [certDetailCertCategorySelect, setCertDetailCertCategorySelect] =
     useState<string>(CATEGORY_SELECT_NONE);
   const [certDetailSummary, setCertDetailSummary] = useState("");
@@ -561,6 +564,7 @@ export default function AdminCoursesClient() {
     null,
   );
   const [editContentTitle, setEditContentTitle] = useState("");
+  const [editContentCode, setEditContentCode] = useState("");
   const [editContentUrl, setEditContentUrl] = useState("");
   const [editContentKind, setEditContentKind] = useState<
     Doc<"contentItems">["type"]
@@ -575,12 +579,14 @@ export default function AdminCoursesClient() {
     useState<string>(CATEGORY_SELECT_NONE);
 
   const [unitTitle, setUnitTitle] = useState("");
+  const [unitCode, setUnitCode] = useState("");
   const [newUnitCategorySelect, setNewUnitCategorySelect] =
     useState<string>(CATEGORY_SELECT_NONE);
   const [unitDesc, setUnitDesc] = useState("");
   const [editUnitOpen, setEditUnitOpen] = useState(false);
   const [editUnitId, setEditUnitId] = useState<Id<"units"> | null>(null);
   const [editUnitTitle, setEditUnitTitle] = useState("");
+  const [editUnitCode, setEditUnitCode] = useState("");
   const [editUnitDesc, setEditUnitDesc] = useState("");
   const [editUnitCategorySelect, setEditUnitCategorySelect] =
     useState<string>(CATEGORY_SELECT_NONE);
@@ -599,6 +605,7 @@ export default function AdminCoursesClient() {
   const [editUnitContentLinkId, setEditUnitContentLinkId] =
     useState<Id<"unitContents"> | null>(null);
   const [contentTitle, setContentTitle] = useState("");
+  const [contentLibraryCode, setContentLibraryCode] = useState("");
   const [newLibraryContentCategorySelect, setNewLibraryContentCategorySelect] =
     useState<string>(CATEGORY_SELECT_NONE);
   const [contentUrl, setContentUrl] = useState("");
@@ -760,6 +767,7 @@ export default function AdminCoursesClient() {
         .toLowerCase();
       return (
         l.name.toLowerCase().includes(certSearchLower) ||
+        (l.code?.toLowerCase().includes(certSearchLower) ?? false) ||
         l.description.toLowerCase().includes(certSearchLower) ||
         (l.summary?.toLowerCase().includes(certSearchLower) ?? false) ||
         (l.tagline?.toLowerCase().includes(certSearchLower) ?? false) ||
@@ -790,6 +798,7 @@ export default function AdminCoursesClient() {
     (u: {
       title: string;
       description: string;
+      code?: string;
       certificationSummary?: string;
       unitCategoryId?: Id<"unitCategories">;
       unitCategory?: string;
@@ -811,6 +820,8 @@ export default function AdminCoursesClient() {
         .toLowerCase();
       return (
         u.title.toLowerCase().includes(unitSearchLower) ||
+        (typeof u.code === "string" &&
+          u.code.toLowerCase().includes(unitSearchLower)) ||
         u.description.toLowerCase().includes(unitSearchLower) ||
         summary.includes(unitSearchLower) ||
         (catHay.trim().length > 0 && catHay.includes(unitSearchLower))
@@ -880,6 +891,7 @@ export default function AdminCoursesClient() {
         .toLowerCase();
       return (
         item.title.toLowerCase().includes(q) ||
+        (item.code?.toLowerCase().includes(q) ?? false) ||
         displayTitle.includes(q) ||
         item.type.toLowerCase().includes(q) ||
         (urlHaystack.length > 0 && urlHaystack.includes(q)) ||
@@ -1141,6 +1153,10 @@ export default function AdminCoursesClient() {
       return;
     }
     setCertDetailName(selectedCert.name);
+    setCertDetailCode(
+      selectedCert.code?.trim() ||
+        suggestEntityCodeFromLabel(selectedCert.name),
+    );
     setCertDetailCertCategorySelect(
       selectedCert.certificationCategoryId ?? CATEGORY_SELECT_NONE,
     );
@@ -1224,6 +1240,9 @@ export default function AdminCoursesClient() {
     }
     setEditUnitId(uid);
     setEditUnitTitle(u.title);
+    setEditUnitCode(
+      u.code?.trim() || suggestEntityCodeFromLabel(u.title),
+    );
     setEditUnitDesc(u.description);
     setEditUnitCategorySelect(u.unitCategoryId ?? CATEGORY_SELECT_NONE);
     setEditUnitOpen(true);
@@ -2341,6 +2360,10 @@ export default function AdminCoursesClient() {
                                 setEditContentId(item._id);
                                 setEditUnitContentLinkId(item.unitContentId);
                                 setEditContentTitle(item.title);
+                                setEditContentCode(
+                                  item.code?.trim() ||
+                                    suggestEntityCodeFromLabel(item.title),
+                                );
                                 setEditContentUrl(
                                   item.type === "test" ||
                                     item.type === "assignment"
@@ -2429,6 +2452,10 @@ export default function AdminCoursesClient() {
                               setEditContentId(item._id);
                               setEditUnitContentLinkId(null);
                               setEditContentTitle(item.title);
+                              setEditContentCode(
+                                item.code?.trim() ||
+                                  suggestEntityCodeFromLabel(item.title),
+                              );
                               setEditContentUrl(
                                 item.type === "test" ||
                                   item.type === "assignment"
@@ -2630,6 +2657,7 @@ export default function AdminCoursesClient() {
           setAddCertOpen(open);
           if (!open) {
             setLevelName("");
+            setLevelCode("");
             setLevelCertCategorySelect(CATEGORY_SELECT_NONE);
             setLevelSummary("");
             setLevelDesc("");
@@ -2652,6 +2680,21 @@ export default function AdminCoursesClient() {
                 value={levelName}
                 onChange={(e) => setLevelName(e.target.value)}
               />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-cert-code">Code (optional)</Label>
+              <Input
+                id="add-cert-code"
+                placeholder="Leave blank to auto-generate from name"
+                value={levelCode}
+                onChange={(e) => setLevelCode(e.target.value)}
+                className="font-mono text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Uppercase letters, digits, <span className="font-mono">.</span>{" "}
+                <span className="font-mono">_</span>{" "}
+                <span className="font-mono">-</span> only. Unique per certification.
+              </p>
             </div>
             <div className="space-y-1">
               <Label>Certification category</Label>
@@ -2742,6 +2785,9 @@ export default function AdminCoursesClient() {
                 try {
                   const newId = await createLevel({
                     name: levelName.trim(),
+                    ...(levelCode.trim()
+                      ? { code: levelCode.trim() }
+                      : {}),
                     certificationCategoryId:
                       levelCertCategorySelect === CATEGORY_SELECT_NONE
                         ? undefined
@@ -2751,6 +2797,7 @@ export default function AdminCoursesClient() {
                     order: n,
                   });
                   setLevelName("");
+                  setLevelCode("");
                   setLevelCertCategorySelect(CATEGORY_SELECT_NONE);
                   setLevelSummary("");
                   setLevelDesc("");
@@ -2775,6 +2822,7 @@ export default function AdminCoursesClient() {
           setAddUnitOpen(open);
           if (!open) {
             setUnitTitle("");
+            setUnitCode("");
             setNewUnitCategorySelect(CATEGORY_SELECT_NONE);
             setUnitDesc("");
           }
@@ -2796,6 +2844,16 @@ export default function AdminCoursesClient() {
                 placeholder="Title"
                 value={unitTitle}
                 onChange={(e) => setUnitTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-unit-code">Code (optional)</Label>
+              <Input
+                id="add-unit-code"
+                placeholder="Leave blank to auto-generate from title"
+                value={unitCode}
+                onChange={(e) => setUnitCode(e.target.value)}
+                className="font-mono text-sm"
               />
             </div>
             <div className="space-y-1">
@@ -2876,6 +2934,7 @@ export default function AdminCoursesClient() {
                 try {
                   await createUnit({
                     title: unitTitle.trim(),
+                    ...(unitCode.trim() ? { code: unitCode.trim() } : {}),
                     description: unitDesc.trim() || "—",
                     unitCategoryId:
                       newUnitCategorySelect === CATEGORY_SELECT_NONE
@@ -2883,6 +2942,7 @@ export default function AdminCoursesClient() {
                         : (newUnitCategorySelect as Id<"unitCategories">),
                   });
                   setUnitTitle("");
+                  setUnitCode("");
                   setNewUnitCategorySelect(CATEGORY_SELECT_NONE);
                   setUnitDesc("");
                   setAddUnitOpen(false);
@@ -2904,6 +2964,7 @@ export default function AdminCoursesClient() {
           setAddLibraryOpen(open);
           if (!open) {
             setAddLibraryAssessment(null);
+            setContentLibraryCode("");
             setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
             return;
           }
@@ -2930,6 +2991,16 @@ export default function AdminCoursesClient() {
                 placeholder="Title"
                 value={contentTitle}
                 onChange={(e) => setContentTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-lib-code">Code (optional)</Label>
+              <Input
+                id="add-lib-code"
+                placeholder="Leave blank to auto-generate from title"
+                value={contentLibraryCode}
+                onChange={(e) => setContentLibraryCode(e.target.value)}
+                className="font-mono text-sm"
               />
             </div>
             <div className="space-y-1">
@@ -3201,6 +3272,9 @@ export default function AdminCoursesClient() {
                     const cid = await createContent({
                       type: contentKind,
                       title: contentTitle.trim(),
+                      ...(contentLibraryCode.trim()
+                        ? { code: contentLibraryCode.trim() }
+                        : {}),
                       url: "",
                       contentCategoryId:
                         newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
@@ -3230,6 +3304,9 @@ export default function AdminCoursesClient() {
                     const cid = await createContent({
                       type: contentKind,
                       title: contentTitle.trim(),
+                      ...(contentLibraryCode.trim()
+                        ? { code: contentLibraryCode.trim() }
+                        : {}),
                       url: contentUrl.trim() || "#",
                       contentCategoryId:
                         newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
@@ -3247,6 +3324,7 @@ export default function AdminCoursesClient() {
                     }
                   }
                   setContentTitle("");
+                  setContentLibraryCode("");
                   setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
                   setContentUrl("");
                   setAddLibraryAssessment(null);
@@ -3289,6 +3367,19 @@ export default function AdminCoursesClient() {
                     value={certDetailName}
                     onChange={(e) => setCertDetailName(e.target.value)}
                   />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="cert-code">Code</Label>
+                  <Input
+                    id="cert-code"
+                    value={certDetailCode}
+                    onChange={(e) => setCertDetailCode(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Unique identifier (normalized to uppercase). Used in admin
+                    search and for formal references.
+                  </p>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label>Certification category</Label>
@@ -3431,6 +3522,10 @@ export default function AdminCoursesClient() {
                       toast.error("Name is required");
                       return;
                     }
+                    if (!certDetailCode.trim()) {
+                      toast.error("Code is required");
+                      return;
+                    }
                     const orderNum = Number.parseInt(certDetailOrder, 10);
                     if (Number.isNaN(orderNum)) {
                       toast.error("Display order must be a number");
@@ -3440,6 +3535,7 @@ export default function AdminCoursesClient() {
                       await updateLevel({
                         levelId: editCertId,
                         name: certDetailName.trim(),
+                        code: certDetailCode.trim(),
                         certificationCategoryId:
                           certDetailCertCategorySelect === CATEGORY_SELECT_NONE
                             ? null
@@ -3478,6 +3574,7 @@ export default function AdminCoursesClient() {
             setEditContentStorageId(null);
             setEditUnitContentLinkId(null);
             setEditContentAssessment(null);
+            setEditContentCode("");
             setEditContentCategorySelect(CATEGORY_SELECT_NONE);
           }
         }}
@@ -3497,6 +3594,15 @@ export default function AdminCoursesClient() {
                 id="ec-title"
                 value={editContentTitle}
                 onChange={(e) => setEditContentTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ec-code">Code</Label>
+              <Input
+                id="ec-code"
+                value={editContentCode}
+                onChange={(e) => setEditContentCode(e.target.value)}
+                className="font-mono text-sm"
               />
             </div>
             <div className="space-y-1">
@@ -3762,6 +3868,10 @@ export default function AdminCoursesClient() {
                   if (!editContentId) {
                     return;
                   }
+                  if (!editContentCode.trim()) {
+                    toast.error("Code is required");
+                    return;
+                  }
                   const ord = Number.parseInt(editContentOrder, 10);
                   if (Number.isNaN(ord)) {
                     toast.error("Order must be a number");
@@ -3795,6 +3905,7 @@ export default function AdminCoursesClient() {
                       await updateContent({
                         contentId: editContentId,
                         title: editContentTitle.trim(),
+                        code: editContentCode.trim(),
                         url: "",
                         type: editContentKind,
                         contentCategoryId:
@@ -3814,6 +3925,7 @@ export default function AdminCoursesClient() {
                       await updateContent({
                         contentId: editContentId,
                         title: editContentTitle.trim(),
+                        code: editContentCode.trim(),
                         url: editContentUrl.trim() || "#",
                         type: editContentKind,
                         contentCategoryId:
@@ -3873,6 +3985,15 @@ export default function AdminCoursesClient() {
               />
             </div>
             <div className="space-y-1">
+              <Label htmlFor="edit-unit-code">Code</Label>
+              <Input
+                id="edit-unit-code"
+                value={editUnitCode}
+                onChange={(e) => setEditUnitCode(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1">
               <Label>Unit category</Label>
               {unitCategories === undefined ? (
                 <div
@@ -3929,9 +4050,14 @@ export default function AdminCoursesClient() {
                 if (!editUnitId) {
                   return;
                 }
+                if (!editUnitCode.trim()) {
+                  toast.error("Code is required");
+                  return;
+                }
                 await updateUnit({
                   unitId: editUnitId,
                   title: editUnitTitle,
+                  code: editUnitCode.trim(),
                   description: editUnitDesc,
                   unitCategoryId:
                     editUnitCategorySelect === CATEGORY_SELECT_NONE

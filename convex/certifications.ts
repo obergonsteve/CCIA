@@ -6,6 +6,12 @@ import {
   requireUserId,
   userCanAccessLevel,
 } from "./lib/auth";
+import {
+  allocateUniqueCertificationCode,
+  assertUniqueCertificationCode,
+  normalizeEntityCode,
+  validateEntityCodeFormat,
+} from "./lib/entityCodes";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
 import { countUnitStepProgress } from "./contentProgress";
 import { collectUnitsForLevel } from "./units";
@@ -262,6 +268,8 @@ export const get = query({
 export const create = mutation({
   args: {
     name: v.string(),
+    /** Omit or leave blank to auto-allocate from the name. */
+    code: v.optional(v.string()),
     certificationCategoryId: v.optional(v.id("certificationCategories")),
     summary: v.optional(v.string()),
     description: v.string(),
@@ -272,9 +280,16 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    const { certificationCategoryId, ...rest } = args;
+    const { certificationCategoryId, code: codeRaw, ...rest } = args;
+    const code =
+      codeRaw !== undefined && String(codeRaw).trim() !== ""
+        ? normalizeEntityCode(codeRaw)
+        : await allocateUniqueCertificationCode(ctx, args.name);
+    validateEntityCodeFormat(code);
+    await assertUniqueCertificationCode(ctx, code);
     return await ctx.db.insert("certificationLevels", {
       ...rest,
+      code,
       ...(certificationCategoryId
         ? { certificationCategoryId }
         : {}),
@@ -286,6 +301,7 @@ export const update = mutation({
   args: {
     levelId: v.id("certificationLevels"),
     name: v.string(),
+    code: v.string(),
     certificationCategoryId: v.optional(
       v.union(v.id("certificationCategories"), v.null()),
     ),
@@ -296,14 +312,18 @@ export const update = mutation({
     tagline: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
   },
-  handler: async (ctx, { levelId, certificationCategoryId, ...fields }) => {
+  handler: async (ctx, { levelId, certificationCategoryId, code, ...fields }) => {
     await requireAdminOrCreator(ctx);
     const row = await ctx.db.get(levelId);
     if (!isLive(row)) {
       throw new Error("Certification not found");
     }
+    const normalizedCode = normalizeEntityCode(code);
+    validateEntityCodeFormat(normalizedCode);
+    await assertUniqueCertificationCode(ctx, normalizedCode, levelId);
     await ctx.db.patch(levelId, {
       ...fields,
+      code: normalizedCode,
       ...(certificationCategoryId !== undefined
         ? {
             certificationCategoryId:

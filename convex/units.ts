@@ -12,6 +12,12 @@ import {
   userCanAccessLevel,
   userCanAccessUnit,
 } from "./lib/auth";
+import {
+  allocateUniqueUnitCode,
+  assertUniqueUnitCode,
+  normalizeEntityCode,
+  validateEntityCodeFormat,
+} from "./lib/entityCodes";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
 
 /** Soft-delete a unit (no auth); used internally. */
@@ -135,14 +141,23 @@ export const get = query({
 export const create = mutation({
   args: {
     title: v.string(),
+    /** Omit or leave blank to auto-allocate from the title. */
+    code: v.optional(v.string()),
     description: v.string(),
     unitCategoryId: v.optional(v.id("unitCategories")),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    const { unitCategoryId, ...rest } = args;
+    const { unitCategoryId, code: codeRaw, ...rest } = args;
+    const code =
+      codeRaw !== undefined && String(codeRaw).trim() !== ""
+        ? normalizeEntityCode(codeRaw)
+        : await allocateUniqueUnitCode(ctx, args.title);
+    validateEntityCodeFormat(code);
+    await assertUniqueUnitCode(ctx, code);
     return await ctx.db.insert("units", {
       ...rest,
+      code,
       ...(unitCategoryId ? { unitCategoryId } : {}),
     });
   },
@@ -152,19 +167,24 @@ export const update = mutation({
   args: {
     unitId: v.id("units"),
     title: v.string(),
+    code: v.string(),
     description: v.string(),
     unitCategoryId: v.optional(
       v.union(v.id("unitCategories"), v.null()),
     ),
   },
-  handler: async (ctx, { unitId, unitCategoryId, ...fields }) => {
+  handler: async (ctx, { unitId, unitCategoryId, code, ...fields }) => {
     await requireAdminOrCreator(ctx);
     const row = await ctx.db.get(unitId);
     if (!isLive(row)) {
       throw new Error("Unit not found");
     }
+    const normalizedCode = normalizeEntityCode(code);
+    validateEntityCodeFormat(normalizedCode);
+    await assertUniqueUnitCode(ctx, normalizedCode, unitId);
     await ctx.db.patch(unitId, {
       ...fields,
+      code: normalizedCode,
       ...(unitCategoryId !== undefined
         ? {
             unitCategoryId:

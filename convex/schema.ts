@@ -66,6 +66,8 @@ export default defineSchema({
     .index("by_short_code", ["shortCode"]),
 
   certificationLevels: defineTable({
+    /** Unique short identifier (normalized uppercase: letters, digits, `.`, `_`, `-`). */
+    code: v.optional(v.string()),
     name: v.string(),
     certificationCategoryId: v.optional(v.id("certificationCategories")),
     /**
@@ -87,9 +89,12 @@ export default defineSchema({
     deletedAt: v.optional(v.number()),
   })
     .index("by_company", ["companyId"])
-    .index("by_certification_category", ["certificationCategoryId"]),
+    .index("by_certification_category", ["certificationCategoryId"])
+    .index("by_code", ["code"]),
 
   units: defineTable({
+    /** Unique short identifier (same rules as certification `code`). */
+    code: v.optional(v.string()),
     title: v.string(),
     description: v.string(),
     unitCategoryId: v.optional(v.id("unitCategories")),
@@ -101,7 +106,9 @@ export default defineSchema({
     order: v.optional(v.number()),
     /** Set when “deleted” — row retained, hidden from UI. */
     deletedAt: v.optional(v.number()),
-  }).index("by_unit_category", ["unitCategoryId"]),
+  })
+    .index("by_unit_category", ["unitCategoryId"])
+    .index("by_code", ["code"]),
 
   /**
    * Associates a reusable unit with a certification track. `order` is scoped to that certification.
@@ -126,6 +133,8 @@ export default defineSchema({
 
   /** Reusable lesson / reference / assessment (attached to units via `unitContents`). */
   contentItems: defineTable({
+    /** Unique short identifier (same rules as certification `code`). */
+    code: v.optional(v.string()),
     type: v.union(
       v.literal("video"),
       v.literal("slideshow"),
@@ -164,7 +173,9 @@ export default defineSchema({
     order: v.optional(v.number()),
     /** Set when “deleted” — row retained, hidden from UI. */
     deletedAt: v.optional(v.number()),
-  }).index("by_content_category", ["contentCategoryId"]),
+  })
+    .index("by_content_category", ["contentCategoryId"])
+    .index("by_code", ["code"]),
 
   /** Content order within a specific unit (many-to-many link). */
   unitContents: defineTable({

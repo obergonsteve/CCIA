@@ -440,6 +440,11 @@ export function ContentLibraryDragRow({
       )}
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
+        {item.code?.trim() ? (
+          <div className="mt-0.5 truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+            {item.code.trim()}
+          </div>
+        ) : null}
         {contentCategoryShortCode?.trim() ? (
           <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
             {contentCategoryShortCode.trim()}
@@ -564,6 +569,11 @@ export function SortableUnitContentRow({
       </button>
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
+        {item.code?.trim() ? (
+          <div className="mt-0.5 truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+            {item.code.trim()}
+          </div>
+        ) : null}
         {contentCategoryShortCode?.trim() ? (
           <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
             {contentCategoryShortCode.trim()}
@@ -833,6 +843,11 @@ export function SortableLevelRow({
           onClick={onSelect}
         >
           <span className="block truncate text-sm font-medium">{level.name}</span>
+          {level.code?.trim() ? (
+            <span className="mt-0.5 block truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+              {level.code.trim()}
+            </span>
+          ) : null}
           {showShort ? (
             <span className="mt-0.5 block line-clamp-2 text-[11px] text-muted-foreground">
               {short}
@@ -990,6 +1005,11 @@ export function SortableUnitRow({
           onClick={onSelect}
         >
           <span className="block truncate font-medium">{unit.title}</span>
+          {unit.code?.trim() ? (
+            <span className="mt-0.5 block truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+              {unit.code.trim()}
+            </span>
+          ) : null}
           {unitCategoryShortCode?.trim() ? (
             <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-gold/90">
               {unitCategoryShortCode.trim()}

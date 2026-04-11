@@ -5,6 +5,11 @@ import {
   seedUnitKey,
   type SeedContent,
 } from "./curriculumSeedData";
+import {
+  allocateUniqueCertificationCode,
+  allocateUniqueContentCode,
+  allocateUniqueUnitCode,
+} from "./lib/entityCodes";
 import { requireAdminOrCreator } from "./lib/auth";
 
 /** bcrypt cost 10 via bcryptjs — hashes for stevemoore / gillmoore (must match `auth.login`). */
@@ -217,6 +222,7 @@ export const bootstrapDemo = mutation({
       contentSort,
     );
     const levelId = await ctx.db.insert("certificationLevels", {
+      code: await allocateUniqueCertificationCode(ctx, "Level 1 — Foundations"),
       name: "Level 1 — Foundations",
       certificationCategoryId: demoCertCat,
       summary:
@@ -227,6 +233,7 @@ export const bootstrapDemo = mutation({
       companyId: undefined,
     });
     const unitId = await ctx.db.insert("units", {
+      code: await allocateUniqueUnitCode(ctx, "Compliance orientation"),
       title: "Compliance orientation",
       description:
         "Key obligations under the Residential (Land Lease) Communities Act and operator duties.",
@@ -238,6 +245,10 @@ export const bootstrapDemo = mutation({
       order: 0,
     });
     const contentId = await ctx.db.insert("contentItems", {
+      code: await allocateUniqueContentCode(
+        ctx,
+        "NSW Fair Trading — Land lease communities",
+      ),
       type: "link",
       title: "NSW Fair Trading — Land lease communities",
       url: "https://www.fairtrading.nsw.gov.au/",
@@ -249,6 +260,7 @@ export const bootstrapDemo = mutation({
       order: 0,
     });
     const assessId = await ctx.db.insert("contentItems", {
+      code: await allocateUniqueContentCode(ctx, "Orientation checkpoint"),
       type: "assignment",
       title: "Orientation checkpoint",
       url: "",
@@ -328,6 +340,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       certSort,
     );
     const levelId = await ctx.db.insert("certificationLevels", {
+      code: await allocateUniqueCertificationCode(ctx, course.name),
       name: course.name,
       certificationCategoryId: certCatId,
       summary: course.summary,
@@ -348,6 +361,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
         unitSort,
       );
       const unitId = await ctx.db.insert("units", {
+        code: await allocateUniqueUnitCode(ctx, unit.title),
         title: unit.title,
         description: unit.description,
         unitCategoryId: unitCatId,
@@ -367,6 +381,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
           contentSort,
         );
         const contentId = await ctx.db.insert("contentItems", {
+          code: await allocateUniqueContentCode(ctx, c.title),
           type: c.type,
           title: c.title,
           url: c.url,
@@ -388,6 +403,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
           contentSort,
         );
         const testContentId = await ctx.db.insert("contentItems", {
+          code: await allocateUniqueContentCode(ctx, unit.test.title),
           type: "test",
           title: unit.test.title,
           url: "",
@@ -412,6 +428,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
         contentSort,
       );
       const assessContentId = await ctx.db.insert("contentItems", {
+        code: await allocateUniqueContentCode(ctx, unit.assignment.title),
         type: "assignment",
         title: unit.assignment.title,
         url: "",

@@ -180,31 +180,27 @@ export default function CertificationLevelClient({
       <section
         id="certification-path"
         aria-labelledby="certification-path-heading"
-        className="rounded-2xl border-2 border-brand-gold/25 bg-muted/30 p-4 shadow-sm md:p-6"
+        className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/45 bg-muted/25 shadow-sm dark:border-brand-gold/40"
       >
-        <h2
-          id="certification-path-heading"
-          className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground md:text-xl"
-        >
-          <Route className="h-5 w-5 shrink-0 text-brand-gold" aria-hidden />
-          Your certification path
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-          Units unlock in order, listed top to bottom. Lessons for each unit run
-          left to right (title under each dot).{" "}
-          <span className="text-foreground/85">
-            Green tick = done · gold dashed = in progress · hollow circle = not
-            started · padlock = locked
-          </span>
-          . Tap an unlocked step to open it in the unit.
-        </p>
-        {roadmap.units.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            No units are linked to this certification yet. An admin can attach
-            units in Admin → Courses.
-          </p>
-        ) : (
-          <ol className="mt-6 flex w-full flex-col gap-6 border-t border-border/60 pt-6">
+        <div
+          className="h-1.5 w-full bg-gradient-to-r from-brand-lime/70 via-brand-gold/75 to-brand-sky/70"
+          aria-hidden
+        />
+        <div className="p-4 md:p-6">
+          <h2
+            id="certification-path-heading"
+            className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground md:text-xl"
+          >
+            <Route className="h-5 w-5 shrink-0 text-brand-gold" aria-hidden />
+            Your certification path
+          </h2>
+          {roadmap.units.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              No units are linked to this certification yet. An admin can attach
+              units in Admin → Courses.
+            </p>
+          ) : (
+            <ol className="mt-6 flex w-full flex-col gap-6 border-t border-border/60 pt-6">
             {roadmap.units.map((u, i) => {
               const pathSteps = u.pathSteps satisfies PathStep[];
               const pct =
@@ -216,7 +212,7 @@ export default function CertificationLevelClient({
               return (
                 <li
                   key={u.unitId}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2 md:gap-3"
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-1 md:gap-1.5"
                 >
                   <div className="w-full shrink-0 sm:max-w-[min(100%,260px)] sm:w-[216px]">
                     <Link
@@ -291,7 +287,7 @@ export default function CertificationLevelClient({
                   {pathSteps.length > 0 ? (
                     <>
                       <ArrowRight
-                        className="hidden h-4 w-6 shrink-0 text-muted-foreground/40 sm:block md:h-5 md:w-8"
+                        className="hidden h-4 w-5 shrink-0 text-muted-foreground/40 sm:-mx-0.5 sm:block md:h-4 md:w-6"
                         aria-hidden
                         strokeWidth={2}
                       />
@@ -313,7 +309,7 @@ export default function CertificationLevelClient({
                             >
                               {si > 0 ? (
                                 <ArrowRight
-                                  className="mx-0 h-3 w-3.5 shrink-0 text-muted-foreground/40 sm:h-3 sm:w-4"
+                                  className="mx-0 h-3.5 w-4 shrink-0 text-muted-foreground/40 sm:h-4 sm:w-5"
                                   aria-hidden
                                   strokeWidth={2}
                                 />
@@ -337,8 +333,9 @@ export default function CertificationLevelClient({
                 </li>
               );
             })}
-          </ol>
-        )}
+            </ol>
+          )}
+        </div>
       </section>
 
       <div className="max-w-3xl space-y-4">
