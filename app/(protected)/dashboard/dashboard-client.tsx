@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useQuery } from "convex/react";
 import {
   ArrowRight,
@@ -28,6 +29,8 @@ type BucketRow = {
   unitTotal: number;
   completedCount: number;
   touchedCount: number;
+  contentStepsTotal: number;
+  contentStepsCompleted: number;
 };
 
 function CertificationBucketSection({
@@ -70,12 +73,25 @@ function CertificationBucketSection({
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {rows.map(({ level, unitTotal, completedCount }) => {
+          {rows.map(
+            ({
+              level,
+              unitTotal,
+              completedCount,
+              contentStepsTotal,
+              contentStepsCompleted,
+            }) => {
             const href = `/certifications/${level._id}`;
-            const progressLabel =
+            const unitsPct =
               unitTotal > 0
-                ? `${completedCount} / ${unitTotal} units completed`
-                : "No units in this certification yet";
+                ? Math.round((completedCount / unitTotal) * 100)
+                : 0;
+            const contentPct =
+              contentStepsTotal > 0
+                ? Math.round(
+                    (contentStepsCompleted / contentStepsTotal) * 100,
+                  )
+                : 0;
             return (
               <Card
                 key={level._id}
@@ -86,9 +102,41 @@ function CertificationBucketSection({
                   <CardDescription className="line-clamp-2">
                     {level.summary?.trim() || level.description}
                   </CardDescription>
-                  <p className="text-xs text-muted-foreground pt-1">
-                    {progressLabel}
-                  </p>
+                  <div className="space-y-3 border-t border-border/60 pt-3 mt-1">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-muted-foreground">Units</span>
+                        <span className="tabular-nums font-medium text-foreground">
+                          {unitTotal > 0
+                            ? `${completedCount} / ${unitTotal}`
+                            : "—"}
+                        </span>
+                      </div>
+                      {unitTotal > 0 ? (
+                        <Progress value={unitsPct} className="h-2 w-full" />
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          No units in this certification yet
+                        </p>
+                      )}
+                    </div>
+                    {contentStepsTotal > 0 ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="text-muted-foreground">
+                            Content steps
+                          </span>
+                          <span className="tabular-nums font-medium text-foreground">
+                            {contentStepsCompleted} / {contentStepsTotal}
+                          </span>
+                        </div>
+                        <Progress
+                          value={contentPct}
+                          className="h-2 w-full"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Link

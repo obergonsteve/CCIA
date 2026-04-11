@@ -234,6 +234,38 @@ export async function unitStepsFullyDone(
 }
 
 /**
+ * Counts lesson + assessment steps for a unit using the same rules as
+ * {@link unitStepsFullyDone} (assessments need a passing attempt).
+ */
+export async function countUnitStepProgress(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  unitId: Id<"units">,
+): Promise<{ total: number; completed: number }> {
+  const steps = await getOrderedStepsForUnit(ctx, unitId);
+  if (steps.length === 0) {
+    return { total: 0, completed: 0 };
+  }
+  const items = await collectContentInUnit(ctx, unitId);
+  const byContentId = new Map(items.map((c) => [c._id, c] as const));
+  let completed = 0;
+  for (const s of steps) {
+    if (s.kind === "content") {
+      const doc = byContentId.get(s.contentId);
+      if (!doc) {
+        continue;
+      }
+      if (await contentStepDone(ctx, userId, unitId, s.contentId, doc)) {
+        completed += 1;
+      }
+    } else if (await legacyAssignmentStepDone(ctx, userId, s.assignmentId)) {
+      completed += 1;
+    }
+  }
+  return { total: steps.length, completed };
+}
+
+/**
  * Marks `userProgress` complete when every step is done; clears unit completion
  * when any step is incomplete (e.g. after reopening a lesson).
  */

@@ -7,6 +7,7 @@ import {
   userCanAccessLevel,
 } from "./lib/auth";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
+import { countUnitStepProgress } from "./contentProgress";
 import { collectUnitsForLevel } from "./units";
 
 export const listAllAdmin = query({
@@ -52,6 +53,9 @@ export const listDashboardBucketsForUser = query({
       unitTotal: number;
       completedCount: number;
       touchedCount: number;
+      /** All sequential steps (lessons + assessments) across units in this certification. */
+      contentStepsTotal: number;
+      contentStepsCompleted: number;
     };
     const userId = await requireUserId(ctx);
     const user = await ctx.db.get(userId);
@@ -95,6 +99,8 @@ export const listDashboardBucketsForUser = query({
       const unitIds = units.map((u) => u._id);
       let completedCount = 0;
       let touchedCount = 0;
+      let contentStepsTotal = 0;
+      let contentStepsCompleted = 0;
       for (const uid of unitIds) {
         const pr = progressByUnit.get(uid);
         if (pr) {
@@ -103,12 +109,17 @@ export const listDashboardBucketsForUser = query({
             completedCount += 1;
           }
         }
+        const stepCounts = await countUnitStepProgress(ctx, userId, uid);
+        contentStepsTotal += stepCounts.total;
+        contentStepsCompleted += stepCounts.completed;
       }
       rows.push({
         level,
         unitTotal: unitIds.length,
         completedCount,
         touchedCount,
+        contentStepsTotal,
+        contentStepsCompleted,
       });
     }
 
