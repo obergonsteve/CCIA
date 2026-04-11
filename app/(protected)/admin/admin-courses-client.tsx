@@ -1631,6 +1631,12 @@ export default function AdminCoursesClient() {
                             prereqsDrawerOpen={prereqsPanelUnitId === u._id}
                             onSelect={() => handleUnitRowClick(u._id)}
                             onEdit={() => openEditUnit(u._id)}
+                            deleteVariant={
+                              filterCertId &&
+                              u.certificationLevelIds.includes(filterCertId)
+                                ? "unlink"
+                                : "trash"
+                            }
                             deleteTooltip={
                               filterCertId &&
                               u.certificationLevelIds.includes(filterCertId)

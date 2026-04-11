@@ -30,6 +30,7 @@ import {
   Link2,
   Pencil,
   Trash2,
+  Unlink2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -147,6 +148,8 @@ export function DraggableUnitPaletteItem({
   onDelete,
   /** Shown on trash hover; reflects whether click opens remove-from-cert vs full delete. */
   deleteTooltip,
+  /** `unlink` = remove from selected cert only; `trash` = delete unit from the system. */
+  deleteVariant = "trash",
   onOpenPrerequisites,
 }: {
   unit: UnitAdminListRow;
@@ -160,6 +163,7 @@ export function DraggableUnitPaletteItem({
   onEdit?: () => void;
   onDelete?: () => void;
   deleteTooltip?: string;
+  deleteVariant?: "unlink" | "trash";
   onOpenPrerequisites?: () => void;
 }) {
   const paletteDragDisabled = Boolean(inSelectedCert);
@@ -275,18 +279,34 @@ export function DraggableUnitPaletteItem({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+                      className={cn(
+                        "h-7 w-7 rounded-none",
+                        deleteVariant === "unlink"
+                          ? "text-muted-foreground hover:text-foreground"
+                          : "text-destructive hover:text-destructive",
+                      )}
+                      title={
+                        deleteVariant === "unlink"
+                          ? "Remove from certification"
+                          : "Delete unit from system"
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         onDelete();
                       }}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      {deleteVariant === "unlink" ? (
+                        <Unlink2 className="h-3 w-3" aria-hidden />
+                      ) : (
+                        <Trash2 className="h-3 w-3" aria-hidden />
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="left">
                     {deleteTooltip ??
-                      "Delete unit from the system (all certifications and links)"}
+                      (deleteVariant === "unlink"
+                        ? "Remove from the selected certification only — unit stays in the library"
+                        : "Delete unit from the system (all certifications and links)")}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -555,14 +575,14 @@ export function SortableUnitContentRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
-              title="Remove from unit"
+              className="h-7 w-7 rounded-none text-muted-foreground hover:text-foreground"
+              title="Unlink from this unit"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
             >
-              <Trash2 className="h-3 w-3" />
+              <Unlink2 className="h-3 w-3" aria-hidden />
             </Button>
           ) : null}
         </div>
@@ -982,17 +1002,19 @@ export function SortableUnitRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+              className="h-7 w-7 rounded-none text-muted-foreground hover:text-foreground"
+              title="Unlink from this certification"
               onClick={(e) => {
                 e.stopPropagation();
                 onRemoveFromCert();
               }}
             >
-              <Trash2 className="h-3 w-3" />
+              <Unlink2 className="h-3 w-3" aria-hidden />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            Remove this unit from the current certification only
+            Remove this unit from the current certification only — unit stays in
+            the library
           </TooltipContent>
         </Tooltip>
       </div>

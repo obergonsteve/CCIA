@@ -131,12 +131,9 @@ export default function DashboardClient() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">
-          Welcome, {me.name}
-        </h2>
-        <p className="text-muted-foreground">Certification Dashboard</p>
-      </div>
+      <h2 className="text-lg font-semibold tracking-tight text-[oklch(0.43_0.095_232)] dark:text-brand-sky/95">
+        Welcome, {me.name}
+      </h2>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2 text-sm">
         <div className="flex flex-wrap items-baseline gap-x-2 border-l-2 border-l-brand-lime/80 pl-2.5">
