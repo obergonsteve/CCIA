@@ -120,6 +120,8 @@ export default function UnitClient({
   const [answersByAssignment, setAnswersByAssignment] = useState<
     Record<string, Record<string, string>>
   >({});
+  /** When true, completed steps appear in the strip and in the page list (default). */
+  const [showCompletedSteps, setShowCompletedSteps] = useState(true);
 
   const itemsById = useMemo(() => {
     if (!items) {
@@ -137,6 +139,15 @@ export default function UnitClient({
     }
     return new Map(assignments.map((a) => [a._id, a] as const));
   }, [assignments]);
+
+  const visibleSteps = useMemo(() => {
+    if (roadmap === undefined || roadmap === null) {
+      return [];
+    }
+    return showCompletedSteps
+      ? roadmap.steps
+      : roadmap.steps.filter((r) => !r.done);
+  }, [roadmap, showCompletedSteps]);
 
   if (
     unit === undefined ||
@@ -211,18 +222,6 @@ export default function UnitClient({
         </div>
       </div>
 
-      {levelId ? (
-        <p className="text-xs text-muted-foreground">
-          Certification path: units unlock in order.{" "}
-          <Link
-            href={`/certifications/${levelId}`}
-            className="text-brand-sky underline-offset-4 hover:underline"
-          >
-            Back to certification overview
-          </Link>
-        </p>
-      ) : null}
-
       {lockedByPrereq && prereqStatus.prerequisites.length > 0 ? (
         <div
           className="flex gap-3 rounded-xl border border-brand-gold/35 bg-brand-gold/10 px-4 py-3 text-sm"
@@ -266,54 +265,82 @@ export default function UnitClient({
       ) : null}
 
       <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 md:p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm font-medium text-foreground">
-          <Route className="h-4 w-4 text-brand-gold" />
-          Your path through this unit
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Route className="h-4 w-4 text-brand-gold" aria-hidden />
+            Your path through this unit
+          </div>
+          <Button
+            type="button"
+            variant={showCompletedSteps ? "secondary" : "outline"}
+            size="sm"
+            className="h-7 shrink-0 rounded-full px-3 text-xs font-medium"
+            aria-pressed={showCompletedSteps}
+            onClick={() => setShowCompletedSteps((v) => !v)}
+          >
+            {showCompletedSteps ? "Hide completed" : "Show completed"}
+          </Button>
         </div>
         <ScrollArea className="w-full">
-          <ol className="flex min-w-0 gap-2 pb-1 md:flex-wrap md:gap-3">
-            {roadmap.steps.map((row, i) => {
-              const st = row.step;
-              const title = st.title;
-              const label =
-                st.kind === "legacy_assignment"
-                  ? stepLabel("legacy_assignment")
-                  : stepLabel("content", st.contentType);
-              return (
-                <li
-                  key={
-                    st.kind === "content"
-                      ? `c-${st.contentId}`
-                      : `a-${st.assignmentId}`
-                  }
-                  className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl border bg-background/80 px-3 py-2 text-xs md:min-w-[160px]"
-                >
-                  <div className="flex items-center gap-2">
-                    {row.done ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-lime" />
-                    ) : row.locked ? (
-                      <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    ) : row.active ? (
-                      <Circle className="h-4 w-4 shrink-0 text-brand-sky fill-brand-sky/25" />
-                    ) : (
-                      <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    )}
-                    <span className="font-semibold text-foreground line-clamp-2">
-                      {title}
+          {visibleSteps.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Nothing to show here. Turn{" "}
+              <span className="font-medium text-foreground">Show completed</span>{" "}
+              on to see finished steps again.
+            </p>
+          ) : (
+            <ol className="flex min-w-0 gap-2 pb-1 md:flex-wrap md:gap-3">
+              {visibleSteps.map((row) => {
+                const st = row.step;
+                const title = st.title;
+                const label =
+                  st.kind === "legacy_assignment"
+                    ? stepLabel("legacy_assignment")
+                    : stepLabel("content", st.contentType);
+                const stepIndexInUnit = roadmap.steps.indexOf(row);
+                return (
+                  <li
+                    key={
+                      st.kind === "content"
+                        ? `c-${st.contentId}`
+                        : `a-${st.assignmentId}`
+                    }
+                    className="flex min-w-[140px] flex-1 flex-col gap-1 rounded-xl border bg-background/80 px-3 py-2 text-xs md:min-w-[160px]"
+                  >
+                    <div className="flex items-center gap-2">
+                      {row.done ? (
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-lime" />
+                      ) : row.locked ? (
+                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : row.active ? (
+                        <Circle className="h-4 w-4 shrink-0 text-brand-sky fill-brand-sky/25" />
+                      ) : (
+                        <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="font-semibold text-foreground line-clamp-2">
+                        {title}
+                      </span>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {label} · Step {stepIndexInUnit + 1}
                     </span>
-                  </div>
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {label} · Step {i + 1}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
         </ScrollArea>
       </div>
 
       <div className="space-y-6">
-        {roadmap.steps.map((row) => {
+        {visibleSteps.length === 0 && roadmap.steps.length > 0 ? (
+          <p className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+            Completed steps are hidden. Use{" "}
+            <span className="font-medium text-foreground">Show completed</span>{" "}
+            in the path above to open finished lessons again.
+          </p>
+        ) : null}
+        {visibleSteps.map((row) => {
           const st = row.step;
           if (st.kind === "content") {
             const doc = itemsById.get(st.contentId);

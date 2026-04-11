@@ -206,6 +206,7 @@ export default defineSchema({
       v.literal("start"),
       v.literal("complete"),
       v.literal("assessment_attempt"),
+      v.literal("reopen"),
     ),
     at: v.number(),
     durationMs: v.optional(v.number()),

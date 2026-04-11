@@ -2,18 +2,120 @@
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { Progress } from "@/components/ui/progress";
 import { useQuery } from "convex/react";
 import {
   CheckCircle2,
   ChevronRight,
   Circle,
+  CircleDashed,
   Lock,
   Route,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+type PathStep = {
+  kind: "content" | "legacy_assignment";
+  contentId?: Id<"contentItems">;
+  assignmentId?: Id<"assignments">;
+  title: string;
+  contentType?: string;
+  isAssessment: boolean;
+  status: "completed" | "in_progress" | "not_started" | "locked";
+};
+
+function stepAnchorHref(
+  unitId: Id<"units">,
+  levelId: Id<"certificationLevels">,
+  step: PathStep,
+): string {
+  const base = `/units/${unitId}?level=${levelId}`;
+  if (step.kind === "content" && step.contentId) {
+    return `${base}#step-${step.contentId}`;
+  }
+  if (step.kind === "legacy_assignment" && step.assignmentId) {
+    return `${base}#step-a-${step.assignmentId}`;
+  }
+  return base;
+}
+
+function PathStepNode({
+  step,
+  unitId,
+  levelId,
+  unitLocked,
+}: {
+  step: PathStep;
+  unitId: Id<"units">;
+  levelId: Id<"certificationLevels">;
+  unitLocked: boolean;
+}) {
+  const href = stepAnchorHref(unitId, levelId, step);
+  const blocked = unitLocked || step.status === "locked";
+
+  const icon =
+    step.status === "completed" ? (
+      <CheckCircle2
+        className="h-4 w-4 text-brand-lime"
+        aria-hidden
+      />
+    ) : step.status === "locked" || unitLocked ? (
+      <Lock className="h-4 w-4 text-muted-foreground" aria-hidden />
+    ) : step.status === "in_progress" ? (
+      <CircleDashed className="h-4 w-4 text-brand-gold" aria-hidden />
+    ) : (
+      <Circle className="h-4 w-4 text-muted-foreground/70" aria-hidden />
+    );
+
+  const shell = (
+    <span
+      className={cn(
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-background shadow-sm transition-colors",
+        step.status === "completed" &&
+          "border-brand-lime/70 bg-brand-lime/[0.12]",
+        step.status === "in_progress" &&
+          "border-brand-gold/80 bg-brand-gold/[0.12] ring-2 ring-brand-gold/25",
+        (step.status === "not_started" || step.status === "locked") &&
+          !unitLocked &&
+          "border-border",
+        unitLocked && "border-muted bg-muted/40",
+      )}
+    >
+      {icon}
+    </span>
+  );
+
+  const caption = (
+    <span className="max-w-[5.5rem] text-center text-[10px] leading-tight text-muted-foreground line-clamp-2">
+      {step.title}
+    </span>
+  );
+
+  if (blocked) {
+    return (
+      <span
+        className="inline-flex max-w-[5.75rem] cursor-not-allowed flex-col items-center gap-1 opacity-80"
+        title={step.title}
+      >
+        {shell}
+        {caption}
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="inline-flex max-w-[5.75rem] flex-col items-center gap-1 rounded-md outline-none ring-offset-background transition-transform hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-brand-sky/50"
+      title={step.title}
+      scroll={true}
+    >
+      {shell}
+      {caption}
+    </Link>
+  );
+}
 
 export default function CertificationLevelClient({
   levelId: levelIdRaw,
@@ -87,9 +189,13 @@ export default function CertificationLevelClient({
           Your certification path
         </h2>
         <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-          Units unlock in order. Open a unit to follow lessons and assessments
-          step by step; the next step opens when the current one is completed
-          successfully.
+          Units unlock in order, listed top to bottom. Lessons for each unit run
+          left to right (title under each dot).{" "}
+          <span className="text-foreground/85">
+            Green tick = done · gold dashed = in progress · hollow circle = not
+            started · padlock = locked
+          </span>
+          . Tap an unlocked step to open it in the unit.
         </p>
         {roadmap.units.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
@@ -97,25 +203,30 @@ export default function CertificationLevelClient({
             units in Admin → Courses.
           </p>
         ) : (
-          <div className="mt-4 w-full overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch]">
-            <ol className="flex w-max min-w-full flex-nowrap gap-3 md:flex-wrap md:w-full">
-              {roadmap.units.map((u, i) => {
-                const pct =
-                  u.stepTotal > 0
-                    ? Math.round((u.stepsCompleted / u.stepTotal) * 100)
-                    : u.completed
-                      ? 100
-                      : 0;
-                return (
-                  <li
-                    key={u.unitId}
-                    className="w-[min(100%,240px)] shrink-0 md:w-[min(100%,260px)] md:shrink"
-                  >
+          <ol className="mt-6 flex w-full flex-col gap-8 border-t border-border/60 pt-6">
+            {roadmap.units.map((u, i) => {
+              const pathSteps = u.pathSteps satisfies PathStep[];
+              const pct =
+                u.stepTotal > 0
+                  ? Math.round((u.stepsCompleted / u.stepTotal) * 100)
+                  : u.completed
+                    ? 100
+                    : 0;
+              return (
+                <li
+                  key={u.unitId}
+                  className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-4"
+                >
+                  <div className="w-full shrink-0 sm:max-w-[min(100%,280px)] sm:w-[240px]">
                     <Link
                       href={`/units/${u.unitId}?level=${levelId}`}
                       className={cn(
-                        "block h-full rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-brand-sky/40 hover:bg-muted/50",
-                        u.locked && "cursor-not-allowed opacity-75",
+                        "block w-full rounded-xl border-2 bg-card px-4 py-3 shadow-sm transition-colors hover:border-brand-sky/40 hover:bg-muted/40",
+                        u.completed && "border-brand-lime/50 bg-brand-lime/[0.06]",
+                        !u.completed &&
+                          !u.locked &&
+                          "border-brand-sky/35 bg-background",
+                        u.locked && "cursor-not-allowed border-border opacity-80",
                       )}
                       aria-disabled={u.locked}
                       onClick={(e) => {
@@ -124,46 +235,106 @@ export default function CertificationLevelClient({
                         }
                       }}
                     >
-                      <div className="flex items-start gap-2">
-                        {u.completed ? (
-                          <CheckCircle2 className="h-5 w-5 text-brand-lime shrink-0 mt-0.5" />
-                        ) : u.locked ? (
-                          <Lock className="h-5 w-5 text-brand-gold shrink-0 mt-0.5" />
+                      <div className="flex flex-col gap-1.5 text-left">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Unit {i + 1}
+                        </span>
+                        <span className="flex items-start gap-2">
+                          {u.completed ? (
+                            <CheckCircle2
+                              className="h-5 w-5 shrink-0 text-brand-lime mt-0.5"
+                              aria-hidden
+                            />
+                          ) : u.locked ? (
+                            <Lock
+                              className="h-5 w-5 shrink-0 text-brand-gold mt-0.5"
+                              aria-hidden
+                            />
+                          ) : (
+                            <Circle
+                              className="h-5 w-5 shrink-0 text-brand-sky fill-brand-sky/20 mt-0.5"
+                              aria-hidden
+                            />
+                          )}
+                          <span className="min-w-0 flex-1 leading-snug">
+                            <span className="line-clamp-3 text-sm font-semibold text-foreground">
+                              {u.title}
+                            </span>
+                            <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                              Open unit
+                              <ChevronRight
+                                className="h-3.5 w-3.5 shrink-0 opacity-70"
+                                aria-hidden
+                              />
+                            </span>
+                          </span>
+                        </span>
+                        {u.locked && u.lockReason === "prerequisite" ? (
+                          <p className="text-[11px] text-brand-gold">
+                            Prerequisites required
+                          </p>
+                        ) : u.locked && u.lockReason === "previous_unit" ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            Complete the previous unit first
+                          </p>
                         ) : (
-                          <Circle className="h-5 w-5 text-brand-sky shrink-0 mt-0.5" />
+                          <p className="text-[11px] tabular-nums text-muted-foreground">
+                            {u.stepsCompleted}/{u.stepTotal || 0} lessons
+                            {u.stepTotal > 0 ? ` · ${pct}%` : ""}
+                          </p>
                         )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Unit {i + 1}
-                          </p>
-                          <p className="font-semibold leading-snug text-foreground">
-                            {u.title}
-                          </p>
-                          {u.locked && u.lockReason === "prerequisite" ? (
-                            <p className="mt-1 text-[11px] text-brand-gold">
-                              Prerequisites required
-                            </p>
-                          ) : u.locked && u.lockReason === "previous_unit" ? (
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              Complete the previous unit first
-                            </p>
-                          ) : null}
-                          <Progress
-                            value={u.locked ? 0 : pct}
-                            className="mt-2 h-1.5"
-                          />
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {u.stepsCompleted}/{u.stepTotal || 0} steps in unit
-                          </p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       </div>
                     </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
+                  </div>
+
+                  {pathSteps.length > 0 ? (
+                    <>
+                      <div
+                        className="hidden h-px w-8 shrink-0 rounded-full bg-border sm:block md:w-12"
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch]">
+                        <ol
+                          className="flex w-max list-none flex-row flex-nowrap items-center gap-x-0 pr-2"
+                          aria-label={`Steps in unit: ${u.title}`}
+                        >
+                          {pathSteps.map((step, si) => (
+                            <li
+                              key={
+                                step.kind === "content" && step.contentId
+                                  ? `c-${step.contentId}`
+                                  : step.assignmentId
+                                    ? `a-${step.assignmentId}`
+                                    : `s-${si}`
+                              }
+                              className="flex items-center"
+                            >
+                              {si > 0 ? (
+                                <span
+                                  className="mx-0.5 h-0.5 w-3 shrink-0 rounded-full bg-border sm:w-4"
+                                  aria-hidden
+                                />
+                              ) : null}
+                              <PathStepNode
+                                step={step}
+                                unitId={u.unitId}
+                                levelId={levelId}
+                                unitLocked={u.locked}
+                              />
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground sm:pl-2">
+                      No lessons in this unit yet.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
         )}
       </section>
 

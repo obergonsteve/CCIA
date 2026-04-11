@@ -15,7 +15,13 @@ import { Label } from "@/components/ui/label";
 import { parseSlideshowUrls } from "@/lib/slideshow";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronLeft, ChevronRight, ExternalLink, Lock } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Lock,
+  RotateCcw,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -59,6 +65,20 @@ export function ContentItemView({
   const recordContentComplete = useMutation(
     api.contentProgress.recordContentComplete,
   );
+  const reopenContentStep = useMutation(api.contentProgress.reopenContentStep);
+  const myStepProgress = useQuery(
+    api.contentProgress.myContentProgressForStep,
+    unitId && !isAssessment
+      ? { unitId, contentId: item._id }
+      : "skip",
+  );
+  const stepProgressLoading =
+    Boolean(unitId) && !isAssessment && myStepProgress === undefined;
+  const nonAssessmentComplete =
+    myStepProgress != null &&
+    myStepProgress.completedAt != null &&
+    (myStepProgress.outcome === "completed" ||
+      myStepProgress.outcome === "passed");
 
   useEffect(() => {
     if (!unitId || locked || !isActive) {
@@ -257,26 +277,61 @@ export function ContentItemView({
           </div>
         )}
         {!isAssessment && unitId && !locked && (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={async () => {
-              try {
-                await recordContentComplete({
-                  unitId,
-                  contentId: item._id,
-                  levelId,
-                });
-                toast.success("Step marked complete");
-              } catch (e) {
-                toast.error(
-                  e instanceof Error ? e.message : "Could not save progress",
-                );
-              }
-            }}
-          >
-            Mark step complete
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {stepProgressLoading ? (
+              <Button type="button" variant="secondary" size="sm" disabled>
+                …
+              </Button>
+            ) : nonAssessmentComplete ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={async () => {
+                  try {
+                    await reopenContentStep({
+                      unitId,
+                      contentId: item._id,
+                      levelId,
+                    });
+                    toast.success(
+                      "Step re-opened. Mark it complete again when you are ready.",
+                    );
+                  } catch (e) {
+                    toast.error(
+                      e instanceof Error ? e.message : "Could not re-open step",
+                    );
+                  }
+                }}
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                Re-open step
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await recordContentComplete({
+                      unitId,
+                      contentId: item._id,
+                      levelId,
+                    });
+                    toast.success("Step marked complete");
+                  } catch (e) {
+                    toast.error(
+                      e instanceof Error ? e.message : "Could not save progress",
+                    );
+                  }
+                }}
+              >
+                Mark step complete
+              </Button>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

@@ -192,7 +192,7 @@ async function logProgressEvent(
     unitId: Id<"units">;
     contentId?: Id<"contentItems">;
     assignmentId?: Id<"assignments">;
-    kind: "start" | "complete" | "assessment_attempt";
+    kind: "start" | "complete" | "assessment_attempt" | "reopen";
     at: number;
     durationMs?: number;
     score?: number;
@@ -233,7 +233,10 @@ export async function unitStepsFullyDone(
   return true;
 }
 
-/** When all ordered steps are satisfied, mark the unit complete in `userProgress`. */
+/**
+ * Marks `userProgress` complete when every step is done; clears unit completion
+ * when any step is incomplete (e.g. after reopening a lesson).
+ */
 export async function syncUnitCompletion(
   ctx: MutationCtx,
   userId: Id<"users">,
@@ -243,25 +246,7 @@ export async function syncUnitCompletion(
   if (steps.length === 0) {
     return;
   }
-  const items = await collectContentInUnit(ctx, unitId);
-  const byContentId = new Map(items.map((c) => [c._id, c] as const));
-  for (const s of steps) {
-    if (s.kind === "content") {
-      const doc = byContentId.get(s.contentId);
-      if (!doc) {
-        return;
-      }
-      const ok = await contentStepDone(ctx, userId, unitId, s.contentId, doc);
-      if (!ok) {
-        return;
-      }
-    } else {
-      const ok = await legacyAssignmentStepDone(ctx, userId, s.assignmentId);
-      if (!ok) {
-        return;
-      }
-    }
-  }
+  const allDone = await unitStepsFullyDone(ctx, userId, unitId);
   const now = Date.now();
   const existing = await ctx.db
     .query("userProgress")
@@ -269,18 +254,26 @@ export async function syncUnitCompletion(
       q.eq("userId", userId).eq("unitId", unitId),
     )
     .unique();
-  if (existing) {
+  if (allDone) {
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        completed: true,
+        completedAt: now,
+        lastAccessed: now,
+      });
+    } else {
+      await ctx.db.insert("userProgress", {
+        userId,
+        unitId,
+        completed: true,
+        completedAt: now,
+        lastAccessed: now,
+      });
+    }
+  } else if (existing) {
     await ctx.db.patch(existing._id, {
-      completed: true,
-      completedAt: now,
-      lastAccessed: now,
-    });
-  } else {
-    await ctx.db.insert("userProgress", {
-      userId,
-      unitId,
-      completed: true,
-      completedAt: now,
+      completed: false,
+      completedAt: undefined,
       lastAccessed: now,
     });
   }
@@ -471,6 +464,212 @@ export const roadmapForUnit = query({
   },
 });
 
+export type CertificationPathStepNode = {
+  kind: "content" | "legacy_assignment";
+  contentId?: Id<"contentItems">;
+  assignmentId?: Id<"assignments">;
+  title: string;
+  contentType?: string;
+  isAssessment: boolean;
+  status: "completed" | "in_progress" | "not_started" | "locked";
+};
+
+async function computePathStepsForCertDisplay(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  unitId: Id<"units">,
+  unitLockedByCert: boolean,
+  steps: UnitStep[],
+): Promise<CertificationPathStepNode[]> {
+  if (unitLockedByCert || steps.length === 0) {
+    return steps.map((s) => ({
+      kind: s.kind === "content" ? "content" : "legacy_assignment",
+      contentId: s.kind === "content" ? s.contentId : undefined,
+      assignmentId: s.kind === "legacy_assignment" ? s.assignmentId : undefined,
+      title: s.title,
+      contentType: s.kind === "content" ? s.contentType : undefined,
+      isAssessment: s.isAssessment,
+      status: "locked" as const,
+    }));
+  }
+
+  const items = await collectContentInUnit(ctx, unitId);
+  const byContentId = new Map(items.map((c) => [c._id, c] as const));
+
+  const progressRows = await ctx.db
+    .query("userContentProgress")
+    .withIndex("by_user_unit", (q) =>
+      q.eq("userId", userId).eq("unitId", unitId),
+    )
+    .collect();
+  const byContent = new Map(
+    progressRows.map((r) => [r.contentId, r] as const),
+  );
+
+  const outerBlocked = false;
+
+  const stepStates: Array<{
+    step: UnitStep;
+    done: boolean;
+    locked: boolean;
+    active: boolean;
+    contentProgress: (typeof progressRows)[number] | null;
+    assignmentProgress: {
+      startedAt: number;
+      completedAt?: number;
+      durationMs?: number;
+      outcome?: "passed" | "failed";
+      score?: number;
+    } | null;
+    lastScore?: number;
+    lastPassed?: boolean;
+  }> = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i]!;
+    let done = false;
+    let locked = outerBlocked;
+    let contentProgress: (typeof progressRows)[number] | null = null;
+    let assignmentProgress: {
+      startedAt: number;
+      completedAt?: number;
+      durationMs?: number;
+      outcome?: "passed" | "failed";
+      score?: number;
+    } | null = null;
+    let lastScore: number | undefined;
+    let lastPassed: boolean | undefined;
+
+    if (s.kind === "content") {
+      const doc = byContentId.get(s.contentId)!;
+      contentProgress = byContent.get(s.contentId) ?? null;
+      done = await contentStepDone(ctx, userId, unitId, s.contentId, doc);
+      if (isAssessmentContent(doc)) {
+        const tr = await latestAssessmentContentResult(
+          ctx,
+          userId,
+          s.contentId,
+        );
+        if (tr) {
+          lastScore = tr.score;
+          lastPassed = tr.passed;
+        }
+      }
+    } else {
+      const last = await latestAssignmentResult(ctx, userId, s.assignmentId);
+      done = last?.passed === true;
+      lastScore = last?.score;
+      lastPassed = last?.passed;
+      const ap = await ctx.db
+        .query("userAssignmentProgress")
+        .withIndex("by_user_unit_assignment", (q) =>
+          q
+            .eq("userId", userId)
+            .eq("unitId", unitId)
+            .eq("assignmentId", s.assignmentId),
+        )
+        .unique();
+      assignmentProgress = ap
+        ? {
+            startedAt: ap.startedAt,
+            completedAt: ap.completedAt,
+            durationMs: ap.durationMs,
+            outcome: ap.outcome,
+            score: ap.score,
+          }
+        : null;
+    }
+
+    if (!outerBlocked && i > 0) {
+      const prev = steps[i - 1]!;
+      let prevDone = false;
+      if (prev.kind === "content") {
+        const pd = byContentId.get(prev.contentId)!;
+        prevDone = await contentStepDone(
+          ctx,
+          userId,
+          unitId,
+          prev.contentId,
+          pd,
+        );
+      } else {
+        prevDone = await legacyAssignmentStepDone(
+          ctx,
+          userId,
+          prev.assignmentId,
+        );
+      }
+      locked = !prevDone;
+    }
+
+    stepStates.push({
+      step: s,
+      done,
+      locked,
+      active: false,
+      contentProgress,
+      assignmentProgress,
+      lastScore,
+      lastPassed,
+    });
+  }
+
+  let activeIndex = -1;
+  for (let i = 0; i < stepStates.length; i++) {
+    const st = stepStates[i]!;
+    if (!st.done && !st.locked) {
+      activeIndex = i;
+      break;
+    }
+  }
+  for (let i = 0; i < stepStates.length; i++) {
+    stepStates[i]!.active = i === activeIndex;
+  }
+
+  function startedButIncomplete(
+    row: (typeof stepStates)[number],
+    s: UnitStep,
+  ): boolean {
+    if (row.done) {
+      return false;
+    }
+    if (s.kind === "content") {
+      const cp = row.contentProgress;
+      if (cp?.startedAt != null) {
+        return true;
+      }
+      if (isAssessmentContent(byContentId.get(s.contentId)!)) {
+        return row.lastPassed === false;
+      }
+      return false;
+    }
+    return row.assignmentProgress?.startedAt != null;
+  }
+
+  return stepStates.map((row) => {
+    const s = row.step;
+    let status: CertificationPathStepNode["status"];
+    if (row.done) {
+      status = "completed";
+    } else if (row.locked) {
+      status = "locked";
+    } else if (row.active || startedButIncomplete(row, s)) {
+      status = "in_progress";
+    } else {
+      status = "not_started";
+    }
+    return {
+      kind: s.kind === "content" ? "content" : "legacy_assignment",
+      contentId: s.kind === "content" ? s.contentId : undefined,
+      assignmentId: s.kind === "legacy_assignment" ? s.assignmentId : undefined,
+      title: s.title,
+      contentType: s.kind === "content" ? s.contentType : undefined,
+      isAssessment: s.isAssessment,
+      status,
+    };
+  });
+}
+
 export const roadmapForCertification = query({
   args: { levelId: v.id("certificationLevels") },
   handler: async (ctx, { levelId }) => {
@@ -490,6 +689,7 @@ export const roadmapForCertification = query({
       completed: boolean;
       stepTotal: number;
       stepsCompleted: number;
+      pathSteps: CertificationPathStepNode[];
     }> = [];
 
     for (let i = 0; i < units.length; i++) {
@@ -537,6 +737,13 @@ export const roadmapForCertification = query({
           }
         }
       }
+      const pathSteps = await computePathStepsForCertDisplay(
+        ctx,
+        userId,
+        unit._id,
+        locked,
+        steps,
+      );
       out.push({
         unitId: unit._id,
         title: unit.title,
@@ -547,6 +754,7 @@ export const roadmapForCertification = query({
         completed: prog?.completed ?? false,
         stepTotal: steps.length,
         stepsCompleted,
+        pathSteps,
       });
     }
     return { units: out, levelId };
@@ -701,6 +909,85 @@ export const recordContentComplete = mutation({
       kind: "complete",
       at: now,
       durationMs: wallMs,
+    });
+    await touchUnitProgress(ctx, userId, unitId);
+    await syncUnitCompletion(ctx, userId, unitId);
+    return { ok: true as const };
+  },
+});
+
+export const myContentProgressForStep = query({
+  args: {
+    unitId: v.id("units"),
+    contentId: v.id("contentItems"),
+  },
+  handler: async (ctx, { unitId, contentId }) => {
+    const userId = await requireUserId(ctx);
+    const ok = await userCanAccessUnit(ctx, unitId);
+    if (!ok) {
+      return null;
+    }
+    return await ctx.db
+      .query("userContentProgress")
+      .withIndex("by_user_unit_content", (q) =>
+        q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
+      )
+      .unique();
+  },
+});
+
+export const reopenContentStep = mutation({
+  args: {
+    unitId: v.id("units"),
+    contentId: v.id("contentItems"),
+    levelId: v.optional(v.id("certificationLevels")),
+  },
+  handler: async (ctx, { unitId, contentId, levelId }) => {
+    const userId = await requireUserId(ctx);
+    const ok = await userCanAccessUnit(ctx, unitId);
+    if (!ok) {
+      throw new Error("Forbidden");
+    }
+    const missing = await getIncompletePrerequisites(ctx, userId, unitId);
+    if (missing.length > 0) {
+      throw new Error(
+        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+      );
+    }
+    await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    const items = await collectContentInUnit(ctx, unitId);
+    const item = items.find((c) => c._id === contentId);
+    if (!item) {
+      throw new Error("Content is not part of this unit");
+    }
+    if (isAssessmentContent(item)) {
+      throw new Error("Use the assessment flow for tests and assignments");
+    }
+    const row = await ctx.db
+      .query("userContentProgress")
+      .withIndex("by_user_unit_content", (q) =>
+        q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
+      )
+      .unique();
+    const done =
+      row?.completedAt != null &&
+      (row.outcome === "completed" || row.outcome === "passed");
+    if (!row || !done) {
+      throw new Error("This step is not completed yet");
+    }
+    const now = Date.now();
+    await ctx.db.patch(row._id, {
+      completedAt: undefined,
+      outcome: undefined,
+      durationMs: undefined,
+      score: undefined,
+    });
+    await logProgressEvent(ctx, {
+      userId,
+      unitId,
+      contentId,
+      kind: "reopen",
+      at: now,
     });
     await touchUnitProgress(ctx, userId, unitId);
     await syncUnitCompletion(ctx, userId, unitId);
