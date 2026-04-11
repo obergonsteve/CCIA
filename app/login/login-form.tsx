@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
   password: z.string().min(1, "Password is required"),
+  rememberMe: z.boolean(),
 });
 
 type Values = z.infer<typeof schema>;
@@ -139,6 +140,7 @@ export function LoginForm() {
           : "",
       password:
         process.env.NODE_ENV === "development" ? "stevemoore" : "",
+      rememberMe: false,
     },
   });
 
@@ -153,7 +155,11 @@ export function LoginForm() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(values),
+          body: JSON.stringify({
+            email: values.email,
+            password: values.password,
+            rememberMe: values.rememberMe,
+          }),
         });
       } catch (thrown) {
         setSignInProblemReport(
@@ -302,6 +308,39 @@ export function LoginForm() {
                 </div>
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="rememberMe"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-center gap-2 space-y-0">
+              <FormControl>
+                <input
+                  type="checkbox"
+                  id="login-remember-me"
+                  className="h-4 w-4 rounded border-input accent-brand-sky"
+                  disabled={isSubmitting}
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  aria-describedby="login-remember-me-desc"
+                />
+              </FormControl>
+              <div className="space-y-0.5 leading-none">
+                <FormLabel
+                  htmlFor="login-remember-me"
+                  className="cursor-pointer font-normal text-foreground"
+                >
+                  Remember me
+                </FormLabel>
+                <p
+                  id="login-remember-me-desc"
+                  className="text-xs text-muted-foreground"
+                >
+                  Stay signed in on this device for up to 30 days.
+                </p>
+              </div>
             </FormItem>
           )}
         />

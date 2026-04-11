@@ -19,12 +19,13 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cookieOpts = sessionCookieOptions();
-
   const session = verifyPasswordSessionCookie(raw);
   if (!session) {
     return NextResponse.json({ error: "Invalid session" }, { status: 401 });
   }
+
+  const rememberMe = session.rememberMe === true;
+  const cookieOpts = sessionCookieOptions({ rememberMe });
 
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
   if (!convexUrl) {
@@ -50,13 +51,16 @@ export async function POST() {
 
   let nextTok: string;
   try {
-    nextTok = signPasswordSessionCookie({
-      userId: session.userId,
-      email: session.email,
-      name: session.name,
-      role: session.role,
-      companyId: session.companyId,
-    });
+    nextTok = signPasswordSessionCookie(
+      {
+        userId: session.userId,
+        email: session.email,
+        name: session.name,
+        role: session.role,
+        companyId: session.companyId,
+      },
+      { rememberMe },
+    );
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "Could not refresh session cookie.";

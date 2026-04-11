@@ -12,7 +12,11 @@ import type { Id } from "@/convex/_generated/dataModel";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { email?: string; password?: string };
+  const body = (await request.json()) as {
+    email?: string;
+    password?: string;
+    rememberMe?: boolean;
+  };
   if (!body.email?.trim() || !body.password) {
     return NextResponse.json({ error: "Missing credentials" }, { status: 400 });
   }
@@ -75,15 +79,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  const rememberMe = body.rememberMe === true;
+
   let token: string;
   try {
-    token = signPasswordSessionCookie({
-      userId: user.userId,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      companyId: user.companyId,
-    });
+    token = signPasswordSessionCookie(
+      {
+        userId: user.userId,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        companyId: user.companyId,
+      },
+      { rememberMe },
+    );
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "Could not create session cookie.";
@@ -100,7 +109,7 @@ export async function POST(request: Request) {
 
   try {
     const cookieStore = await cookies();
-    cookieStore.set(AUTH_COOKIE, token, sessionCookieOptions());
+    cookieStore.set(AUTH_COOKIE, token, sessionCookieOptions({ rememberMe }));
   } catch (e) {
     const message =
       e instanceof Error ? e.message : "Could not set session cookie.";

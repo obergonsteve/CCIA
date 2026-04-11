@@ -9,6 +9,8 @@ export type PasswordSessionPayload = {
   role: string;
   companyId: string;
   exp: number;
+  /** When true, refresh/login should keep long-lived session. Omitted on older cookies. */
+  rememberMe?: boolean;
 };
 
 function base64UrlToBytes(input: string): Uint8Array {

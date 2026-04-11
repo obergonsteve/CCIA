@@ -1,4 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import {
+  AUTH_REMEMBER_MAX_AGE_SEC,
+  AUTH_SESSION_MAX_AGE_SEC,
+} from "./auth-cookie";
 import type { PasswordSessionPayload } from "./password-session-edge";
 import { sessionCookieSigningSecret } from "./session-cookie-secret";
 
@@ -16,10 +20,13 @@ function sessionSecret(): string {
 
 /** Signed cookie: base64url JSON payload + HMAC-SHA256. */
 export function signPasswordSessionCookie(
-  payload: Omit<PasswordSessionPayload, "exp">,
+  payload: Omit<PasswordSessionPayload, "exp" | "rememberMe">,
+  opts?: { rememberMe?: boolean },
 ): string {
-  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 8;
-  const body: PasswordSessionPayload = { ...payload, exp };
+  const rememberMe = Boolean(opts?.rememberMe);
+  const ttl = rememberMe ? AUTH_REMEMBER_MAX_AGE_SEC : AUTH_SESSION_MAX_AGE_SEC;
+  const exp = Math.floor(Date.now() / 1000) + ttl;
+  const body: PasswordSessionPayload = { ...payload, exp, rememberMe };
   const b64 = Buffer.from(JSON.stringify(body), "utf8").toString("base64url");
   const sig = createHmac("sha256", sessionSecret())
     .update(b64)
