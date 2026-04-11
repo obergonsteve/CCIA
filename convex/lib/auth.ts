@@ -3,8 +3,8 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { isLive } from "./softDelete";
 
 /**
- * Default Convex “acting user” when there is no browser token.
- * 1) `CONVEX_DEV_USER_ID` if set on the deployment (pins user in prod / multi-account).
+ * Convex “acting user” for browser queries (no Convex Auth JWT in this app).
+ * 1) `CONVEX_DEV_USER_ID` on the deployment if set.
  * 2) Else the seeded admin `steve.moore@ccia-landlease.com` (must match `seed.ts`).
  */
 const FALLBACK_ADMIN_EMAIL = "steve.moore@ccia-landlease.com";

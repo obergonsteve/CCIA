@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
 import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/auth-cookie";
+import { convexCloudUrlMisconfigurationMessage } from "@/lib/convex-deployment-url";
 import {
   signPasswordSessionCookie,
   verifyPasswordSessionCookie,
@@ -31,6 +32,11 @@ export async function POST() {
       { error: "Missing NEXT_PUBLIC_CONVEX_URL" },
       { status: 503 },
     );
+  }
+
+  const urlMisconfig = convexCloudUrlMisconfigurationMessage(convexUrl);
+  if (urlMisconfig) {
+    return NextResponse.json({ error: urlMisconfig }, { status: 503 });
   }
 
   const convex = new ConvexHttpClient(convexUrl);

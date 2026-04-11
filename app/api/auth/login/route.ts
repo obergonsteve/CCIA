@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { api } from "@/convex/_generated/api";
 import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/auth-cookie";
+import { convexCloudUrlMisconfigurationMessage } from "@/lib/convex-deployment-url";
 import { formatConvexHttpFailure } from "@/lib/convex-http-failure-format";
 import { signPasswordSessionCookie } from "@/lib/password-session";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -25,6 +26,11 @@ export async function POST(request: Request) {
       },
       { status: 503 },
     );
+  }
+
+  const urlMisconfig = convexCloudUrlMisconfigurationMessage(convexUrl);
+  if (urlMisconfig) {
+    return NextResponse.json({ error: urlMisconfig }, { status: 503 });
   }
 
   const convex = new ConvexHttpClient(convexUrl);

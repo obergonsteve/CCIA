@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-/** Convex client does not use a separate browser token; session is the httpOnly cookie. */
+/** Convex React client: no JWT; session is the httpOnly cookie (see `convex/lib/auth.ts`). */
 export async function GET() {
   return NextResponse.json({ token: null });
 }

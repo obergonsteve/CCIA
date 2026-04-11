@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 
 const REMEDIATION = [
   "Typical fixes (production):",
+  "• URL must match the dashboard exactly: deployment slugs use hyphens (handsome-lemur-918), never underscores (handsome_lemur-918).",
   "• Vercel → Environment Variables: set NEXT_PUBLIC_CONVEX_URL to your Convex **production** URL (https://<deployment>.convex.cloud).",
   "• Redeploy the site after adding or changing NEXT_PUBLIC_* (Next.js inlines them at build time).",
   "• From the app repo: `npx convex deploy -y` so this deployment has the latest functions (including auth:login).",
