@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "convex/react";
-import { Award, LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import { LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -46,19 +47,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
         aria-hidden
       />
-      <div className="flex items-start justify-between gap-2 p-4 pt-5">
-        <div className="flex min-w-0 items-center gap-2 font-semibold text-white">
-          <Award className="h-6 w-6 shrink-0 text-brand-lime" />
-          <span className="leading-tight">
-            CCIA Land Lease{" "}
-            <span className="text-brand-sky/95">Training</span>
-          </span>
+      <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-2 px-3 py-2 sm:px-4">
+        <div className="min-w-0 flex-1">
+          <Image
+            src="/ccia-logo.png"
+            alt="CCIA Land Lease Training"
+            width={160}
+            height={46}
+            className="h-9 w-auto max-h-9 max-w-full shrink-0 object-contain object-left sm:h-10 sm:max-h-10"
+            priority
+          />
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="shrink-0 text-sidebar-foreground hover:bg-white/10"
+          className="h-9 w-9 shrink-0 text-sidebar-foreground hover:bg-white/10"
           aria-label="Collapse navigation"
           onClick={() => setNavOpen(false)}
         >
@@ -76,7 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href={href}>
                 <span
                   className={cn(
-                    "flex items-center gap-2 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center gap-2 rounded-md border-l-4 px-3 py-2 text-[15px] font-medium transition-colors",
                     active
                       ? accent === "lime"
                         ? "border-brand-lime bg-brand-lime/15 text-white"
@@ -86,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <Icon
                     className={cn(
-                      "h-4 w-4 shrink-0",
+                      "h-[18px] w-[18px] shrink-0",
                       primaryNavIconClass(accent, active),
                     )}
                   />
@@ -107,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           <Link href={levelPath}>
                             <span
                               className={cn(
-                                "block rounded-md border-l-2 border-transparent px-2 py-1.5 text-[13px] font-medium leading-snug transition-colors line-clamp-2",
+                                "block rounded-md border-l-2 border-transparent px-2 py-1.5 text-sm font-medium leading-snug transition-colors line-clamp-2",
                                 active
                                   ? "border-brand-gold bg-brand-gold/20 text-white"
                                   : "text-white/70 hover:border-white/15 hover:bg-white/6",
@@ -126,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
           {showAdmin && (
             <div className="space-y-0.5 pt-2 mt-2 border-t border-white/10">
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-white/45">
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/45">
                 Admin
               </p>
               {adminSidebarNav.map(({ href, label, icon: Icon }) => {
@@ -136,7 +140,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Link key={href} href={href}>
                     <span
                       className={cn(
-                        "flex items-center gap-2 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors",
+                        "flex items-center gap-2 rounded-md border-l-4 px-3 py-2 text-[15px] font-medium transition-colors",
                         active
                           ? "border-brand-gold bg-brand-gold/18 text-white"
                           : "border-transparent text-white/72 hover:bg-white/8 hover:text-white",
@@ -144,7 +148,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     >
                       <Icon
                         className={cn(
-                          "h-4 w-4 shrink-0",
+                          "h-[18px] w-[18px] shrink-0",
                           active ? "text-brand-gold" : "text-brand-gold/85",
                         )}
                       />
@@ -157,13 +161,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </nav>
       </ScrollArea>
-      <div className="shrink-0 border-t border-white/10 p-2">
+      <div className="shrink-0 space-y-1 border-t border-white/10 p-2">
+        {me ? (
+          <p
+            className="truncate px-2 text-xs font-medium text-brand-sky"
+            title={me.name}
+          >
+            {me.name}
+          </p>
+        ) : null}
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-white/10"
+          className="w-full justify-start gap-2 text-[15px] text-sidebar-foreground hover:bg-white/10"
           onClick={() => void logout()}
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-[18px] w-[18px]" />
           Sign out
         </Button>
       </div>
@@ -185,7 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="relative z-40 shrink-0 border-b border-white/10 px-3 py-3 pt-4 sm:px-4 flex items-center gap-2 bg-sidebar text-sidebar-foreground">
+        <header className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-white/10 bg-sidebar px-3 py-2 sm:px-4 text-sidebar-foreground">
           <div
             className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
             aria-hidden
@@ -202,9 +214,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="font-semibold text-white truncate min-w-0">
-            CCIA Training
-          </span>
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <Image
+              src="/ccia-logo.png"
+              alt=""
+              width={160}
+              height={46}
+              aria-hidden
+              className="h-10 w-auto max-h-10 shrink-0 object-contain object-left sm:h-11 sm:max-h-11"
+              priority
+            />
+            <span className="min-w-0 flex-1 truncate font-semibold text-white">
+              CCIA Land Lease{" "}
+              <span className="font-semibold text-brand-sky">Training</span>
+            </span>
+          </div>
           <Button
             size="icon"
             variant="ghost"
