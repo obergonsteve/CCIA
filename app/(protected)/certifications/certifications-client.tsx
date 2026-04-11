@@ -54,9 +54,9 @@ export default function CertificationsClient() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-gold">
             Certification pathways
           </p>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl bg-gradient-to-br from-brand-lime via-brand-gold to-brand-sky bg-clip-text text-transparent">
+          <h2 className="text-3xl font-bold tracking-tight md:text-4xl bg-gradient-to-br from-brand-lime via-brand-gold to-brand-sky bg-clip-text text-transparent">
             Land lease community training
-          </h1>
+          </h2>
           <p className="text-base text-muted-foreground leading-relaxed md:text-lg">
             Structured courses with videos, slide decks, curated links, and
             short assessments — built for community operators and site managers

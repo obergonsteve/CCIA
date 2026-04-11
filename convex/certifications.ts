@@ -6,13 +6,16 @@ import {
   requireUserId,
   userCanAccessLevel,
 } from "./lib/auth";
+import { isLive, nowDeletedAt } from "./lib/softDelete";
 import { collectUnitsForLevel } from "./units";
 
 export const listAllAdmin = query({
   args: {},
   handler: async (ctx) => {
     await requireAdminOrCreator(ctx);
-    const all = await ctx.db.query("certificationLevels").collect();
+    const all = (await ctx.db.query("certificationLevels").collect()).filter(
+      (l) => isLive(l),
+    );
     return all.sort((a, b) => a.order - b.order);
   },
 });
@@ -25,7 +28,9 @@ export const listForUser = query({
     if (!user) {
       return [];
     }
-    const all = await ctx.db.query("certificationLevels").collect();
+    const all = (await ctx.db.query("certificationLevels").collect()).filter(
+      (l) => isLive(l),
+    );
     if (user.role === "admin" || user.role === "content_creator") {
       return all.sort((a, b) => a.order - b.order);
     }
@@ -57,7 +62,9 @@ export const listDashboardBucketsForUser = query({
         completed: [] as Row[],
       };
     }
-    const all = await ctx.db.query("certificationLevels").collect();
+    const all = (await ctx.db.query("certificationLevels").collect()).filter(
+      (l) => isLive(l),
+    );
     const levels =
       user.role === "admin" || user.role === "content_creator"
         ? all
@@ -135,7 +142,9 @@ export const listCatalogForUser = query({
     if (!user) {
       return [];
     }
-    const all = await ctx.db.query("certificationLevels").collect();
+    const all = (await ctx.db.query("certificationLevels").collect()).filter(
+      (l) => isLive(l),
+    );
     const levels =
       user.role === "admin" || user.role === "content_creator"
         ? all
@@ -160,7 +169,7 @@ export const listCatalogForUser = query({
       const unitsOnLevel: Doc<"units">[] = [];
       for (const link of links) {
         const u = await ctx.db.get(link.unitId);
-        if (u) {
+        if (isLive(u)) {
           linkedUnitIds.add(u._id);
           unitsOnLevel.push(u);
         }
@@ -170,7 +179,7 @@ export const listCatalogForUser = query({
         .filter((q) => q.eq(q.field("levelId"), level._id))
         .collect();
       const legacyOnly = legacy
-        .filter((u) => !linkedUnitIds.has(u._id))
+        .filter((u) => isLive(u) && !linkedUnitIds.has(u._id))
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       unitsOnLevel.push(...legacyOnly);
       let lessonCount = 0;
@@ -188,18 +197,18 @@ export const listCatalogForUser = query({
         let lessons = 0;
         let unitAssessments = 0;
         for (const link of uc) {
-          const doc = await ctx.db.get(link.contentId);
-          if (!doc) {
+          const cdoc = await ctx.db.get(link.contentId);
+          if (!isLive(cdoc)) {
             continue;
           }
-          if (doc.type === "test" || doc.type === "assignment") {
+          if (cdoc.type === "test" || cdoc.type === "assignment") {
             unitAssessments += 1;
           } else {
             lessons += 1;
           }
         }
         for (const c of legacyAttached) {
-          if (linkedIds.has(c._id)) {
+          if (!isLive(c) || linkedIds.has(c._id)) {
             continue;
           }
           if (c.type === "test" || c.type === "assignment") {
@@ -234,7 +243,8 @@ export const get = query({
     if (!ok) {
       return null;
     }
-    return await ctx.db.get(levelId);
+    const row = await ctx.db.get(levelId);
+    return isLive(row) ? row : null;
   },
 });
 
@@ -267,6 +277,10 @@ export const update = mutation({
   },
   handler: async (ctx, { levelId, ...fields }) => {
     await requireAdminOrCreator(ctx);
+    const row = await ctx.db.get(levelId);
+    if (!isLive(row)) {
+      throw new Error("Certification not found");
+    }
     await ctx.db.patch(levelId, fields);
   },
 });
@@ -276,7 +290,12 @@ export const reorderLevels = mutation({
   handler: async (ctx, { orderedIds }) => {
     await requireAdminOrCreator(ctx);
     for (let i = 0; i < orderedIds.length; i++) {
-      await ctx.db.patch(orderedIds[i], { order: i });
+      const id = orderedIds[i];
+      const lev = await ctx.db.get(id);
+      if (!isLive(lev)) {
+        throw new Error("Unknown or removed certification in order");
+      }
+      await ctx.db.patch(id, { order: i });
     }
   },
 });
@@ -285,13 +304,13 @@ export const remove = mutation({
   args: { levelId: v.id("certificationLevels") },
   handler: async (ctx, { levelId }) => {
     await requireAdminOrCreator(ctx);
-    const links = await ctx.db
-      .query("certificationUnits")
-      .withIndex("by_level", (q) => q.eq("levelId", levelId))
-      .collect();
-    for (const link of links) {
-      await ctx.db.delete(link._id);
+    const row = await ctx.db.get(levelId);
+    if (!row) {
+      throw new Error("Certification not found");
     }
-    await ctx.db.delete(levelId);
+    if (row.deletedAt != null) {
+      return;
+    }
+    await ctx.db.patch(levelId, { deletedAt: nowDeletedAt() });
   },
 });

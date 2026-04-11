@@ -139,7 +139,6 @@ export default function AdminUsersClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Users</h1>
         <p className="text-muted-foreground">
           Companies and people — select a company to edit its profile and manage
           accounts. Use <strong>Add user</strong> to invite someone to the selected

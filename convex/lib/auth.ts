@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { isLive } from "./softDelete";
 
 /**
  * Default Convex “acting user” when there is no browser token.
@@ -57,7 +58,10 @@ export async function userCanAccessLevel(
   const userId = await requireUserId(ctx);
   const user = await ctx.db.get(userId);
   const level = await ctx.db.get(levelId);
-  if (!user || !level) {
+  if (!user) {
+    return false;
+  }
+  if (!isLive(level)) {
     return false;
   }
   if (user.role === "admin" || user.role === "content_creator") {
@@ -73,7 +77,10 @@ export async function userCanAccessUnit(
   const userId = await requireUserId(ctx);
   const user = await ctx.db.get(userId);
   const unit = await ctx.db.get(unitId);
-  if (!user || !unit) {
+  if (!user) {
+    return false;
+  }
+  if (!isLive(unit)) {
     return false;
   }
   if (user.role === "admin" || user.role === "content_creator") {

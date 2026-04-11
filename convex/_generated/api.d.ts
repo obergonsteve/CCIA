@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as adminDeleted from "../adminDeleted.js";
 import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as authMutations from "../authMutations.js";
@@ -20,6 +21,7 @@ import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_httpCookies from "../lib/httpCookies.js";
 import type * as lib_prerequisites from "../lib/prerequisites.js";
+import type * as lib_softDelete from "../lib/softDelete.js";
 import type * as prerequisites from "../prerequisites.js";
 import type * as progress from "../progress.js";
 import type * as seed from "../seed.js";
@@ -33,6 +35,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adminDeleted: typeof adminDeleted;
   assignments: typeof assignments;
   auth: typeof auth;
   authMutations: typeof authMutations;
@@ -45,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/httpCookies": typeof lib_httpCookies;
   "lib/prerequisites": typeof lib_prerequisites;
+  "lib/softDelete": typeof lib_softDelete;
   prerequisites: typeof prerequisites;
   progress: typeof progress;
   seed: typeof seed;

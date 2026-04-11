@@ -302,7 +302,7 @@ export function DraggableUnitPaletteItem({
  * Strip curriculum-style prefixes (Deck:, Explainer —, …) so the list shows the
  * human-facing name only.
  */
-function libraryContentDisplayTitle(raw: string): string {
+export function libraryContentDisplayTitle(raw: string): string {
   const trimmed = raw.trim();
   const rest = trimmed
     .replace(
@@ -702,6 +702,8 @@ export function SortableLevelRow({
   level,
   selected,
   unitCount,
+  /** When true (e.g. search filter on), row is not a drag reorder source. */
+  disableDrag,
   onSelect,
   onEdit,
   onDelete,
@@ -710,6 +712,7 @@ export function SortableLevelRow({
   selected: boolean;
   /** Number of units in this certification; omit while loading. */
   unitCount?: number;
+  disableDrag?: boolean;
   onSelect: () => void;
   onEdit?: () => void;
   onDelete: () => void;
@@ -721,7 +724,7 @@ export function SortableLevelRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: level._id });
+  } = useSortable({ id: level._id, disabled: Boolean(disableDrag) });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -758,15 +761,24 @@ export function SortableLevelRow({
           : "border-border bg-card",
       )}
     >
-      <button
-        type="button"
-        title="Drag to reorder certifications"
-        className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
-        {...attributes}
-        {...listeners}
-      >
-        <GripHorizontal className="h-3.5 w-3.5" />
-      </button>
+      {disableDrag ? (
+        <div
+          className="flex shrink-0 items-center self-stretch px-1.5 text-muted-foreground/45"
+          title="Clear search to reorder certifications"
+        >
+          <GripHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        </div>
+      ) : (
+        <button
+          type="button"
+          title="Drag to reorder certifications"
+          className="cursor-grab touch-none shrink-0 self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
+          {...attributes}
+          {...listeners}
+        >
+          <GripHorizontal className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
         <button
           type="button"
@@ -852,6 +864,8 @@ export function SortableUnitRow({
   prerequisiteCount = 0,
   assignmentCount = 0,
   prereqsDrawerOpen,
+  /** When true (e.g. search filter on), row is not a drag reorder source. */
+  disableDrag,
   onSelect,
   onEdit,
   onRemoveFromCert,
@@ -863,6 +877,7 @@ export function SortableUnitRow({
   prerequisiteCount?: number;
   assignmentCount?: number;
   prereqsDrawerOpen?: boolean;
+  disableDrag?: boolean;
   onSelect: () => void;
   onEdit: () => void;
   onRemoveFromCert: () => void;
@@ -875,7 +890,7 @@ export function SortableUnitRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: unit._id });
+  } = useSortable({ id: unit._id, disabled: Boolean(disableDrag) });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -901,15 +916,24 @@ export function SortableUnitRow({
         selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
       )}
     >
-      <button
-        type="button"
-        title="Drag to reorder units in this certification"
-        className="shrink-0 cursor-grab touch-none self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
-        {...attributes}
-        {...listeners}
-      >
-        <GripHorizontal className="h-3.5 w-3.5" />
-      </button>
+      {disableDrag ? (
+        <div
+          className="flex shrink-0 items-center self-stretch px-1.5 text-muted-foreground/45"
+          title="Clear search to reorder units in this certification"
+        >
+          <GripHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        </div>
+      ) : (
+        <button
+          type="button"
+          title="Drag to reorder units in this certification"
+          className="shrink-0 cursor-grab touch-none self-stretch px-1.5 py-1.5 text-muted-foreground flex items-center"
+          {...attributes}
+          {...listeners}
+        >
+          <GripHorizontal className="h-3.5 w-3.5" />
+        </button>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
         <button
           type="button"

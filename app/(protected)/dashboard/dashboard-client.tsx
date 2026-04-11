@@ -132,7 +132,9 @@ export default function DashboardClient() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Welcome, {me.name}</h1>
+        <h2 className="text-2xl font-bold tracking-tight">
+          Welcome, {me.name}
+        </h2>
         <p className="text-muted-foreground">Certification Dashboard</p>
       </div>
 

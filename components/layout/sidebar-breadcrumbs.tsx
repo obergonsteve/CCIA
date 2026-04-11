@@ -131,7 +131,7 @@ function AdminOtherBreadcrumbs({ pathname }: { pathname: string }) {
       : pathname.startsWith("/admin/courses")
         ? { href: "/admin/courses" as const, label: "Training Content" }
         : pathname.startsWith("/admin/database")
-          ? { href: "/admin/database" as const, label: "Training data" }
+          ? { href: "/admin/database" as const, label: "Database" }
           : { href: "/admin/users" as const, label: "Admin" };
   return (
     <CrumbTrail

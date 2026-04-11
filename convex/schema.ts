@@ -50,6 +50,8 @@ export default defineSchema({
     thumbnailUrl: v.optional(v.string()),
     order: v.number(),
     companyId: v.optional(v.id("companies")),
+    /** Set when “deleted” — row retained, hidden from UI. */
+    deletedAt: v.optional(v.number()),
   }).index("by_company", ["companyId"]),
 
   units: defineTable({
@@ -58,6 +60,8 @@ export default defineSchema({
     /** Legacy (pre–junction table). Remove after migrating or clearing training data. */
     levelId: v.optional(v.id("certificationLevels")),
     order: v.optional(v.number()),
+    /** Set when “deleted” — row retained, hidden from UI. */
+    deletedAt: v.optional(v.number()),
   }),
 
   /**
@@ -115,6 +119,8 @@ export default defineSchema({
     /** Legacy (pre–junction table). Remove after migrating or clearing training data. */
     unitId: v.optional(v.id("units")),
     order: v.optional(v.number()),
+    /** Set when “deleted” — row retained, hidden from UI. */
+    deletedAt: v.optional(v.number()),
   }),
 
   /** Content order within a specific unit (many-to-many link). */

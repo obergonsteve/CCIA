@@ -1,4 +1,4 @@
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
@@ -8,6 +8,7 @@ import {
   userCanAccessLevel,
 } from "./lib/auth";
 import { userCanAccessUnit } from "./lib/auth";
+import { isLive } from "./lib/softDelete";
 import { LAND_LEASE_CURRICULUM, seedUnitKey } from "./curriculumSeedData";
 
 export type PrerequisiteItem = {
@@ -33,7 +34,7 @@ export const statusForUnit = query({
     const prerequisites: PrerequisiteItem[] = [];
     for (const row of rows) {
       const u = await ctx.db.get(row.prerequisiteUnitId);
-      if (!u) {
+      if (!isLive(u)) {
         continue;
       }
       const link = await ctx.db
@@ -77,10 +78,10 @@ export const summariesForLevel = query({
       .collect();
     cLinks.sort((a, b) => a.order - b.order);
     const linkedUnitIds = new Set<Id<"units">>();
-    const units = [];
+    const units: Doc<"units">[] = [];
     for (const cl of cLinks) {
       const u = await ctx.db.get(cl.unitId);
-      if (u) {
+      if (isLive(u)) {
         linkedUnitIds.add(u._id);
         units.push(u);
       }
@@ -90,7 +91,7 @@ export const summariesForLevel = query({
       .filter((q) => q.eq(q.field("levelId"), levelId))
       .collect();
     const legacyOnly = legacy
-      .filter((u) => !linkedUnitIds.has(u._id))
+      .filter((u) => isLive(u) && !linkedUnitIds.has(u._id))
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     units.push(...legacyOnly);
     const results: Array<{
@@ -107,7 +108,7 @@ export const summariesForLevel = query({
       let ready = true;
       for (const row of rows) {
         const pu = await ctx.db.get(row.prerequisiteUnitId);
-        if (!pu) {
+        if (!isLive(pu)) {
           continue;
         }
         titles.push(pu.title);
@@ -235,7 +236,9 @@ export const adminRemovePrerequisite = mutation({
 export const syncLandLeasePrerequisitesFromCurriculum = mutation({
   args: {},
   handler: async (ctx) => {
-    const levels = await ctx.db.query("certificationLevels").collect();
+    const levels = (await ctx.db.query("certificationLevels").collect()).filter(
+      (l) => l.deletedAt == null,
+    );
     const globalLevels = levels.filter((l) => l.companyId == null);
     const idByKey = new Map<string, Id<"units">>();
     for (const level of globalLevels) {
@@ -245,7 +248,7 @@ export const syncLandLeasePrerequisitesFromCurriculum = mutation({
         .collect();
       for (const link of links) {
         const u = await ctx.db.get(link.unitId);
-        if (u) {
+        if (isLive(u)) {
           idByKey.set(seedUnitKey(level.name, u.title), u._id);
         }
       }

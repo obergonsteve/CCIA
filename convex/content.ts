@@ -6,6 +6,7 @@ import {
   requireUserId,
   userCanAccessUnit,
 } from "./lib/auth";
+import { isLive, nowDeletedAt } from "./lib/softDelete";
 import type { QueryCtx } from "./_generated/server";
 
 const assessmentQuestionValidator = v.object({
@@ -51,7 +52,7 @@ export async function collectContentInUnit(
   const linkedContentIds = new Set<Id<"contentItems">>();
   for (const link of links) {
     const doc = await ctx.db.get(link.contentId);
-    if (doc) {
+    if (isLive(doc)) {
       linkedContentIds.add(doc._id);
       out.push({
         ...doc,
@@ -65,7 +66,7 @@ export async function collectContentInUnit(
     .filter((q) => q.eq(q.field("unitId"), unitId))
     .collect();
   for (const doc of legacyRows) {
-    if (linkedContentIds.has(doc._id)) {
+    if (!isLive(doc) || linkedContentIds.has(doc._id)) {
       continue;
     }
     out.push({
@@ -94,7 +95,9 @@ export const listAllAdmin = query({
   args: {},
   handler: async (ctx) => {
     await requireAdminOrCreator(ctx);
-    const all = await ctx.db.query("contentItems").collect();
+    const all = (await ctx.db.query("contentItems").collect()).filter((c) =>
+      isLive(c),
+    );
     return all.sort((a, b) => a.title.localeCompare(b.title));
   },
 });
@@ -163,6 +166,10 @@ export const update = mutation({
   },
   handler: async (ctx, { contentId, assessment, type, ...fields }) => {
     await requireAdminOrCreator(ctx);
+    const existing = await ctx.db.get(contentId);
+    if (!isLive(existing)) {
+      throw new Error("Content not found");
+    }
     if (isAssessmentType(type)) {
       if (!assessment) {
         throw new Error("test and assignment content requires assessment data");
@@ -231,7 +238,7 @@ export const reorderContentOnUnit = mutation({
         continue;
       }
       const doc = await ctx.db.get(contentId);
-      if (doc?.unitId === unitId) {
+      if (isLive(doc) && doc.unitId === unitId) {
         await ctx.db.patch(contentId, { order: i });
         continue;
       }
@@ -247,8 +254,15 @@ export const attachToUnit = mutation({
   },
   handler: async (ctx, { unitId, contentId }) => {
     await requireAdminOrCreator(ctx);
+    const unit = await ctx.db.get(unitId);
+    if (!isLive(unit)) {
+      throw new Error("Unit not found");
+    }
     const doc = await ctx.db.get(contentId);
-    if (doc?.unitId !== undefined) {
+    if (!isLive(doc)) {
+      throw new Error("Content not found");
+    }
+    if (doc.unitId !== undefined) {
       await ctx.db.patch(contentId, {
         unitId: undefined,
         order: undefined,
@@ -342,20 +356,13 @@ export const remove = mutation({
   args: { contentId: v.id("contentItems") },
   handler: async (ctx, { contentId }) => {
     await requireAdminOrCreator(ctx);
-    for (const row of await ctx.db
-      .query("unitContents")
-      .withIndex("by_content", (q) => q.eq("contentId", contentId))
-      .collect()) {
-      await ctx.db.delete(row._id);
+    const row = await ctx.db.get(contentId);
+    if (!row) {
+      throw new Error("Content not found");
     }
-    for (const t of await ctx.db
-      .query("testResults")
-      .withIndex("by_assessment_content", (q) =>
-        q.eq("assessmentContentId", contentId),
-      )
-      .collect()) {
-      await ctx.db.delete(t._id);
+    if (row.deletedAt != null) {
+      return;
     }
-    await ctx.db.delete(contentId);
+    await ctx.db.patch(contentId, { deletedAt: nowDeletedAt() });
   },
 });

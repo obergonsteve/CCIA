@@ -7,41 +7,20 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "convex/react";
-import {
-  Award,
-  Database,
-  GraduationCap,
-  Layers,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Moon,
-  Sun,
-  Users,
-  X,
-} from "lucide-react";
+import { Award, LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { SidebarBreadcrumbs } from "@/components/layout/sidebar-breadcrumbs";
+import { SidebarMainPageHeading } from "@/components/layout/sidebar-main-page-heading";
+import {
+  adminSidebarNav,
+  primaryNavIconClass,
+  primarySidebarNav,
+} from "@/lib/sidebar-nav";
 import { cn } from "@/lib/utils";
-
-const nav = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    accent: "lime" as const,
-  },
-  {
-    href: "/certifications",
-    label: "Certifications",
-    icon: GraduationCap,
-    accent: "sky" as const,
-  },
-];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -89,13 +68,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Separator />
       <ScrollArea className="min-h-0 flex-1 px-2 py-4">
         <nav className="space-y-1" id="app-sidebar-nav">
-          {nav.map(({ href, label, icon: Icon, accent }) => (
+          {primarySidebarNav.map(({ href, label, icon: Icon, accent }) => {
+            const active =
+              pathname === href || pathname.startsWith(`${href}/`);
+            return (
             <div key={href} className="space-y-0.5">
               <Link href={href}>
                 <span
                   className={cn(
                     "flex items-center gap-2 rounded-md border-l-4 px-3 py-2 text-sm font-medium transition-colors",
-                    pathname === href || pathname.startsWith(`${href}/`)
+                    active
                       ? accent === "lime"
                         ? "border-brand-lime bg-brand-lime/15 text-white"
                         : "border-brand-sky bg-brand-sky/18 text-white"
@@ -105,13 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Icon
                     className={cn(
                       "h-4 w-4 shrink-0",
-                      pathname === href || pathname.startsWith(`${href}/`)
-                        ? accent === "lime"
-                          ? "text-brand-lime"
-                          : "text-brand-sky"
-                        : accent === "lime"
-                          ? "text-brand-lime/85"
-                          : "text-brand-sky/85",
+                      primaryNavIconClass(accent, active),
                     )}
                   />
                   {label}
@@ -146,31 +122,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </ul>
                 )}
             </div>
-          ))}
+            );
+          })}
           {showAdmin && (
             <div className="space-y-0.5 pt-2 mt-2 border-t border-white/10">
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-white/45">
                 Admin
               </p>
-              {(
-                [
-                  {
-                    href: "/admin/users",
-                    label: "Users",
-                    icon: Users,
-                  },
-                  {
-                    href: "/admin/courses",
-                    label: "Training Content",
-                    icon: Layers,
-                  },
-                  {
-                    href: "/admin/database",
-                    label: "Training data",
-                    icon: Database,
-                  },
-                ] as const
-              ).map(({ href, label, icon: Icon }) => {
+              {adminSidebarNav.map(({ href, label, icon: Icon }) => {
                 const active =
                   pathname === href || pathname.startsWith(`${href}/`);
                 return (
@@ -277,6 +236,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <PwaInstallPrompt />
             <OfflineTrainingBanner />
             <SidebarBreadcrumbs />
+            <SidebarMainPageHeading />
             {children}
           </main>
           <footer className="shrink-0 border-t border-border/60 text-center text-xs text-muted-foreground py-3 px-4">

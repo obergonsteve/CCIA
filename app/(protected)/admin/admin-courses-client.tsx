@@ -51,6 +51,7 @@ import {
   Layers,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -64,6 +65,21 @@ type ContentCategoryFilter =
   | "assignments"
   | "decks"
   | "references";
+
+type ContentDeleteDialogTarget =
+  | {
+      kind: "detachFromUnit";
+      contentId: Id<"contentItems">;
+      unitContentId: Id<"unitContents"> | null;
+      unitId: Id<"units">;
+      displayTitle: string;
+      unitLabel: string;
+    }
+  | {
+      kind: "library";
+      contentId: Id<"contentItems">;
+      displayTitle: string;
+    };
 
 type EditAssessmentQuestion = NonNullable<
   NonNullable<Doc<"contentItems">["assessment"]>["questions"]
@@ -145,6 +161,7 @@ import {
   ContentLibraryDragRow,
   DraggableUnitPaletteItem,
   LevelRowDroppable,
+  libraryContentDisplayTitle,
   SortableLevelRow,
   SortableUnitContentRow,
   SortableUnitRow,
@@ -401,9 +418,14 @@ export default function AdminCoursesClient() {
   const [editUnitTitle, setEditUnitTitle] = useState("");
   const [editUnitDesc, setEditUnitDesc] = useState("");
 
-  const [levelDeleteOpen, setLevelDeleteOpen] = useState(false);
+  const [certDeleteOpen, setCertDeleteOpen] = useState(false);
+  const [certDeleteId, setCertDeleteId] = useState<
+    Id<"certificationLevels"> | null
+  >(null);
   const [unitDeleteOpen, setUnitDeleteOpen] = useState(false);
   const [unitDeleteId, setUnitDeleteId] = useState<Id<"units"> | null>(null);
+  const [contentDeleteTarget, setContentDeleteTarget] =
+    useState<ContentDeleteDialogTarget | null>(null);
   const [detachFromCertOpen, setDetachFromCertOpen] = useState(false);
   const [detachFromCertUnitId, setDetachFromCertUnitId] =
     useState<Id<"units"> | null>(null);
@@ -497,14 +519,19 @@ export default function AdminCoursesClient() {
   );
 
   const unitMatchesSearch = useCallback(
-    (u: UnitAdminListRow) => {
+    (u: {
+      title: string;
+      description: string;
+      certificationSummary?: string;
+    }) => {
       if (!unitSearchLower) {
         return true;
       }
+      const summary = (u.certificationSummary ?? "").toLowerCase();
       return (
         u.title.toLowerCase().includes(unitSearchLower) ||
         u.description.toLowerCase().includes(unitSearchLower) ||
-        u.certificationSummary.toLowerCase().includes(unitSearchLower)
+        summary.includes(unitSearchLower)
       );
     },
     [unitSearchLower],
@@ -518,9 +545,18 @@ export default function AdminCoursesClient() {
       if (!contentSearchLower) {
         return true;
       }
+      const q = contentSearchLower;
+      const displayTitle = libraryContentDisplayTitle(item.title).toLowerCase();
+      const urlHaystack =
+        item.type !== "test" && item.type !== "assignment"
+          ? (item.url ?? "").toLowerCase()
+          : "";
       return (
-        item.title.toLowerCase().includes(contentSearchLower) ||
-        item.type.toLowerCase().includes(contentSearchLower)
+        item.title.toLowerCase().includes(q) ||
+        displayTitle.includes(q) ||
+        item.type.toLowerCase().includes(q) ||
+        (urlHaystack.length > 0 && urlHaystack.includes(q)) ||
+        (item.assessment?.description?.toLowerCase().includes(q) ?? false)
       );
     },
     [contentSearchLower, contentCategory],
@@ -724,6 +760,13 @@ export default function AdminCoursesClient() {
     }
     return levels.find((l) => l._id === editCertId) ?? null;
   }, [editCertId, levels]);
+
+  const certPendingDelete = useMemo(() => {
+    if (!certDeleteId || !levels) {
+      return null;
+    }
+    return levels.find((l) => l._id === certDeleteId) ?? null;
+  }, [certDeleteId, levels]);
 
   const filterCertName = useMemo(() => {
     if (!filterCertId || !levels) {
@@ -983,7 +1026,7 @@ export default function AdminCoursesClient() {
         }
       }
 
-      if (displayedLevels) {
+      if (displayedLevels && !certSearchLower) {
         const activeLevelKey = resolveLevelSortCollisionId(String(active.id));
         const overLevelKey = resolveLevelSortCollisionId(overStr);
         const oldIndex = displayedLevels.findIndex(
@@ -1011,6 +1054,7 @@ export default function AdminCoursesClient() {
       if (
         filterCertId &&
         !centreUnitsShowAll &&
+        !unitSearchLower &&
         displayedUnitsInFilteredCert &&
         displayedUnitsInFilteredCert.length
       ) {
@@ -1050,6 +1094,8 @@ export default function AdminCoursesClient() {
       displayedLevels,
       displayedUnitsInFilteredCert,
       displayedDetailContent,
+      certSearchLower,
+      unitSearchLower,
       filterCertId,
       centreUnitsShowAll,
       reorderLevels,
@@ -1165,6 +1211,28 @@ export default function AdminCoursesClient() {
   const detailContentListForUi =
     displayedDetailContent ?? detailContent;
 
+  const certFilterActive = certSearchLower.length > 0;
+  const unitFilterActive = unitSearchLower.length > 0;
+
+  const levelsVisibleForUi = useMemo(
+    () => levelsListForUi.filter((l) => levelMatchesSearch(l)),
+    [levelsListForUi, levelMatchesSearch],
+  );
+
+  const unitsInCertVisibleForUi = useMemo(() => {
+    if (!unitsInCertListForUi) {
+      return [];
+    }
+    return unitsInCertListForUi.filter((u) => unitMatchesSearch(u));
+  }, [unitsInCertListForUi, unitMatchesSearch]);
+
+  const allUnitsVisibleForUi = useMemo(() => {
+    if (!allUnits?.length) {
+      return [];
+    }
+    return allUnits.filter((u) => unitMatchesSearch(u));
+  }, [allUnits, unitMatchesSearch]);
+
   /** When set, unit content list is filtered — reorder would be ambiguous, so drag is disabled. */
   const contentFilterActive =
     contentCategory !== "all" || contentSearchLower.length > 0;
@@ -1187,15 +1255,21 @@ export default function AdminCoursesClient() {
     ? filteredDetailContentForUi
     : (detailContentListForUi ?? []);
 
-  const certListCount = levelsListForUi.length;
+  const certListCount = certFilterActive
+    ? levelsVisibleForUi.length
+    : levelsListForUi.length;
   const unitsListCount: number | null =
     filterCertId && !centreUnitsShowAll
       ? unitsInCertListForUi === undefined
         ? null
-        : unitsInCertListForUi.length
+        : unitFilterActive
+          ? unitsInCertVisibleForUi.length
+          : unitsInCertListForUi.length
       : allUnits === undefined
         ? null
-        : allUnits.length;
+        : unitFilterActive
+          ? allUnitsVisibleForUi.length
+          : allUnits.length;
   const contentListCount: number | null =
     selectedDetailUnitId && selectedDetailUnit && !libraryShowAll
       ? detailContent === undefined
@@ -1209,10 +1283,8 @@ export default function AdminCoursesClient() {
     <TooltipProvider delayDuration={400}>
       <div className="min-h-0 space-y-4">
       <div className="pb-2">
-        <h1 className="text-2xl font-bold tracking-tight">Training Content</h1>
         <p className="text-base leading-snug text-muted-foreground">
-          Build and maintain structured Certifications by assembling Units and
-          Content.
+          Assemble Units and Content into structured Certification courses.
         </p>
         <p
           className={cn(
@@ -1252,16 +1324,31 @@ export default function AdminCoursesClient() {
               count={certListCount}
             />
             <h2 className="sr-only">Certifications</h2>
-            <div className="mb-2 flex shrink-0 items-center justify-start gap-2">
-              <div className="w-[min(100%,13rem)] shrink-0">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+              <div className="relative w-[min(100%,13rem)] shrink-0">
                 <Input
                   id="admin-cert-search"
                   aria-label="Filter certifications"
                   placeholder="Filter list…"
                   value={certSearch}
                   onChange={(e) => setCertSearch(e.target.value)}
-                  className="h-9 w-full bg-card"
+                  className={cn(
+                    "h-9 w-full bg-card",
+                    certSearch.trim() ? "pr-9" : "",
+                  )}
                 />
+                {certSearch.trim() ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2 shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear certification filter"
+                    onClick={() => setCertSearch("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                ) : null}
               </div>
               <Button
                 type="button"
@@ -1292,19 +1379,18 @@ export default function AdminCoursesClient() {
                 <p className="py-10 text-center text-sm text-muted-foreground">
                   No certifications. Use +.
                 </p>
+              ) : levelsVisibleForUi.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  No certifications match &ldquo;{certSearch.trim()}&rdquo;.
+                </p>
               ) : (
                 <SortableContext
-                  items={levelsListForUi.map((l) => l._id)}
+                  items={levelsVisibleForUi.map((l) => l._id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <ul className="space-y-1">
-                    {levelsListForUi.map((l) => (
-                      <li
-                        key={l._id}
-                        className={cn(
-                          levelMatchesSearch(l) ? "" : "opacity-30",
-                        )}
-                      >
+                    {levelsVisibleForUi.map((l) => (
+                      <li key={l._id}>
                         <LevelRowDroppable
                           levelId={l._id}
                           dropHighlight={dropHighlightLevelId === l._id}
@@ -1312,6 +1398,7 @@ export default function AdminCoursesClient() {
                           <SortableLevelRow
                             level={l}
                             selected={filterCertId === l._id}
+                            disableDrag={certFilterActive}
                             unitCount={
                               allUnits === undefined
                                 ? undefined
@@ -1320,8 +1407,8 @@ export default function AdminCoursesClient() {
                             onSelect={() => handleCertFilterToggle(l._id)}
                             onEdit={() => openCertificationEditor(l._id)}
                             onDelete={() => {
-                              setEditCertId(l._id);
-                              setLevelDeleteOpen(true);
+                              setCertDeleteId(l._id);
+                              setCertDeleteOpen(true);
                             }}
                           />
                         </LevelRowDroppable>
@@ -1364,16 +1451,31 @@ export default function AdminCoursesClient() {
                 </span>
               </p>
             </div>
-            <div className="mb-2 flex shrink-0 items-center justify-start gap-2">
-              <div className="w-[min(100%,13rem)] shrink-0">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+              <div className="relative w-[min(100%,13rem)] shrink-0">
                 <Input
                   id="admin-unit-search"
                   aria-label="Filter units"
                   placeholder="Filter list…"
                   value={unitSearch}
                   onChange={(e) => setUnitSearch(e.target.value)}
-                  className="h-9 w-full bg-card"
+                  className={cn(
+                    "h-9 w-full bg-card",
+                    unitSearch.trim() ? "pr-9" : "",
+                  )}
                 />
+                {unitSearch.trim() ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2 shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear unit filter"
+                    onClick={() => setUnitSearch("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                ) : null}
               </div>
               <Button
                 type="button"
@@ -1421,13 +1523,18 @@ export default function AdminCoursesClient() {
                     <p className="py-6 text-center text-sm text-muted-foreground">
                       Loading units…
                     </p>
+                  ) : unitsInCertListForUi!.length > 0 &&
+                    unitsInCertVisibleForUi.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      No units match &ldquo;{unitSearch.trim()}&rdquo;.
+                    </p>
                   ) : (
                     <SortableContext
-                      items={unitsInCertListForUi!.map((u) => u._id)}
+                      items={unitsInCertVisibleForUi.map((u) => u._id)}
                       strategy={verticalListSortingStrategy}
                     >
                       <ul className="space-y-1">
-                        {unitsInCertListForUi!.map((u) => (
+                        {unitsInCertVisibleForUi.map((u) => (
                           <li key={u._id} className="space-y-0">
                             <UnitRowContentDropTarget
                               unitId={u._id}
@@ -1440,6 +1547,7 @@ export default function AdminCoursesClient() {
                                 unit={u}
                                 selected={selectedDetailUnitId === u._id}
                                 expandDrawerOpen={prereqsPanelUnitId === u._id}
+                                disableDrag={unitFilterActive}
                                 prerequisiteCount={
                                   countsByUnitId.get(u._id)?.prereqCount ?? 0
                                 }
@@ -1491,16 +1599,14 @@ export default function AdminCoursesClient() {
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     No units. Use +.
                   </p>
+                ) : allUnitsVisibleForUi.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">
+                    No units match &ldquo;{unitSearch.trim()}&rdquo;.
+                  </p>
                 ) : (
                   <ul className="space-y-2">
-                    {allUnits.map((u) => (
-                      <li
-                        key={u._id}
-                        className={cn(
-                          "space-y-0",
-                          unitMatchesSearch(u) ? "" : "opacity-30",
-                        )}
-                      >
+                    {allUnitsVisibleForUi.map((u) => (
+                      <li key={u._id} className="space-y-0">
                         <UnitRowContentDropTarget
                           unitId={u._id}
                           disabled={
@@ -1615,16 +1721,31 @@ export default function AdminCoursesClient() {
                 </span>
               </p>
             </div>
-            <div className="mb-2 flex shrink-0 items-center justify-start gap-2">
-              <div className="w-[min(100%,13rem)] shrink-0">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+              <div className="relative w-[min(100%,13rem)] shrink-0">
                 <Input
                   id="admin-content-search"
                   aria-label="Filter content"
                   placeholder="Filter list…"
                   value={contentSearch}
                   onChange={(e) => setContentSearch(e.target.value)}
-                  className="h-9 w-full bg-card"
+                  className={cn(
+                    "h-9 w-full bg-card",
+                    contentSearch.trim() ? "pr-9" : "",
+                  )}
                 />
+                {contentSearch.trim() ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2 shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear content filter"
+                    onClick={() => setContentSearch("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                ) : null}
               </div>
               <Button
                 type="button"
@@ -1748,26 +1869,23 @@ export default function AdminCoursesClient() {
                                 );
                                 setEditContentOpen(true);
                               }}
-                              onDelete={async () => {
-                                try {
-                                  if (item.unitContentId) {
-                                    await detachContentFromUnit({
-                                      unitContentId: item.unitContentId,
-                                    });
-                                  } else if (selectedDetailUnitId) {
-                                    await legacyDetachContentFromUnit({
-                                      unitId: selectedDetailUnitId,
-                                      contentId: item._id,
-                                    });
-                                  }
-                                  toast.success("Removed from unit");
-                                } catch (e) {
-                                  toast.error(
-                                    e instanceof Error
-                                      ? e.message
-                                      : "Failed",
-                                  );
+                              onDelete={() => {
+                                if (!selectedDetailUnitId) {
+                                  return;
                                 }
+                                setContentDeleteTarget({
+                                  kind: "detachFromUnit",
+                                  contentId: item._id,
+                                  unitContentId: item.unitContentId,
+                                  unitId: selectedDetailUnitId,
+                                  displayTitle: libraryContentDisplayTitle(
+                                    item.title,
+                                  ),
+                                  unitLabel:
+                                    filterUnitTitle?.trim() ||
+                                    selectedDetailUnit?.title?.trim() ||
+                                    "this unit",
+                                });
                               }}
                             />
                           </li>
@@ -1830,20 +1948,13 @@ export default function AdminCoursesClient() {
                               setEditContentOpen(true);
                             }}
                             onDelete={() => {
-                              if (
-                                !confirm(
-                                  "Delete this item from the library and remove it from all units?",
-                                )
-                              ) {
-                                return;
-                              }
-                              void removeContent({ contentId: item._id })
-                                .then(() => toast.success("Deleted"))
-                                .catch((e) =>
-                                  toast.error(
-                                    e instanceof Error ? e.message : "Failed",
-                                  ),
-                                );
+                              setContentDeleteTarget({
+                                kind: "library",
+                                contentId: item._id,
+                                displayTitle: libraryContentDisplayTitle(
+                                  item.title,
+                                ),
+                              });
                             }}
                           />
                         </li>
@@ -2968,38 +3079,65 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={levelDeleteOpen} onOpenChange={setLevelDeleteOpen}>
+      <Dialog
+        open={certDeleteOpen}
+        onOpenChange={(open) => {
+          setCertDeleteOpen(open);
+          if (!open) {
+            setCertDeleteId(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete certification?</DialogTitle>
             <DialogDescription>
-              This removes this certification and every unit inside it —
-              including content, assignments, prerequisite links, and learner
-              progress tied to those units. This cannot be undone.
+              {certPendingDelete ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {certPendingDelete.name}
+                  </span>{" "}
+                  will be removed from the catalog. Units stay in the library;
+                  only their link to this certification is removed (other
+                  certifications that use the same units are unchanged). This
+                  cannot be undone.
+                </>
+              ) : (
+                <>
+                  This removes the certification from the catalog and unlinks
+                  every unit from it. Units and their lessons remain in the
+                  library. This cannot be undone.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setLevelDeleteOpen(false)}
+              onClick={() => setCertDeleteOpen(false)}
             >
               Cancel
             </Button>
             <Button
               type="button"
               variant="destructive"
-              disabled={!editCertId}
+              disabled={!certDeleteId}
               onClick={async () => {
-                if (!editCertId) {
+                if (!certDeleteId) {
                   return;
                 }
+                const id = certDeleteId;
                 try {
-                  await deleteCertificationLevel({ levelId: editCertId });
+                  await deleteCertificationLevel({ levelId: id });
                   toast.success("Certification deleted");
-                  setFilterCertId((f) => (f === editCertId ? null : f));
-                  setEditCertId(null);
-                  setLevelDeleteOpen(false);
+                  setFilterCertId((f) => (f === id ? null : f));
+                  if (editCertId === id) {
+                    setEditCertId(null);
+                    setCertDetailsOpen(false);
+                  }
+                  setCertDeleteOpen(false);
+                  setCertDeleteId(null);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed");
                 }
@@ -3110,6 +3248,123 @@ export default function AdminCoursesClient() {
             >
               Delete unit
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={contentDeleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setContentDeleteTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {contentDeleteTarget?.kind === "library"
+                ? "Delete from library?"
+                : contentDeleteTarget?.kind === "detachFromUnit"
+                  ? "Remove from unit?"
+                  : "Delete content?"}
+            </DialogTitle>
+            <DialogDescription>
+              {contentDeleteTarget?.kind === "library" ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {contentDeleteTarget.displayTitle}
+                  </span>{" "}
+                  will be removed from the library and unlinked from every unit.
+                  Related quiz results for this item may be deleted.
+                </>
+              ) : contentDeleteTarget?.kind === "detachFromUnit" ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {contentDeleteTarget.displayTitle}
+                  </span>{" "}
+                  will be unlinked from{" "}
+                  <span className="font-medium text-foreground">
+                    {contentDeleteTarget.unitLabel}
+                  </span>{" "}
+                  only. It stays in the library and on other units.
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter
+            className={
+              contentDeleteTarget?.kind === "library"
+                ? "flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end"
+                : "gap-2 sm:gap-0"
+            }
+          >
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setContentDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            {contentDeleteTarget?.kind === "detachFromUnit" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={async () => {
+                  const t = contentDeleteTarget;
+                  if (t?.kind !== "detachFromUnit") {
+                    return;
+                  }
+                  try {
+                    if (t.unitContentId) {
+                      await detachContentFromUnit({
+                        unitContentId: t.unitContentId,
+                      });
+                    } else {
+                      await legacyDetachContentFromUnit({
+                        unitId: t.unitId,
+                        contentId: t.contentId,
+                      });
+                    }
+                    toast.success("Removed from unit");
+                    setContentDeleteTarget(null);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Failed");
+                  }
+                }}
+              >
+                Remove from unit
+              </Button>
+            ) : null}
+            {contentDeleteTarget?.kind === "library" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={!contentDeleteTarget}
+                onClick={async () => {
+                  const t = contentDeleteTarget;
+                  if (!t || t.kind !== "library") {
+                    return;
+                  }
+                  try {
+                    await removeContent({ contentId: t.contentId });
+                    if (editContentId === t.contentId) {
+                      setEditContentOpen(false);
+                      setEditContentId(null);
+                      setEditContentStorageId(null);
+                      setEditUnitContentLinkId(null);
+                      setEditContentAssessment(null);
+                    }
+                    toast.success("Deleted from library");
+                    setContentDeleteTarget(null);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Failed");
+                  }
+                }}
+              >
+                Delete from library
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

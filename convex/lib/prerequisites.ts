@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { isLive } from "./softDelete";
 
 export async function getIncompletePrerequisites(
   ctx: QueryCtx | MutationCtx,
@@ -13,7 +14,7 @@ export async function getIncompletePrerequisites(
   const missing: Doc<"units">[] = [];
   for (const row of rows) {
     const prereqUnit = await ctx.db.get(row.prerequisiteUnitId);
-    if (!prereqUnit) {
+    if (!isLive(prereqUnit)) {
       continue;
     }
     const prog = await ctx.db

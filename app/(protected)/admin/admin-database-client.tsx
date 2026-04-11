@@ -16,20 +16,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useMutation } from "convex/react";
-import { Database, Trash2 } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { Database, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
+function formatDeletedAt(ms: number | undefined) {
+  if (ms == null) {
+    return "—";
+  }
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
 
 export default function AdminDatabaseClient() {
   const clearTrainingData = useMutation(api.seed.adminClearTrainingData);
   const seedTrainingDatabase = useMutation(api.seed.adminSeedTrainingDatabase);
+  const restoreCert = useMutation(api.adminDeleted.restoreCertificationLevel);
+  const restoreUnit = useMutation(api.adminDeleted.restoreUnit);
+  const restoreContent = useMutation(api.adminDeleted.restoreContentItem);
+  const deletedCerts = useQuery(api.adminDeleted.listDeletedCertifications);
+  const deletedUnits = useQuery(api.adminDeleted.listDeletedUnits);
+  const deletedContent = useQuery(api.adminDeleted.listDeletedContent);
   const [clearTrainingDialogOpen, setClearTrainingDialogOpen] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Training data</h1>
         <p className="text-muted-foreground">
           Seed or clear curriculum and learner progress. Companies and user
           accounts are kept when clearing.
@@ -38,7 +55,7 @@ export default function AdminDatabaseClient() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Database</CardTitle>
+          <CardTitle>Seed &amp; clear</CardTitle>
           <CardDescription>
             Clear removes all certification levels, units, media, assessments,
             prerequisites, and learner progress — <strong>not</strong> companies
@@ -78,6 +95,126 @@ export default function AdminDatabaseClient() {
             <Database className="h-4 w-4 mr-1.5" />
             Seed database
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Soft-deleted records</CardTitle>
+          <CardDescription>
+            Certifications, units, and library content removed in Training
+            Content are hidden from the app but kept here. Restore a row to make
+            it visible again (links to certifications and units on lessons are
+            unchanged).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-8">
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-foreground">
+              Certifications
+            </h2>
+            {deletedCerts === undefined ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : deletedCerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None.</p>
+            ) : (
+              <ul className="divide-y rounded-md border border-border">
+                {deletedCerts.map((row) => (
+                  <DeletedRow
+                    key={row._id}
+                    primary={row.name}
+                    secondary={`Deleted ${formatDeletedAt(row.deletedAt)}`}
+                    busy={restoringId === row._id}
+                    onRestore={() =>
+                      void (async () => {
+                        setRestoringId(row._id);
+                        try {
+                          await restoreCert({ levelId: row._id });
+                          toast.success(`Restored “${row.name}”`);
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error ? e.message : "Restore failed",
+                          );
+                        } finally {
+                          setRestoringId(null);
+                        }
+                      })()
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-foreground">Units</h2>
+            {deletedUnits === undefined ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : deletedUnits.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None.</p>
+            ) : (
+              <ul className="divide-y rounded-md border border-border">
+                {deletedUnits.map((row) => (
+                  <DeletedRow
+                    key={row._id}
+                    primary={row.title}
+                    secondary={`Deleted ${formatDeletedAt(row.deletedAt)}`}
+                    busy={restoringId === row._id}
+                    onRestore={() =>
+                      void (async () => {
+                        setRestoringId(row._id);
+                        try {
+                          await restoreUnit({ unitId: row._id });
+                          toast.success(`Restored “${row.title}”`);
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error ? e.message : "Restore failed",
+                          );
+                        } finally {
+                          setRestoringId(null);
+                        }
+                      })()
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-foreground">Content</h2>
+            {deletedContent === undefined ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : deletedContent.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None.</p>
+            ) : (
+              <ul className="divide-y rounded-md border border-border">
+                {deletedContent.map((row) => (
+                  <DeletedRow
+                    key={row._id}
+                    primary={row.title}
+                    secondary={`${row.type} · deleted ${formatDeletedAt(row.deletedAt)}`}
+                    busy={restoringId === row._id}
+                    onRestore={() =>
+                      void (async () => {
+                        setRestoringId(row._id);
+                        try {
+                          await restoreContent({ contentId: row._id });
+                          toast.success(`Restored “${row.title}”`);
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error ? e.message : "Restore failed",
+                          );
+                        } finally {
+                          setRestoringId(null);
+                        }
+                      })()
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
         </CardContent>
       </Card>
 
@@ -124,5 +261,37 @@ export default function AdminDatabaseClient() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function DeletedRow({
+  primary,
+  secondary,
+  busy,
+  onRestore,
+}: {
+  primary: string;
+  secondary: string;
+  busy: boolean;
+  onRestore: () => void;
+}) {
+  return (
+    <li className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-foreground">{primary}</p>
+        <p className="text-xs text-muted-foreground">{secondary}</p>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="shrink-0 self-start sm:self-center"
+        disabled={busy}
+        onClick={onRestore}
+      >
+        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+        {busy ? "Restoring…" : "Restore"}
+      </Button>
+    </li>
   );
 }
