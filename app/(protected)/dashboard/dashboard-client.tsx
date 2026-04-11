@@ -17,9 +17,11 @@ import {
   ArrowRight,
   CheckCircle2,
   CircleDot,
+  GraduationCap,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
@@ -94,12 +96,31 @@ function CertificationBucketSection({
                     (contentStepsCompleted / contentStepsTotal) * 100,
                   )
                 : 0;
+            const thumb = level.thumbnailUrl?.trim() ?? "";
             return (
               <Card
                 key={level._id}
                 className={cn("border-l-4", cardBorderClassName)}
               >
-                <CardHeader>
+                <div className="relative -mt-4 aspect-[2/1] w-full shrink-0 overflow-hidden bg-muted sm:aspect-[16/9]">
+                  {thumb ? (
+                    <Image
+                      src={thumb}
+                      alt={level.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand-lime/20 via-brand-gold/12 to-brand-sky/18">
+                      <GraduationCap
+                        className="h-10 w-10 text-brand-charcoal/30"
+                        aria-hidden
+                      />
+                    </div>
+                  )}
+                </div>
+                <CardHeader className="rounded-t-none">
                   <CardTitle className="text-lg">{level.name}</CardTitle>
                   <CardDescription className="line-clamp-2">
                     {level.summary?.trim() || level.description}
