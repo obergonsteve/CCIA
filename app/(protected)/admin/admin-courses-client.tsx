@@ -501,7 +501,7 @@ function TrainingLeftTabChip({
             ? "border-purple-500/55 bg-[color-mix(in_oklab,purple_22%,var(--card))] text-foreground dark:border-purple-400/50 dark:bg-[color-mix(in_oklab,purple_17%,var(--card))]"
             : "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]"
           : cn(
-              "border-border/60 bg-card/45 text-muted-foreground hover:bg-card/75 hover:text-foreground dark:border-border/50 dark:bg-card/30 dark:hover:bg-card/45",
+              "border-border/60 bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground dark:border-border/55 dark:bg-muted/45 dark:hover:bg-muted/60",
               tone === "purple"
                 ? "hover:border-purple-500/40 dark:hover:border-purple-400/35"
                 : "hover:border-brand-lime/40",
@@ -2556,7 +2556,7 @@ export default function AdminCoursesClient() {
                       workshopPlannerDay != null &&
                       !unitSearch.trim() ? (
                         <>
-                          No units have a scheduled workshop on{" "}
+                          No scheduled workshops on{" "}
                           {format(workshopPlannerDay, "d MMM yyyy")}.
                         </>
                       ) : unitSearch.trim() ? (
@@ -2654,7 +2654,7 @@ export default function AdminCoursesClient() {
                     !unitSearch.trim() &&
                     (allUnitsVisibleForUi?.length ?? 0) > 0 ? (
                       <>
-                        No units have a scheduled workshop on{" "}
+                        No scheduled workshops on{" "}
                         {format(workshopPlannerDay, "d MMM yyyy")}.
                       </>
                     ) : unitSearch.trim() ? (
