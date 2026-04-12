@@ -500,12 +500,15 @@ function TrainingLeftTabChip({
           ? tone === "purple"
             ? "border-purple-500/55 bg-[color-mix(in_oklab,purple_22%,var(--card))] text-foreground dark:border-purple-400/50 dark:bg-[color-mix(in_oklab,purple_17%,var(--card))]"
             : "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]"
-          : cn(
-              "border-border/60 bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground dark:border-border/55 dark:bg-muted/45 dark:hover:bg-muted/60",
-              tone === "purple"
-                ? "hover:border-purple-500/40 dark:hover:border-purple-400/35"
-                : "hover:border-brand-lime/40",
-            ),
+          : tone === "purple"
+            ? cn(
+                "border-border/60 bg-muted text-muted-foreground dark:border-border/55 dark:bg-muted",
+                "hover:border-purple-600 hover:bg-[color-mix(in_oklab,purple_24%,var(--muted))] hover:text-foreground dark:hover:border-purple-400 dark:hover:bg-[color-mix(in_oklab,purple_20%,var(--muted))] dark:hover:text-foreground",
+              )
+            : cn(
+                "border-border/60 bg-muted text-muted-foreground dark:border-border/55 dark:bg-muted",
+                "hover:border-brand-lime hover:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--muted))] hover:text-foreground dark:hover:border-brand-lime dark:hover:bg-[color-mix(in_oklab,var(--brand-lime)_20%,var(--muted))] dark:hover:text-foreground",
+              ),
       )}
     >
       {label?.trim() ? (
@@ -637,6 +640,26 @@ export default function AdminCoursesClient() {
   const [trainingLeftTab, setTrainingLeftTab] = useState<
     "certifications" | "workshops"
   >("certifications");
+  const selectTrainingLeftTab = useCallback(
+    (next: "certifications" | "workshops") => {
+      if (next === "workshops") {
+        setFilterCertId(null);
+        setSelectedDetailUnitId(null);
+        setLibraryShowAll(false);
+        setPrereqsPanelUnitId(null);
+      }
+      setTrainingLeftTab(next);
+    },
+    [],
+  );
+
+  const handleWorkshopPlannerSelectDay = useCallback((d: Date | null) => {
+    setSelectedDetailUnitId(null);
+    setLibraryShowAll(false);
+    setPrereqsPanelUnitId(null);
+    setWorkshopPlannerDay(d == null ? null : startOfDay(d));
+  }, []);
+
   /** `null` = no day filter — centre column lists all live-workshop units (calendar “All”). */
   const [workshopPlannerDay, setWorkshopPlannerDay] = useState<Date | null>(() =>
     startOfDay(new Date()),
@@ -2047,6 +2070,10 @@ export default function AdminCoursesClient() {
     unitIdsScheduledOnWorkshopPlannerDay,
   ]);
 
+  /**
+   * Workshops: calendar “All” → every visible live-workshop unit; a selected day
+   * → only units with a scheduled session that day (drag another day via calendar).
+   */
   const certCentreUnitsOrdered = useMemo(() => {
     if (trainingLeftTab !== "workshops") {
       return unitsInCertVisibleForUi;
@@ -2178,7 +2205,7 @@ export default function AdminCoursesClient() {
             <Tabs
               value={trainingLeftTab}
               onValueChange={(v) =>
-                setTrainingLeftTab(
+                selectTrainingLeftTab(
                   v === "workshops" ? "workshops" : "certifications",
                 )
               }
@@ -2192,7 +2219,7 @@ export default function AdminCoursesClient() {
                 <TrainingLeftTabChip
                   tone="lime"
                   selected={trainingLeftTab === "certifications"}
-                  onClick={() => setTrainingLeftTab("certifications")}
+                  onClick={() => selectTrainingLeftTab("certifications")}
                   count={certListCount}
                   trailing={
                     <span className="min-w-0 truncate">Certifications</span>
@@ -2201,7 +2228,7 @@ export default function AdminCoursesClient() {
                 <TrainingLeftTabChip
                   tone="purple"
                   selected={trainingLeftTab === "workshops"}
-                  onClick={() => setTrainingLeftTab("workshops")}
+                  onClick={() => selectTrainingLeftTab("workshops")}
                   count={workshopSessionsInViewMonthCount}
                   trailing={
                     <span className="min-w-0 truncate">Workshops</span>
@@ -2257,7 +2284,7 @@ export default function AdminCoursesClient() {
               categories={certCategories}
             />
             <div
-              className="mb-2 flex flex-wrap items-center gap-1.5"
+              className="mb-2 flex flex-wrap items-center justify-center gap-1.5"
               role="group"
               aria-label="Filter certifications by tier"
             >
@@ -2369,11 +2396,7 @@ export default function AdminCoursesClient() {
                   <WorkshopPlannerCalendar
                     sessions={workshopSessionMarkers}
                     selectedDay={workshopPlannerDay}
-                    onSelectDay={(d) =>
-                      setWorkshopPlannerDay(
-                        d == null ? null : startOfDay(d),
-                      )
-                    }
+                    onSelectDay={handleWorkshopPlannerSelectDay}
                     droppableDays
                     dropHighlightDayMs={workshopCalDropHighlightMs}
                     onViewMonthChange={(m) =>
@@ -2388,9 +2411,11 @@ export default function AdminCoursesClient() {
           <div
             className={cn(
               "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
-              filterCertId
-                ? "border-brand-lime/40 border-l-brand-lime border-r-brand-lime dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime"
-                : "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold",
+              trainingLeftTab === "workshops" && workshopPlannerDay != null
+                ? "border-purple-500/40 border-l-purple-500 border-r-purple-500 dark:border-purple-400/35 dark:border-l-purple-400 dark:border-r-purple-400"
+                : filterCertId
+                  ? "border-brand-lime/40 border-l-brand-lime border-r-brand-lime dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime"
+                  : "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold",
             )}
           >
             <TrainingColumnChip
