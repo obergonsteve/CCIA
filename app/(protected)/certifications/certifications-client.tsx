@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
+import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -131,11 +132,13 @@ export default function CertificationsClient() {
                           <div className="absolute left-4 top-4">
                             <Badge
                               className={cn(
-                                "text-[10px] font-bold uppercase tracking-wide shadow-sm",
+                                "px-1.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
                                 certificationTierBadgeClass(tier),
                               )}
+                              aria-label={certificationTierLabel(tier)}
+                              title={certificationTierSectionTitle(tier)}
                             >
-                              {certificationTierLabel(tier)}
+                              <CertificationTierMedallion tier={tier} />
                             </Badge>
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 p-5">

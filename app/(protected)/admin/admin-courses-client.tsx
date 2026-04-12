@@ -23,6 +23,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AdminCategoryCrudSection } from "@/components/admin/admin-category-crud-section";
+import { CertificationTierIconPicker } from "@/components/admin/certification-tier-icon-picker";
+import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import {
   closestCenter,
   DndContext,
@@ -58,6 +60,12 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { suggestEntityCodeFromLabel } from "@/lib/entity-code-form";
+import {
+  certificationTierLabel,
+  certificationTierSectionTitle,
+  effectiveCertificationTier,
+  type CertificationTierKey,
+} from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
@@ -539,6 +547,10 @@ export default function AdminCoursesClient() {
   const [certCategoryFilter, setCertCategoryFilter] = useState<"all" | string>(
     "all",
   );
+  /** Certifications column: filter list by certification tier (bronze/silver/gold). */
+  const [certTierFilter, setCertTierFilter] = useState<
+    "all" | CertificationTierKey
+  >("all");
   const [unitSearch, setUnitSearch] = useState("");
   /** Units column: filter list by admin-defined category (chips). */
   const [unitCategoryFilter, setUnitCategoryFilter] = useState<"all" | string>(
@@ -813,6 +825,16 @@ export default function AdminCoursesClient() {
       return Boolean(meta && legacy === meta.shortCode);
     },
     [certCategoryFilter, certCategoryMetaById],
+  );
+
+  const levelMatchesTierChip = useCallback(
+    (l: Doc<"certificationLevels">) => {
+      if (certTierFilter === "all") {
+        return true;
+      }
+      return effectiveCertificationTier(l) === certTierFilter;
+    },
+    [certTierFilter],
   );
 
   const unitMatchesSearch = useCallback(
@@ -1693,16 +1715,26 @@ export default function AdminCoursesClient() {
     displayedDetailContent ?? detailContent;
 
   const certFilterActive =
-    certSearchLower.length > 0 || certCategoryFilter !== "all";
+    certSearchLower.length > 0 ||
+    certCategoryFilter !== "all" ||
+    certTierFilter !== "all";
   const unitFilterActive =
     unitSearchLower.length > 0 || unitCategoryFilter !== "all";
 
   const levelsVisibleForUi = useMemo(
     () =>
       levelsListForUi.filter(
-        (l) => levelMatchesSearch(l) && levelMatchesCategoryChip(l),
+        (l) =>
+          levelMatchesSearch(l) &&
+          levelMatchesCategoryChip(l) &&
+          levelMatchesTierChip(l),
       ),
-    [levelsListForUi, levelMatchesSearch, levelMatchesCategoryChip],
+    [
+      levelsListForUi,
+      levelMatchesSearch,
+      levelMatchesCategoryChip,
+      levelMatchesTierChip,
+    ],
   );
 
   const unitsInCertVisibleForUi = useMemo(() => {
@@ -1866,19 +1898,56 @@ export default function AdminCoursesClient() {
               categories={certCategories}
             />
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-lime/50 dark:border-brand-lime/40" />
-            {!filterCertId ? (
-              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Drag and drop Units onto a Certification.
-              </p>
-            ) : (
-              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Use{" "}
-                <span className="font-medium text-foreground">
-                  Show all units
-                </span>{" "}
-                in the centre column to drag here.
-              </p>
-            )}
+            <div className="mb-3 shrink-0 space-y-2">
+              <div
+                className="flex flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label="Filter certifications by tier"
+              >
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={
+                    certTierFilter === "all" ? "secondary" : "outline"
+                  }
+                  className="h-8 min-w-8 shrink-0 px-2 text-xs font-semibold"
+                  onClick={() => setCertTierFilter("all")}
+                  aria-label="All tiers"
+                  title="Show all certification tiers"
+                >
+                  All
+                </Button>
+                {(["bronze", "silver", "gold"] as const).map((tier) => (
+                  <Button
+                    key={tier}
+                    type="button"
+                    size="icon"
+                    variant={
+                      certTierFilter === tier ? "secondary" : "outline"
+                    }
+                    className="shrink-0"
+                    onClick={() => setCertTierFilter(tier)}
+                    aria-label={certificationTierLabel(tier)}
+                    title={certificationTierSectionTitle(tier)}
+                  >
+                    <CertificationTierMedallion tier={tier} className="size-6" />
+                  </Button>
+                ))}
+              </div>
+              {filterCertId ? (
+                <p className="text-sm text-muted-foreground">
+                  Use{" "}
+                  <span className="font-medium text-foreground">
+                    Show all units
+                  </span>{" "}
+                  in the centre column to drag here.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Drag units from the centre column onto a certification below.
+                </p>
+              )}
+            </div>
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto scrollbar-panel">
               {levelsListForUi.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">
@@ -1886,7 +1955,7 @@ export default function AdminCoursesClient() {
                 </p>
               ) : levelsVisibleForUi.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">
-                  No certifications match &ldquo;{certSearch.trim()}&rdquo;.
+                  No certifications match the current filters.
                 </p>
               ) : (
                 <SortableContext
@@ -2776,33 +2845,12 @@ export default function AdminCoursesClient() {
               </p>
             </div>
             <div className="space-y-1">
-              <Label>Certification tier</Label>
-              <Select
+              <Label id="add-cert-tier-label">Certification tier</Label>
+              <CertificationTierIconPicker
+                aria-labelledby="add-cert-tier-label"
                 value={addCertTier}
-                onValueChange={(v) =>
-                  setAddCertTier(
-                    (v ?? "bronze") as "bronze" | "silver" | "gold",
-                  )
-                }
-              >
-                <SelectTrigger id="add-cert-tier">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bronze" label="Bronze — mandatory baseline">
-                    Bronze — mandatory baseline
-                  </SelectItem>
-                  <SelectItem value="silver" label="Silver — optional skills">
-                    Silver — optional skills
-                  </SelectItem>
-                  <SelectItem
-                    value="gold"
-                    label="Gold — optional professional development"
-                  >
-                    Gold — optional professional development
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                onChange={setAddCertTier}
+              />
               <p className="text-[11px] text-muted-foreground">
                 Higher-level grouping for the catalog and workshops. Enforcement
                 of “mandatory” is an org policy, not a hard rule in the app.
@@ -3632,33 +3680,15 @@ export default function AdminCoursesClient() {
                   )}
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <Label>Certification tier</Label>
-                  <Select
+                  <Label id="cert-tier-label">Certification tier</Label>
+                  <CertificationTierIconPicker
+                    aria-labelledby="cert-tier-label"
                     value={certDetailTier}
-                    onValueChange={(v) =>
-                      setCertDetailTier(
-                        (v ?? "bronze") as "bronze" | "silver" | "gold",
-                      )
-                    }
-                  >
-                    <SelectTrigger id="cert-tier">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bronze" label="Bronze — mandatory baseline">
-                        Bronze — mandatory baseline
-                      </SelectItem>
-                      <SelectItem value="silver" label="Silver — optional skills">
-                        Silver — optional skills
-                      </SelectItem>
-                      <SelectItem
-                        value="gold"
-                        label="Gold — optional professional development"
-                      >
-                        Gold — optional professional development
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={setCertDetailTier}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Higher-level grouping for the catalog and workshops.
+                  </p>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label htmlFor="cert-summary">Short summary</Label>

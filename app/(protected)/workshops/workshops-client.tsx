@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
+import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import {
 import {
   certificationTierBadgeClass,
   certificationTierLabel,
+  certificationTierSectionTitle,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -176,11 +178,13 @@ export default function WorkshopsClient() {
                           <Badge
                             key={t}
                             className={cn(
-                              "text-[10px] font-bold uppercase",
+                              "px-1.5 text-[10px] font-bold uppercase",
                               certificationTierBadgeClass(t),
                             )}
+                            aria-label={certificationTierLabel(t)}
+                            title={certificationTierSectionTitle(t)}
                           >
-                            {certificationTierLabel(t)}
+                            <CertificationTierMedallion tier={t} />
                           </Badge>
                         ))}
                       </div>

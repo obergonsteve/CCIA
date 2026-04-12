@@ -2,6 +2,7 @@
 
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
+import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ import Link from "next/link";
 import {
   certificationTierBadgeClass,
   certificationTierLabel,
+  certificationTierSectionTitle,
   effectiveCertificationTier,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
@@ -147,11 +149,13 @@ function CertificationBucketSection({
                     <CardTitle className="text-lg">{level.name}</CardTitle>
                     <Badge
                       className={cn(
-                        "text-[10px] font-bold uppercase tracking-wide",
+                        "px-1.5 text-[10px] font-bold uppercase tracking-wide",
                         certificationTierBadgeClass(tier),
                       )}
+                      aria-label={certificationTierLabel(tier)}
+                      title={certificationTierSectionTitle(tier)}
                     >
-                      {certificationTierLabel(tier)}
+                      <CertificationTierMedallion tier={tier} />
                     </Badge>
                   </div>
                   <CardDescription className="line-clamp-2">

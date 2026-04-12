@@ -2,6 +2,7 @@
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "convex/react";
 import {
@@ -18,6 +19,7 @@ import Link from "next/link";
 import {
   certificationTierBadgeClass,
   certificationTierLabel,
+  certificationTierSectionTitle,
   effectiveCertificationTier,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
@@ -169,11 +171,13 @@ export default function CertificationLevelClient({
                 </h1>
                 <Badge
                   className={cn(
-                    "text-[10px] font-bold uppercase tracking-wide",
+                    "px-1.5 text-[10px] font-bold uppercase tracking-wide",
                     certificationTierBadgeClass(tier),
                   )}
+                  aria-label={certificationTierLabel(tier)}
+                  title={certificationTierSectionTitle(tier)}
                 >
-                  {certificationTierLabel(tier)}
+                  <CertificationTierMedallion tier={tier} />
                 </Badge>
               </div>
               {level.tagline ? (
@@ -190,11 +194,13 @@ export default function CertificationLevelClient({
             <h1 className="text-2xl font-bold tracking-tight">{level.name}</h1>
             <Badge
               className={cn(
-                "text-[10px] font-bold uppercase tracking-wide",
+                "px-1.5 text-[10px] font-bold uppercase tracking-wide",
                 certificationTierBadgeClass(tier),
               )}
+              aria-label={certificationTierLabel(tier)}
+              title={certificationTierSectionTitle(tier)}
             >
-              {certificationTierLabel(tier)}
+              <CertificationTierMedallion tier={tier} />
             </Badge>
           </div>
           {level.tagline ? (

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ import { toast } from "sonner";
 import {
   certificationTierBadgeClass,
   certificationTierLabel,
+  certificationTierSectionTitle,
   effectiveCertificationTier,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
@@ -871,11 +873,13 @@ export function SortableLevelRow({
         >
           <Badge
             className={cn(
-              "shrink-0 px-2 py-0 text-[10px] font-bold uppercase tracking-wide",
+              "shrink-0 px-1.5 py-0 text-[10px] font-bold uppercase tracking-wide",
               certificationTierBadgeClass(tier),
             )}
+            aria-label={certificationTierLabel(tier)}
+            title={certificationTierSectionTitle(tier)}
           >
-            {certificationTierLabel(tier)}
+            <CertificationTierMedallion tier={tier} />
           </Badge>
           <Tooltip>
             <TooltipTrigger asChild>
