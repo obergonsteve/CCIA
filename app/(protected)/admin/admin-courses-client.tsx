@@ -1910,7 +1910,7 @@ export default function AdminCoursesClient() {
                   variant={
                     certTierFilter === "all" ? "secondary" : "outline"
                   }
-                  className="h-8 min-w-8 shrink-0 px-2 text-xs font-semibold"
+                  className="h-10 min-w-10 shrink-0 px-2.5 text-xs font-semibold"
                   onClick={() => setCertTierFilter("all")}
                   aria-label="All tiers"
                   title="Show all certification tiers"
@@ -1921,16 +1921,19 @@ export default function AdminCoursesClient() {
                   <Button
                     key={tier}
                     type="button"
-                    size="icon"
+                    size="icon-lg"
                     variant={
                       certTierFilter === tier ? "secondary" : "outline"
                     }
-                    className="shrink-0"
+                    className="size-10 shrink-0"
                     onClick={() => setCertTierFilter(tier)}
                     aria-label={certificationTierLabel(tier)}
                     title={certificationTierSectionTitle(tier)}
                   >
-                    <CertificationTierMedallion tier={tier} className="size-7" />
+                    <CertificationTierMedallion
+                      tier={tier}
+                      className="size-[2.33rem]"
+                    />
                   </Button>
                 ))}
               </div>

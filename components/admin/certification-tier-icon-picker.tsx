@@ -67,7 +67,7 @@ export function CertificationTierIconPicker({
             >
               <CertificationTierMedallion
                 tier={tier}
-                className="size-12"
+                className="size-[3.993rem]"
                 aria-hidden
               />
               <span

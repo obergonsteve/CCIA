@@ -21,9 +21,19 @@ import {
   certificationTierLabel,
   certificationTierSectionTitle,
   effectiveCertificationTier,
+  type CertificationTierKey,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
+
+const CERT_LIST_TIER_SECTION: Record<CertificationTierKey, string> = {
+  bronze:
+    "border-brand-lime/45 bg-brand-lime/[0.09] shadow-sm shadow-brand-lime/15 dark:border-brand-lime/35 dark:bg-brand-lime/[0.12] dark:shadow-brand-lime/10",
+  silver:
+    "border-brand-sky/45 bg-brand-sky/[0.08] shadow-sm shadow-brand-sky/15 dark:border-brand-sky/35 dark:bg-brand-sky/[0.11] dark:shadow-brand-sky/10",
+  gold:
+    "border-brand-gold/50 bg-brand-gold/[0.10] shadow-sm shadow-brand-gold/20 dark:border-brand-gold/40 dark:bg-brand-gold/[0.13] dark:shadow-brand-gold/15",
+};
 
 export default function CertificationsClient() {
   const catalog = useQuery(api.certifications.listCatalogForUser);
@@ -100,7 +110,7 @@ export default function CertificationsClient() {
       ) : (
         <div>
           <nav
-            className="mb-2 flex flex-wrap gap-2 sm:mb-2.5"
+            className="mb-2 flex flex-wrap items-center justify-center gap-3 sm:mb-2.5 sm:gap-3.5"
             aria-label="Jump to certification tier"
           >
             {grouped.map(({ tier }) => (
@@ -109,7 +119,7 @@ export default function CertificationsClient() {
                 href={`#cert-tier-${tier}`}
                 className={cn(
                   buttonVariants({ variant: "outline", size: "sm" }),
-                  "gap-1.5 rounded-full border-brand-sky/35 bg-card/90 px-3 py-1.5 hover:bg-muted/60",
+                  "h-auto min-h-0 gap-2 rounded-full border-brand-sky/35 bg-card/90 px-4 py-1.5 text-sm font-semibold shadow-sm hover:bg-muted/60",
                   tier === "bronze" &&
                     "border-brand-lime/45 bg-brand-lime/12 hover:bg-brand-lime/18",
                   tier === "silver" &&
@@ -119,8 +129,8 @@ export default function CertificationsClient() {
                 )}
                 title={certificationTierSectionTitle(tier)}
               >
-                <CertificationTierMedallion tier={tier} className="size-5" />
-                <span className="font-semibold">
+                <CertificationTierMedallion tier={tier} className="size-6" />
+                <span className="leading-none">
                   {certificationTierLabel(tier)}
                 </span>
               </a>
@@ -131,9 +141,12 @@ export default function CertificationsClient() {
             <section
               key={tier}
               id={`cert-tier-${tier}`}
-              className="scroll-mt-20 space-y-4"
+              className={cn(
+                "scroll-mt-20 space-y-5 rounded-2xl border-2 p-5 md:p-6",
+                CERT_LIST_TIER_SECTION[tier],
+              )}
             >
-              <div className="border-b border-border/80 pb-2">
+              <div className="border-b border-foreground/10 pb-3 dark:border-foreground/15">
                 <h3 className="text-lg font-semibold tracking-tight">
                   {certificationTierSectionTitle(tier)}
                 </h3>
@@ -164,7 +177,7 @@ export default function CertificationsClient() {
                           <div className="absolute left-4 top-4">
                             <Badge
                               className={cn(
-                                "h-auto min-h-7 items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
+                                "h-auto min-h-10 items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
                                 certificationTierBadgeClass(tier),
                               )}
                               aria-label={certificationTierLabel(tier)}
@@ -172,7 +185,7 @@ export default function CertificationsClient() {
                             >
                               <CertificationTierMedallion
                                 tier={tier}
-                                className="size-7"
+                                className="size-[2.33rem]"
                               />
                             </Badge>
                           </div>
