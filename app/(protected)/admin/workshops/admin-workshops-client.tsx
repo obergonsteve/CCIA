@@ -253,7 +253,11 @@ export default function AdminWorkshopsClient() {
             <WorkshopPlannerCalendar
               sessions={calendarMarkers}
               selectedDay={plannerSelectedDay}
-              onSelectDay={setPlannerSelectedDay}
+              onSelectDay={(d) => {
+                if (d != null) {
+                  setPlannerSelectedDay(startOfDay(d));
+                }
+              }}
             />
             <div className="min-w-0 space-y-3">
               <h3 className="text-sm font-semibold text-foreground">

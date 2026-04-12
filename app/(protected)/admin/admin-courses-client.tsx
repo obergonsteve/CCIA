@@ -637,7 +637,8 @@ export default function AdminCoursesClient() {
   const [trainingLeftTab, setTrainingLeftTab] = useState<
     "certifications" | "workshops"
   >("certifications");
-  const [workshopPlannerDay, setWorkshopPlannerDay] = useState(() =>
+  /** `null` = no day filter — centre column lists all live-workshop units (calendar “All”). */
+  const [workshopPlannerDay, setWorkshopPlannerDay] = useState<Date | null>(() =>
     startOfDay(new Date()),
   );
   const [workshopCalendarViewMonth, setWorkshopCalendarViewMonth] = useState(
@@ -2003,7 +2004,7 @@ export default function AdminCoursesClient() {
   }, [workshopSessionsAdmin, workshopCalendarViewMonth]);
 
   const unitIdsScheduledOnWorkshopPlannerDay = useMemo(() => {
-    if (!workshopSessionsAdmin?.length) {
+    if (workshopPlannerDay == null || !workshopSessionsAdmin?.length) {
       return new Set<string>();
     }
     const ids = new Set<string>();
@@ -2046,37 +2047,37 @@ export default function AdminCoursesClient() {
     unitIdsScheduledOnWorkshopPlannerDay,
   ]);
 
-  const certCentreUnitsOrdered = useMemo(
-    () =>
-      trainingLeftTab === "workshops"
-        ? [
-            ...workshopCentreSplit.onDay,
-            ...workshopCentreSplit.other,
-          ]
-        : unitsInCertVisibleForUi,
-    [
-      trainingLeftTab,
-      workshopCentreSplit.onDay,
-      workshopCentreSplit.other,
-      unitsInCertVisibleForUi,
-    ],
-  );
+  const certCentreUnitsOrdered = useMemo(() => {
+    if (trainingLeftTab !== "workshops") {
+      return unitsInCertVisibleForUi;
+    }
+    if (workshopPlannerDay == null) {
+      return [...workshopCentreSplit.onDay, ...workshopCentreSplit.other];
+    }
+    return workshopCentreSplit.onDay;
+  }, [
+    trainingLeftTab,
+    workshopPlannerDay,
+    workshopCentreSplit.onDay,
+    workshopCentreSplit.other,
+    unitsInCertVisibleForUi,
+  ]);
 
-  const allCentrePaletteOrdered = useMemo(
-    () =>
-      trainingLeftTab === "workshops"
-        ? [
-            ...workshopCentreSplit.onDay,
-            ...workshopCentreSplit.other,
-          ]
-        : allUnitsVisibleForUi,
-    [
-      trainingLeftTab,
-      workshopCentreSplit.onDay,
-      workshopCentreSplit.other,
-      allUnitsVisibleForUi,
-    ],
-  );
+  const allCentrePaletteOrdered = useMemo(() => {
+    if (trainingLeftTab !== "workshops") {
+      return allUnitsVisibleForUi;
+    }
+    if (workshopPlannerDay == null) {
+      return [...workshopCentreSplit.onDay, ...workshopCentreSplit.other];
+    }
+    return workshopCentreSplit.onDay;
+  }, [
+    trainingLeftTab,
+    workshopPlannerDay,
+    workshopCentreSplit.onDay,
+    workshopCentreSplit.other,
+    allUnitsVisibleForUi,
+  ]);
 
   /** When set, unit content list is filtered — reorder would be ambiguous, so drag is disabled. */
   const contentFilterActive =
@@ -2104,13 +2105,21 @@ export default function AdminCoursesClient() {
     ? levelsVisibleForUi.length
     : levelsListForUi.length;
   const unitsListCount: number | null =
-    filterCertId && !centreUnitsShowAll
-      ? unitsInCertListForUi === undefined
-        ? null
-        : unitsInCertVisibleForUi.length
-      : allUnits === undefined
-        ? null
-        : allUnitsVisibleForUi.length;
+    trainingLeftTab === "workshops"
+      ? filterCertId && !centreUnitsShowAll
+        ? unitsInCertListForUi === undefined
+          ? null
+          : certCentreUnitsOrdered.length
+        : allUnits === undefined
+          ? null
+          : allCentrePaletteOrdered.length
+      : filterCertId && !centreUnitsShowAll
+        ? unitsInCertListForUi === undefined
+          ? null
+          : unitsInCertVisibleForUi.length
+        : allUnits === undefined
+          ? null
+          : allUnitsVisibleForUi.length;
   const contentListCount: number | null =
     selectedDetailUnitId && selectedDetailUnit && !libraryShowAll
       ? detailContent === undefined
@@ -2296,7 +2305,7 @@ export default function AdminCoursesClient() {
                   in the centre column to drag here.
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Drag Units onto a Certification.
                 </p>
               )}
@@ -2351,11 +2360,20 @@ export default function AdminCoursesClient() {
                 className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col gap-2 outline-none data-[state=inactive]:hidden"
               >
                 <h2 className="sr-only">Workshops</h2>
+                {workshopPlannerDay == null ? (
+                  <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                    Drag a workshop unit onto a date to schedule it.
+                  </p>
+                ) : null}
                 <div className="min-h-0 flex-1 overflow-y-auto scrollbar-panel">
                   <WorkshopPlannerCalendar
                     sessions={workshopSessionMarkers}
                     selectedDay={workshopPlannerDay}
-                    onSelectDay={(d) => setWorkshopPlannerDay(startOfDay(d))}
+                    onSelectDay={(d) =>
+                      setWorkshopPlannerDay(
+                        d == null ? null : startOfDay(d),
+                      )
+                    }
                     droppableDays
                     dropHighlightDayMs={workshopCalDropHighlightMs}
                     onViewMonthChange={(m) =>
@@ -2380,9 +2398,11 @@ export default function AdminCoursesClient() {
               count={unitsListCount}
               trailing={
                 <span className="min-w-0 truncate">
-                  {filterCertId && !centreUnitsShowAll
-                    ? (filterCertName ?? "…")
-                    : "All units"}
+                  {trainingLeftTab === "workshops" && workshopPlannerDay != null
+                    ? format(workshopPlannerDay, "d MMM yyyy")
+                    : filterCertId && !centreUnitsShowAll
+                      ? (filterCertName ?? "…")
+                      : "All units"}
                 </span>
               }
             />
@@ -2509,10 +2529,13 @@ export default function AdminCoursesClient() {
             ) : null}
             {trainingLeftTab === "workshops" ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Live workshop units only. Drag a unit onto a date in the left{" "}
+                Live workshop units only. Use{" "}
+                <span className="font-medium text-foreground">All</span> in the
+                calendar header to list every unit here, or pick a day to show
+                only units with a session that day. Drag a unit onto a date in
+                the left{" "}
                 <span className="font-medium text-foreground">Workshops</span>{" "}
-                tab to schedule. The list groups units with sessions on the
-                selected day.
+                tab to schedule.
               </p>
             ) : filterCertId && !centreUnitsShowAll ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
@@ -2537,7 +2560,14 @@ export default function AdminCoursesClient() {
                   ) : unitsInCertListForUi!.length > 0 &&
                     certCentreUnitsOrdered.length === 0 ? (
                     <p className="py-6 text-center text-sm text-muted-foreground">
-                      {unitSearch.trim() ? (
+                      {trainingLeftTab === "workshops" &&
+                      workshopPlannerDay != null &&
+                      !unitSearch.trim() ? (
+                        <>
+                          No units have a scheduled workshop on{" "}
+                          {format(workshopPlannerDay, "d MMM yyyy")}.
+                        </>
+                      ) : unitSearch.trim() ? (
                         <>
                           No units match &ldquo;{unitSearch.trim()}&rdquo;.
                         </>
@@ -2554,32 +2584,8 @@ export default function AdminCoursesClient() {
                       strategy={verticalListSortingStrategy}
                     >
                       <ul className="space-y-1">
-                        {trainingLeftTab === "workshops" &&
-                        workshopCentreSplit.onDay.length > 0 ? (
-                          <li className="list-none py-0.5">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              On {format(workshopPlannerDay, "d MMM yyyy")}
-                            </p>
-                          </li>
-                        ) : null}
-                        {certCentreUnitsOrdered.map((u, idx) => (
-                          <li
-                            key={u._id}
-                            className={cn(
-                              "space-y-0",
-                              trainingLeftTab === "workshops" &&
-                                idx === workshopCentreSplit.onDay.length &&
-                                workshopCentreSplit.other.length > 0 &&
-                                "border-t border-border/50 pt-2 mt-1",
-                            )}
-                          >
-                            {trainingLeftTab === "workshops" &&
-                            idx === workshopCentreSplit.onDay.length &&
-                            workshopCentreSplit.other.length > 0 ? (
-                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Other workshop units
-                              </p>
-                            ) : null}
+                        {certCentreUnitsOrdered.map((u) => (
+                          <li key={u._id} className="space-y-0">
                             <UnitRowContentDropTarget
                               unitId={u._id}
                               disabled={
@@ -2651,7 +2657,15 @@ export default function AdminCoursesClient() {
                   </p>
                 ) : allCentrePaletteOrdered.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
-                    {unitSearch.trim() ? (
+                    {trainingLeftTab === "workshops" &&
+                    workshopPlannerDay != null &&
+                    !unitSearch.trim() &&
+                    (allUnitsVisibleForUi?.length ?? 0) > 0 ? (
+                      <>
+                        No units have a scheduled workshop on{" "}
+                        {format(workshopPlannerDay, "d MMM yyyy")}.
+                      </>
+                    ) : unitSearch.trim() ? (
                       <>
                         No units match &ldquo;{unitSearch.trim()}&rdquo;.
                       </>
@@ -2664,32 +2678,8 @@ export default function AdminCoursesClient() {
                   </p>
                 ) : (
                   <ul className="space-y-2">
-                    {trainingLeftTab === "workshops" &&
-                    workshopCentreSplit.onDay.length > 0 ? (
-                      <li className="list-none py-0.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          On {format(workshopPlannerDay, "d MMM yyyy")}
-                        </p>
-                      </li>
-                    ) : null}
-                    {allCentrePaletteOrdered.map((u, idx) => (
-                      <li
-                        key={u._id}
-                        className={cn(
-                          "space-y-0",
-                          trainingLeftTab === "workshops" &&
-                            idx === workshopCentreSplit.onDay.length &&
-                            workshopCentreSplit.other.length > 0 &&
-                            "border-t border-border/50 pt-2 mt-1",
-                        )}
-                      >
-                        {trainingLeftTab === "workshops" &&
-                        idx === workshopCentreSplit.onDay.length &&
-                        workshopCentreSplit.other.length > 0 ? (
-                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Other workshop units
-                          </p>
-                        ) : null}
+                    {allCentrePaletteOrdered.map((u) => (
+                      <li key={u._id} className="space-y-0">
                         <UnitRowContentDropTarget
                           unitId={u._id}
                           disabled={

@@ -50,7 +50,7 @@ function DroppablePlannerDayCell({
 }: {
   day: Date;
   viewMonth: Date;
-  selectedDay: Date;
+  selectedDay: Date | null;
   sessions: WorkshopPlannerSessionMarker[];
   onSelectDay: (day: Date) => void;
   dropHighlightDayMs?: number | null;
@@ -59,7 +59,8 @@ function DroppablePlannerDayCell({
   const droppableId = workshopCalendarDayDropId(day);
   const { setNodeRef, isOver } = useDroppable({ id: droppableId });
   const inMonth = isSameMonth(day, viewMonth);
-  const selected = isSameDay(day, selectedDay);
+  const selected =
+    selectedDay != null && isSameDay(day, selectedDay);
   const daySessions = sessionsForCalendarDay(sessions, day);
   const scheduled = daySessions.filter((s) => s.status === "scheduled").length;
   const cancelled = daySessions.filter((s) => s.status === "cancelled").length;
@@ -114,13 +115,14 @@ function StaticPlannerDayCell({
 }: {
   day: Date;
   viewMonth: Date;
-  selectedDay: Date;
+  selectedDay: Date | null;
   sessions: WorkshopPlannerSessionMarker[];
   onSelectDay: (day: Date) => void;
 }) {
   const dayStart = startOfDay(day);
   const inMonth = isSameMonth(day, viewMonth);
-  const selected = isSameDay(day, selectedDay);
+  const selected =
+    selectedDay != null && isSameDay(day, selectedDay);
   const daySessions = sessionsForCalendarDay(sessions, day);
   const scheduled = daySessions.filter((s) => s.status === "scheduled").length;
   const cancelled = daySessions.filter((s) => s.status === "cancelled").length;
@@ -170,8 +172,9 @@ export function WorkshopPlannerCalendar({
   onViewMonthChange,
 }: {
   sessions: WorkshopPlannerSessionMarker[];
-  selectedDay: Date;
-  onSelectDay: (day: Date) => void;
+  /** `null` = no day filter (e.g. show all workshop units in Training Content centre column). */
+  selectedDay: Date | null;
+  onSelectDay: (day: Date | null) => void;
   /** When true, each day is a @dnd-kit drop target (Training Content workshops tab). */
   droppableDays?: boolean;
   /** Optional drag-over highlight (day start ms, same as drop id payload). */
@@ -180,7 +183,7 @@ export function WorkshopPlannerCalendar({
   onViewMonthChange?: (monthStart: Date) => void;
 }) {
   const [viewMonth, setViewMonth] = useState(() =>
-    startOfMonth(startOfDay(selectedDay)),
+    startOfMonth(startOfDay(selectedDay ?? new Date())),
   );
 
   /** Parent often passes an inline handler; keep out of effect deps to avoid update loops. */
@@ -240,19 +243,34 @@ export function WorkshopPlannerCalendar({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 shrink-0 text-xs"
-          onClick={() => {
-            const t = startOfDay(new Date());
-            onSelectDay(t);
-            setViewMonth(startOfMonth(t));
-          }}
-        >
-          Today
-        </Button>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          {droppableDays ? (
+            <Button
+              type="button"
+              variant={selectedDay == null ? "secondary" : "outline"}
+              size="sm"
+              className="h-8 text-xs"
+              aria-pressed={selectedDay == null}
+              title="List all workshop units in the centre column (no day filter)"
+              onClick={() => onSelectDay(null)}
+            >
+              All
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => {
+              const t = startOfDay(new Date());
+              onSelectDay(t);
+              setViewMonth(startOfMonth(t));
+            }}
+          >
+            Today
+          </Button>
+        </div>
       </div>
 
       <div
