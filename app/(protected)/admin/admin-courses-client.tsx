@@ -470,19 +470,21 @@ function TrainingColumnChip({
   );
 }
 
-/** Lime-column tab switcher — same visual language as {@link TrainingColumnChip}. */
+/** Left-column tab switcher — same visual language as {@link TrainingColumnChip} (lime = certs, purple = workshops). */
 function TrainingLeftTabChip({
   selected,
   onClick,
   count,
   label,
   trailing,
+  tone = "lime",
 }: {
   selected: boolean;
   onClick: () => void;
   count: number | null;
   label?: string;
   trailing: ReactNode;
+  tone?: "lime" | "purple";
 }) {
   return (
     <button
@@ -495,8 +497,15 @@ function TrainingLeftTabChip({
         "inline-flex max-w-full min-w-0 flex-1 basis-0 items-center gap-2 rounded-full border px-3.5 py-1 text-[13px] font-bold leading-tight shadow-sm transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
-          ? "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]"
-          : "border-border/60 bg-card/45 text-muted-foreground hover:border-brand-lime/40 hover:bg-card/75 hover:text-foreground dark:border-border/50 dark:bg-card/30 dark:hover:bg-card/45",
+          ? tone === "purple"
+            ? "border-purple-500/55 bg-[color-mix(in_oklab,purple_22%,var(--card))] text-foreground dark:border-purple-400/50 dark:bg-[color-mix(in_oklab,purple_17%,var(--card))]"
+            : "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]"
+          : cn(
+              "border-border/60 bg-card/45 text-muted-foreground hover:bg-card/75 hover:text-foreground dark:border-border/50 dark:bg-card/30 dark:hover:bg-card/45",
+              tone === "purple"
+                ? "hover:border-purple-500/40 dark:hover:border-purple-400/35"
+                : "hover:border-brand-lime/40",
+            ),
       )}
     >
       {label?.trim() ? (
@@ -2149,7 +2158,14 @@ export default function AdminCoursesClient() {
       >
         {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
         <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[repeat(3,minmax(0,1fr))]">
-          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] px-2 pb-4 pt-0 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
+          <div
+            className={cn(
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 px-2 pb-4 pt-0 shadow-lg",
+              trainingLeftTab === "workshops"
+                ? "border-purple-500/40 border-l-purple-500 border-r-purple-500 bg-purple-500/[0.11] dark:border-purple-400/35 dark:border-l-purple-400 dark:border-r-purple-400 dark:bg-purple-400/[0.12]"
+                : "border-brand-lime/40 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]",
+            )}
+          >
             <Tabs
               value={trainingLeftTab}
               onValueChange={(v) =>
@@ -2165,6 +2181,7 @@ export default function AdminCoursesClient() {
                 aria-label="Left column mode"
               >
                 <TrainingLeftTabChip
+                  tone="lime"
                   selected={trainingLeftTab === "certifications"}
                   onClick={() => setTrainingLeftTab("certifications")}
                   count={certListCount}
@@ -2173,6 +2190,7 @@ export default function AdminCoursesClient() {
                   }
                 />
                 <TrainingLeftTabChip
+                  tone="purple"
                   selected={trainingLeftTab === "workshops"}
                   onClick={() => setTrainingLeftTab("workshops")}
                   count={workshopSessionsInViewMonthCount}

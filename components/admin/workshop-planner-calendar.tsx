@@ -89,7 +89,7 @@ function DroppablePlannerDayCell({
         <span className="mt-0.5 flex h-3 items-center justify-center gap-0.5">
           {scheduled > 0 ? (
             <span
-              className="size-1.5 rounded-full bg-brand-lime"
+              className="size-1.5 rounded-full bg-purple-500 dark:bg-purple-400"
               title={`${scheduled} scheduled`}
             />
           ) : null}
@@ -145,7 +145,7 @@ function StaticPlannerDayCell({
         <span className="mt-0.5 flex h-3 items-center justify-center gap-0.5">
           {scheduled > 0 ? (
             <span
-              className="size-1.5 rounded-full bg-brand-lime"
+              className="size-1.5 rounded-full bg-purple-500 dark:bg-purple-400"
               title={`${scheduled} scheduled`}
             />
           ) : null}
@@ -297,7 +297,8 @@ export function WorkshopPlannerCalendar({
 
       <p className="text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          <span className="size-1.5 rounded-full bg-brand-lime" /> Scheduled
+          <span className="size-1.5 rounded-full bg-purple-500 dark:bg-purple-400" />{" "}
+          Scheduled
         </span>
         {" · "}
         <span className="inline-flex items-center gap-1">
