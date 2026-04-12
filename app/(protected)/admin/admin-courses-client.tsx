@@ -47,18 +47,21 @@ import {
 } from "@dnd-kit/sortable";
 import { useMutation, useQuery } from "convex/react";
 import {
-  BookMarked,
-  GraduationCap,
   GripHorizontal,
   GripVertical,
-  Layers,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
+import { format, isSameDay, isSameMonth, startOfDay, startOfMonth } from "date-fns";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  WorkshopPlannerCalendar,
+  WORKSHOP_CAL_DAY_PREFIX,
+} from "@/components/admin/workshop-planner-calendar";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { suggestEntityCodeFromLabel } from "@/lib/entity-code-form";
 import {
   certificationTierLabel,
@@ -84,6 +87,20 @@ import {
 
 /** Radix Select sentinel — no category on entity. */
 const CATEGORY_SELECT_NONE = "__none__" as const;
+
+function toScheduleLocalInputValue(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function parseScheduleLocalInput(s: string): number {
+  const t = Date.parse(s);
+  if (Number.isNaN(t)) {
+    throw new Error("Invalid date/time");
+  }
+  return t;
+}
 
 /** Filter chip second line: only when long text differs from short code (migration often duplicated the legacy label). */
 function categoryChipSubtitle(
@@ -453,6 +470,50 @@ function TrainingColumnChip({
   );
 }
 
+/** Lime-column tab switcher — same visual language as {@link TrainingColumnChip}. */
+function TrainingLeftTabChip({
+  selected,
+  onClick,
+  count,
+  label,
+  trailing,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  count: number | null;
+  label?: string;
+  trailing: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={onClick}
+      className={cn(
+        /* Match {@link TrainingColumnChip} pill: px-3.5 py-1 text-[13px], no min-height bump */
+        "inline-flex max-w-full min-w-0 flex-1 basis-0 items-center gap-2 rounded-full border px-3.5 py-1 text-[13px] font-bold leading-tight shadow-sm transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        selected
+          ? "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]"
+          : "border-border/60 bg-card/45 text-muted-foreground hover:border-brand-lime/40 hover:bg-card/75 hover:text-foreground dark:border-border/50 dark:bg-card/30 dark:hover:bg-card/45",
+      )}
+    >
+      {label?.trim() ? (
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+          {label.trim()}
+        </span>
+      ) : null}
+      <span className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center">
+        {trailing}
+      </span>
+      <span className="shrink-0 tabular-nums rounded-md bg-background px-1.5 py-0.5 text-xs font-bold leading-none text-foreground dark:bg-muted">
+        {count === null ? "…" : count}
+      </span>
+    </button>
+  );
+}
+
 export default function AdminCoursesClient() {
   const companies = useQuery(api.companies.list);
   const levels = useQuery(api.certifications.listAllAdmin);
@@ -485,6 +546,7 @@ export default function AdminCoursesClient() {
   const contentCategories = useQuery(api.contentCategories.listAdmin);
   const deleteCertificationLevel = useMutation(api.certifications.remove);
   const deleteUnit = useMutation(api.units.remove);
+  const createWorkshopSession = useMutation(api.workshops.createSession);
   /** Certification chosen in the edit dialog or delete confirmation. */
   const [editCertId, setEditCertId] =
     useState<Id<"certificationLevels"> | null>(null);
@@ -562,6 +624,27 @@ export default function AdminCoursesClient() {
   const [unitDeliveryFilter, setUnitDeliveryFilter] = useState<
     "self_paced" | "live_workshop"
   >("self_paced");
+  /** Left column: certifications list vs workshop calendar (Training Content). */
+  const [trainingLeftTab, setTrainingLeftTab] = useState<
+    "certifications" | "workshops"
+  >("certifications");
+  const [workshopPlannerDay, setWorkshopPlannerDay] = useState(() =>
+    startOfDay(new Date()),
+  );
+  const [workshopCalendarViewMonth, setWorkshopCalendarViewMonth] = useState(
+    () => startOfMonth(startOfDay(new Date())),
+  );
+  const [workshopCalDropHighlightMs, setWorkshopCalDropHighlightMs] = useState<
+    number | null
+  >(null);
+  const [scheduleWorkshopOpen, setScheduleWorkshopOpen] = useState(false);
+  const [scheduleWorkshopUnitId, setScheduleWorkshopUnitId] =
+    useState<Id<"units"> | null>(null);
+  const [scheduleTitleOverride, setScheduleTitleOverride] = useState("");
+  const [scheduleStartsLocal, setScheduleStartsLocal] = useState("");
+  const [scheduleEndsLocal, setScheduleEndsLocal] = useState("");
+  const [scheduleCapacity, setScheduleCapacity] = useState("");
+  const [scheduleExternalUrl, setScheduleExternalUrl] = useState("");
   const [contentSearch, setContentSearch] = useState("");
   /** Content / library column: filter by admin-defined content category (chips). */
   const [contentLibraryCategoryFilter, setContentLibraryCategoryFilter] =
@@ -966,6 +1049,15 @@ export default function AdminCoursesClient() {
   );
 
   useEffect(() => {
+    if (trainingLeftTab === "workshops") {
+      setUnitDeliveryFilter("live_workshop");
+      setWorkshopCalDropHighlightMs(null);
+    } else {
+      setUnitDeliveryFilter("self_paced");
+    }
+  }, [trainingLeftTab]);
+
+  useEffect(() => {
     setSelectedDetailUnitId(null);
   }, [filterCertId]);
 
@@ -1368,6 +1460,7 @@ export default function AdminCoursesClient() {
     setDragOverlayContentId(null);
     setDropHighlightLevelId(null);
     setDropHighlightUnitId(null);
+    setWorkshopCalDropHighlightMs(null);
   }, []);
 
   const handleDragOver = useCallback(
@@ -1381,6 +1474,17 @@ export default function AdminCoursesClient() {
       const activeStr = String(active.id);
       const overStr = String(over.id);
       if (activeStr.startsWith("palette-unit:")) {
+        if (
+          trainingLeftTab === "workshops" &&
+          overStr.startsWith(WORKSHOP_CAL_DAY_PREFIX)
+        ) {
+          const ms = Number(overStr.slice(WORKSHOP_CAL_DAY_PREFIX.length));
+          setWorkshopCalDropHighlightMs(
+            Number.isFinite(ms) ? ms : null,
+          );
+        } else {
+          setWorkshopCalDropHighlightMs(null);
+        }
         setDropHighlightLevelId(
           resolveCertificationIdForPaletteUnitDrop(overStr, levels),
         );
@@ -1414,6 +1518,7 @@ export default function AdminCoursesClient() {
       centreUnitsShowAll,
       selectedDetailUnitId,
       libraryShowAll,
+      trainingLeftTab,
     ],
   );
 
@@ -1424,6 +1529,7 @@ export default function AdminCoursesClient() {
       setDragOverlayContentId(null);
       setDropHighlightLevelId(null);
       setDropHighlightUnitId(null);
+      setWorkshopCalDropHighlightMs(null);
 
       if (!over) {
         return;
@@ -1452,6 +1558,38 @@ export default function AdminCoursesClient() {
 
       if (activeStr.startsWith("palette-unit:")) {
         const uid = activeStr.slice("palette-unit:".length) as Id<"units">;
+        if (
+          trainingLeftTab === "workshops" &&
+          overStr.startsWith(WORKSHOP_CAL_DAY_PREFIX)
+        ) {
+          const dayMs = Number(overStr.slice(WORKSHOP_CAL_DAY_PREFIX.length));
+          const unitRow = allUnits?.find((x) => x._id === uid);
+          if (!unitRow) {
+            toast.error("Unit not found");
+            return;
+          }
+          if ((unitRow.deliveryMode ?? "self_paced") !== "live_workshop") {
+            toast.error("Only live workshop units can be scheduled on the calendar");
+            return;
+          }
+          if (!Number.isFinite(dayMs)) {
+            toast.error("Invalid date");
+            return;
+          }
+          const base = new Date(dayMs);
+          const startD = new Date(base);
+          startD.setHours(9, 0, 0, 0);
+          const endD = new Date(base);
+          endD.setHours(10, 0, 0, 0);
+          setScheduleWorkshopUnitId(uid);
+          setScheduleTitleOverride("");
+          setScheduleStartsLocal(toScheduleLocalInputValue(startD.getTime()));
+          setScheduleEndsLocal(toScheduleLocalInputValue(endD.getTime()));
+          setScheduleCapacity("");
+          setScheduleExternalUrl("");
+          setScheduleWorkshopOpen(true);
+          return;
+        }
         const lid = resolveCertificationIdForPaletteUnitDrop(
           overStr,
           levels ?? undefined,
@@ -1591,6 +1729,10 @@ export default function AdminCoursesClient() {
       reorderContentOnUnit,
       contentLibraryCategoryFilter,
       contentSearchLower,
+      trainingLeftTab,
+      allUnits,
+      levels,
+      unitsInFilteredCert,
     ],
   );
 
@@ -1833,6 +1975,100 @@ export default function AdminCoursesClient() {
     unitMatchesDeliveryChip,
   ]);
 
+  const workshopSessionMarkers = useMemo(
+    () =>
+      workshopSessionsAdmin?.map((s) => ({
+        startsAt: s.startsAt,
+        status: s.status,
+      })) ?? [],
+    [workshopSessionsAdmin],
+  );
+
+  const workshopSessionsInViewMonthCount = useMemo(() => {
+    if (!workshopSessionsAdmin) {
+      return null;
+    }
+    return workshopSessionsAdmin.filter((s) =>
+      isSameMonth(new Date(s.startsAt), workshopCalendarViewMonth),
+    ).length;
+  }, [workshopSessionsAdmin, workshopCalendarViewMonth]);
+
+  const unitIdsScheduledOnWorkshopPlannerDay = useMemo(() => {
+    if (!workshopSessionsAdmin?.length) {
+      return new Set<string>();
+    }
+    const ids = new Set<string>();
+    for (const s of workshopSessionsAdmin) {
+      if (
+        s.status === "scheduled" &&
+        isSameDay(new Date(s.startsAt), workshopPlannerDay)
+      ) {
+        ids.add(s.workshopUnitId);
+      }
+    }
+    return ids;
+  }, [workshopSessionsAdmin, workshopPlannerDay]);
+
+  const workshopCentreSplit = useMemo(() => {
+    if (trainingLeftTab !== "workshops") {
+      return { onDay: [] as UnitAdminListRow[], other: [] as UnitAdminListRow[] };
+    }
+    const source = (
+      filterCertId && !centreUnitsShowAll
+        ? unitsInCertVisibleForUi
+        : allUnitsVisibleForUi
+    ) as UnitAdminListRow[];
+    const onDay: UnitAdminListRow[] = [];
+    const other: UnitAdminListRow[] = [];
+    for (const u of source) {
+      if (unitIdsScheduledOnWorkshopPlannerDay.has(u._id)) {
+        onDay.push(u);
+      } else {
+        other.push(u);
+      }
+    }
+    return { onDay, other };
+  }, [
+    trainingLeftTab,
+    filterCertId,
+    centreUnitsShowAll,
+    unitsInCertVisibleForUi,
+    allUnitsVisibleForUi,
+    unitIdsScheduledOnWorkshopPlannerDay,
+  ]);
+
+  const certCentreUnitsOrdered = useMemo(
+    () =>
+      trainingLeftTab === "workshops"
+        ? [
+            ...workshopCentreSplit.onDay,
+            ...workshopCentreSplit.other,
+          ]
+        : unitsInCertVisibleForUi,
+    [
+      trainingLeftTab,
+      workshopCentreSplit.onDay,
+      workshopCentreSplit.other,
+      unitsInCertVisibleForUi,
+    ],
+  );
+
+  const allCentrePaletteOrdered = useMemo(
+    () =>
+      trainingLeftTab === "workshops"
+        ? [
+            ...workshopCentreSplit.onDay,
+            ...workshopCentreSplit.other,
+          ]
+        : allUnitsVisibleForUi,
+    [
+      trainingLeftTab,
+      workshopCentreSplit.onDay,
+      workshopCentreSplit.other,
+      allUnitsVisibleForUi,
+    ],
+  );
+
   /** When set, unit content list is filtered — reorder would be ambiguous, so drag is disabled. */
   const contentFilterActive =
     contentLibraryCategoryFilter !== "all" || contentSearchLower.length > 0;
@@ -1914,21 +2150,43 @@ export default function AdminCoursesClient() {
         {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
         <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[repeat(3,minmax(0,1fr))]">
           <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] px-2 pb-4 pt-0 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
-            <TrainingColumnChip
-              tone="lime"
-              count={certListCount}
-              trailing={
-                <>
-                  <GraduationCap
-                    className="h-4 w-4 shrink-0 text-brand-lime"
-                    aria-hidden
-                  />
-                  <span className="min-w-0 truncate">Certifications</span>
-                </>
+            <Tabs
+              value={trainingLeftTab}
+              onValueChange={(v) =>
+                setTrainingLeftTab(
+                  v === "workshops" ? "workshops" : "certifications",
+                )
               }
-            />
-            <h2 className="sr-only">Certifications</h2>
-            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+              className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
+            >
+              <div
+                className="relative z-10 -mt-3 mb-1 flex w-full shrink-0 items-stretch justify-center gap-1.5 border-b border-border/40 pb-1"
+                role="tablist"
+                aria-label="Left column mode"
+              >
+                <TrainingLeftTabChip
+                  selected={trainingLeftTab === "certifications"}
+                  onClick={() => setTrainingLeftTab("certifications")}
+                  count={certListCount}
+                  trailing={
+                    <span className="min-w-0 truncate">Certifications</span>
+                  }
+                />
+                <TrainingLeftTabChip
+                  selected={trainingLeftTab === "workshops"}
+                  onClick={() => setTrainingLeftTab("workshops")}
+                  count={workshopSessionsInViewMonthCount}
+                  trailing={
+                    <span className="min-w-0 truncate">Workshops</span>
+                  }
+                />
+              </div>
+              <TabsContent
+                value="certifications"
+                className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col outline-none data-[state=inactive]:hidden"
+              >
+                <h2 className="sr-only">Certifications</h2>
+                <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <div className="relative w-[min(100%,13rem)] shrink-0">
                 <Input
                   id="admin-cert-search"
@@ -1982,7 +2240,7 @@ export default function AdminCoursesClient() {
                 variant={
                   certTierFilter === "all" ? "secondary" : "outline"
                 }
-                className="h-10 min-w-10 shrink-0 px-2.5 text-xs font-semibold"
+                className="h-[2.125rem] min-w-[2.125rem] shrink-0 px-2 text-[11px] font-semibold"
                 onClick={() => setCertTierFilter("all")}
                 aria-label="All tiers"
                 title="Show all certification tiers"
@@ -1997,14 +2255,14 @@ export default function AdminCoursesClient() {
                   variant={
                     certTierFilter === tier ? "secondary" : "outline"
                   }
-                  className="size-10 shrink-0"
+                  className="size-[2.125rem] shrink-0 p-0"
                   onClick={() => setCertTierFilter(tier)}
                   aria-label={certificationTierLabel(tier)}
                   title={certificationTierSectionTitle(tier)}
                 >
                   <CertificationTierMedallion
                     tier={tier}
-                    className="size-[2.33rem]"
+                    className="size-[1.98rem]"
                   />
                 </Button>
               ))}
@@ -2069,6 +2327,26 @@ export default function AdminCoursesClient() {
                 </SortableContext>
               )}
             </div>
+              </TabsContent>
+              <TabsContent
+                value="workshops"
+                className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col gap-2 outline-none data-[state=inactive]:hidden"
+              >
+                <h2 className="sr-only">Workshops</h2>
+                <div className="min-h-0 flex-1 overflow-y-auto scrollbar-panel">
+                  <WorkshopPlannerCalendar
+                    sessions={workshopSessionMarkers}
+                    selectedDay={workshopPlannerDay}
+                    onSelectDay={(d) => setWorkshopPlannerDay(startOfDay(d))}
+                    droppableDays
+                    dropHighlightDayMs={workshopCalDropHighlightMs}
+                    onViewMonthChange={(m) =>
+                      setWorkshopCalendarViewMonth(startOfMonth(m))
+                    }
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           <div
@@ -2083,20 +2361,11 @@ export default function AdminCoursesClient() {
               tone="gold"
               count={unitsListCount}
               trailing={
-                <>
-                  <Layers
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      filterCertId ? "text-brand-lime" : "text-brand-gold",
-                    )}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 truncate">
-                    {filterCertId && !centreUnitsShowAll
-                      ? (filterCertName ?? "…")
-                      : "All units"}
-                  </span>
-                </>
+                <span className="min-w-0 truncate">
+                  {filterCertId && !centreUnitsShowAll
+                    ? (filterCertName ?? "…")
+                    : "All units"}
+                </span>
               }
             />
             <h2 className="sr-only">Units</h2>
@@ -2152,6 +2421,7 @@ export default function AdminCoursesClient() {
                 type="button"
                 size="sm"
                 variant="outline"
+                disabled={trainingLeftTab === "workshops"}
                 className={cn(
                   "h-8 min-w-0 gap-1 border border-border border-l-4 border-r-4 px-2 text-xs leading-tight shadow-none",
                   unitDeliveryFilter === "self_paced"
@@ -2166,7 +2436,11 @@ export default function AdminCoursesClient() {
                 )}
                 onClick={() => setUnitDeliveryFilter("self_paced")}
                 aria-pressed={unitDeliveryFilter === "self_paced"}
-                title="Show self-paced units (default)"
+                title={
+                  trainingLeftTab === "workshops"
+                    ? "Self-paced is hidden while scheduling workshops (left tab)"
+                    : "Show self-paced units (default)"
+                }
               >
                 <span className="min-w-0 truncate">Self-paced</span>
                 <span className="shrink-0 tabular-nums text-muted-foreground">
@@ -2215,7 +2489,14 @@ export default function AdminCoursesClient() {
                   : "Show all units"}
               </button>
             ) : null}
-            {filterCertId && !centreUnitsShowAll ? (
+            {trainingLeftTab === "workshops" ? (
+              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                Live workshop units only. Drag a unit onto a date in the left{" "}
+                <span className="font-medium text-foreground">Workshops</span>{" "}
+                tab to schedule. The list groups units with sessions on the
+                selected day.
+              </p>
+            ) : filterCertId && !centreUnitsShowAll ? (
               <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                 Show all units to drag and drop onto a Certification.
               </p>
@@ -2236,7 +2517,7 @@ export default function AdminCoursesClient() {
                       Loading units…
                     </p>
                   ) : unitsInCertListForUi!.length > 0 &&
-                    unitsInCertVisibleForUi.length === 0 ? (
+                    certCentreUnitsOrdered.length === 0 ? (
                     <p className="py-6 text-center text-sm text-muted-foreground">
                       {unitSearch.trim() ? (
                         <>
@@ -2251,12 +2532,36 @@ export default function AdminCoursesClient() {
                     </p>
                   ) : (
                     <SortableContext
-                      items={unitsInCertVisibleForUi.map((u) => u._id)}
+                      items={certCentreUnitsOrdered.map((u) => u._id)}
                       strategy={verticalListSortingStrategy}
                     >
                       <ul className="space-y-1">
-                        {unitsInCertVisibleForUi.map((u) => (
-                          <li key={u._id} className="space-y-0">
+                        {trainingLeftTab === "workshops" &&
+                        workshopCentreSplit.onDay.length > 0 ? (
+                          <li className="list-none py-0.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              On {format(workshopPlannerDay, "d MMM yyyy")}
+                            </p>
+                          </li>
+                        ) : null}
+                        {certCentreUnitsOrdered.map((u, idx) => (
+                          <li
+                            key={u._id}
+                            className={cn(
+                              "space-y-0",
+                              trainingLeftTab === "workshops" &&
+                                idx === workshopCentreSplit.onDay.length &&
+                                workshopCentreSplit.other.length > 0 &&
+                                "border-t border-border/50 pt-2 mt-1",
+                            )}
+                          >
+                            {trainingLeftTab === "workshops" &&
+                            idx === workshopCentreSplit.onDay.length &&
+                            workshopCentreSplit.other.length > 0 ? (
+                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Other workshop units
+                              </p>
+                            ) : null}
                             <UnitRowContentDropTarget
                               unitId={u._id}
                               disabled={
@@ -2326,7 +2631,7 @@ export default function AdminCoursesClient() {
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     No units. Use +.
                   </p>
-                ) : allUnitsVisibleForUi.length === 0 ? (
+                ) : allCentrePaletteOrdered.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     {unitSearch.trim() ? (
                       <>
@@ -2341,8 +2646,32 @@ export default function AdminCoursesClient() {
                   </p>
                 ) : (
                   <ul className="space-y-2">
-                    {allUnitsVisibleForUi.map((u) => (
-                      <li key={u._id} className="space-y-0">
+                    {trainingLeftTab === "workshops" &&
+                    workshopCentreSplit.onDay.length > 0 ? (
+                      <li className="list-none py-0.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          On {format(workshopPlannerDay, "d MMM yyyy")}
+                        </p>
+                      </li>
+                    ) : null}
+                    {allCentrePaletteOrdered.map((u, idx) => (
+                      <li
+                        key={u._id}
+                        className={cn(
+                          "space-y-0",
+                          trainingLeftTab === "workshops" &&
+                            idx === workshopCentreSplit.onDay.length &&
+                            workshopCentreSplit.other.length > 0 &&
+                            "border-t border-border/50 pt-2 mt-1",
+                        )}
+                      >
+                        {trainingLeftTab === "workshops" &&
+                        idx === workshopCentreSplit.onDay.length &&
+                        workshopCentreSplit.other.length > 0 ? (
+                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Other workshop units
+                          </p>
+                        ) : null}
                         <UnitRowContentDropTarget
                           unitId={u._id}
                           disabled={
@@ -2446,24 +2775,13 @@ export default function AdminCoursesClient() {
               tone="sky"
               count={contentListCount}
               trailing={
-                <>
-                  <BookMarked
-                    className={cn(
-                      "h-4 w-4 shrink-0",
-                      selectedDetailUnitId
-                        ? "text-brand-gold"
-                        : "text-brand-sky",
-                    )}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 truncate">
-                    {selectedDetailUnitId &&
-                    selectedDetailUnit &&
-                    !libraryShowAll
-                      ? (filterUnitTitle ?? selectedDetailUnit.title)
-                      : "All content"}
-                  </span>
-                </>
+                <span className="min-w-0 truncate">
+                  {selectedDetailUnitId &&
+                  selectedDetailUnit &&
+                  !libraryShowAll
+                    ? (filterUnitTitle ?? selectedDetailUnit.title)
+                    : "All content"}
+                </span>
               }
             />
             <h2 className="sr-only">Content</h2>
@@ -4884,6 +5202,121 @@ export default function AdminCoursesClient() {
                 Delete from library
               </Button>
             ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={scheduleWorkshopOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setScheduleWorkshopOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule workshop session</DialogTitle>
+            <DialogDescription>
+              {scheduleWorkshopUnitId && allUnits
+                ? (allUnits.find((u) => u._id === scheduleWorkshopUnitId)
+                    ?.title ?? "Workshop unit")
+                : "Workshop unit"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="sched-ws-title">
+                Session title override (optional)
+              </Label>
+              <Input
+                id="sched-ws-title"
+                value={scheduleTitleOverride}
+                onChange={(e) => setScheduleTitleOverride(e.target.value)}
+                placeholder="Shown instead of the unit title for this run"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sched-ws-start">Starts</Label>
+              <Input
+                id="sched-ws-start"
+                type="datetime-local"
+                value={scheduleStartsLocal}
+                onChange={(e) => setScheduleStartsLocal(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sched-ws-end">Ends</Label>
+              <Input
+                id="sched-ws-end"
+                type="datetime-local"
+                value={scheduleEndsLocal}
+                onChange={(e) => setScheduleEndsLocal(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sched-ws-cap">Capacity (optional)</Label>
+              <Input
+                id="sched-ws-cap"
+                type="number"
+                min={1}
+                placeholder="Unlimited if empty"
+                value={scheduleCapacity}
+                onChange={(e) => setScheduleCapacity(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sched-ws-url">External join URL (optional)</Label>
+              <Input
+                id="sched-ws-url"
+                placeholder="https://…"
+                value={scheduleExternalUrl}
+                onChange={(e) => setScheduleExternalUrl(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setScheduleWorkshopOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!scheduleWorkshopUnitId}
+              onClick={async () => {
+                if (!scheduleWorkshopUnitId) {
+                  return;
+                }
+                try {
+                  const startsAt = parseScheduleLocalInput(scheduleStartsLocal);
+                  const endsAt = parseScheduleLocalInput(scheduleEndsLocal);
+                  const capRaw = scheduleCapacity.trim();
+                  const cap =
+                    capRaw === "" ? undefined : Number.parseInt(capRaw, 10);
+                  if (capRaw !== "" && (Number.isNaN(cap!) || cap! < 1)) {
+                    toast.error("Capacity must be a positive number");
+                    return;
+                  }
+                  await createWorkshopSession({
+                    workshopUnitId: scheduleWorkshopUnitId,
+                    startsAt,
+                    endsAt,
+                    titleOverride: scheduleTitleOverride.trim() || undefined,
+                    capacity: cap,
+                    externalJoinUrl: scheduleExternalUrl.trim() || undefined,
+                  });
+                  toast.success("Session created");
+                  setScheduleWorkshopOpen(false);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed");
+                }
+              }}
+            >
+              Create session
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
