@@ -75,7 +75,12 @@ export async function assertUniqueContentCode(
   }
 }
 
-function seedBaseFromLabel(label: string, fallback: string): string {
+function seedBaseFromLabel(
+  label: string,
+  fallback: string,
+  /** Truncate normalized base (seed data uses a short cap for readable codes). */
+  maxBaseLen = 28,
+): string {
   let base = normalizeEntityCode(label);
   if (base.length < ENTITY_CODE_MIN_LEN) {
     base = normalizeEntityCode(fallback) || "X";
@@ -83,14 +88,26 @@ function seedBaseFromLabel(label: string, fallback: string): string {
   if (base.length < ENTITY_CODE_MIN_LEN) {
     base = "XX";
   }
-  return base.slice(0, 28);
+  const cap = Math.min(
+    Math.max(maxBaseLen, ENTITY_CODE_MIN_LEN),
+    ENTITY_CODE_MAX_LEN,
+  );
+  return base.slice(0, cap);
 }
+
+/** Default for `seed.ts` / curriculum seed — short codes in admin lists. */
+export const SEED_CODE_BASE_MAX_LEN = 10;
 
 export async function allocateUniqueCertificationCode(
   ctx: MutationCtx,
   name: string,
+  options?: { maxBaseLen?: number },
 ): Promise<string> {
-  const base = seedBaseFromLabel(name, "CERT");
+  const base = seedBaseFromLabel(
+    name,
+    "CERT",
+    options?.maxBaseLen ?? 28,
+  );
   for (let i = 0; i < 500; i++) {
     const candidate =
       i === 0 ? base : `${base}-${i + 1}`.slice(0, ENTITY_CODE_MAX_LEN);
@@ -109,8 +126,13 @@ export async function allocateUniqueCertificationCode(
 export async function allocateUniqueUnitCode(
   ctx: MutationCtx,
   title: string,
+  options?: { maxBaseLen?: number },
 ): Promise<string> {
-  const base = seedBaseFromLabel(title, "UNIT");
+  const base = seedBaseFromLabel(
+    title,
+    "UNIT",
+    options?.maxBaseLen ?? 28,
+  );
   for (let i = 0; i < 500; i++) {
     const candidate =
       i === 0 ? base : `${base}-${i + 1}`.slice(0, ENTITY_CODE_MAX_LEN);

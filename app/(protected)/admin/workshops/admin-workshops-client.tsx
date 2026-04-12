@@ -13,34 +13,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  WorkshopSessionEditRow,
+  type WorkshopSessionSaveArgs,
+} from "@/components/admin/workshop-session-edit-row";
 import { WorkshopPlannerCalendar } from "@/components/admin/workshop-planner-calendar";
+import {
+  parseLocalInput,
+  toLocalInputValue,
+} from "@/lib/workshop-datetime-local";
 import { useMutation, useQuery } from "convex/react";
 import { format, isSameDay, startOfDay } from "date-fns";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-
-function toLocalInputValue(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function parseLocalInput(s: string): number {
-  const t = Date.parse(s);
-  if (Number.isNaN(t)) {
-    throw new Error("Invalid date/time");
-  }
-  return t;
-}
-
-type UpdateSessionArgs = {
-  sessionId: Id<"workshopSessions">;
-  startsAt: number;
-  endsAt: number;
-  status: "scheduled" | "cancelled";
-  capacity: number | null;
-  externalJoinUrl: string | null;
-};
 
 export default function AdminWorkshopsClient() {
   const sessions = useQuery(api.workshops.listSessionsAdmin);
@@ -216,11 +201,14 @@ export default function AdminWorkshopsClient() {
                 const startsAt = parseLocalInput(startsLocal);
                 const endsAt = parseLocalInput(endsLocal);
                 const capRaw = capacity.trim();
-                const cap =
-                  capRaw === "" ? undefined : Number.parseInt(capRaw, 10);
-                if (capRaw !== "" && (Number.isNaN(cap!) || cap! < 1)) {
-                  toast.error("Capacity must be a positive number");
-                  return;
+                let cap: number | undefined;
+                if (capRaw !== "") {
+                  const n = Number.parseInt(capRaw, 10);
+                  if (Number.isNaN(n) || n < 1) {
+                    toast.error("Capacity must be a positive number");
+                    return;
+                  }
+                  cap = n;
                 }
                 await createSession({
                   workshopUnitId: unitId as Id<"units">,
@@ -275,7 +263,9 @@ export default function AdminWorkshopsClient() {
                     <SessionAdminRow
                       key={s._id}
                       row={s}
-                      onSave={(args: UpdateSessionArgs) => updateSession(args)}
+                      onSave={(args: WorkshopSessionSaveArgs) =>
+                        updateSession(args)
+                      }
                     />
                   ))}
                 </ul>
@@ -303,7 +293,9 @@ export default function AdminWorkshopsClient() {
                 <SessionAdminRow
                   key={s._id}
                   row={s}
-                  onSave={(args: UpdateSessionArgs) => updateSession(args)}
+                  onSave={(args: WorkshopSessionSaveArgs) =>
+                    updateSession(args)
+                  }
                 />
               ))}
             </ul>
@@ -322,20 +314,8 @@ function SessionAdminRow({
     workshopTitle: string;
     registrationCount: number;
   };
-  onSave: (args: UpdateSessionArgs) => Promise<unknown>;
+  onSave: (args: WorkshopSessionSaveArgs) => Promise<unknown>;
 }) {
-  const [startsLocal, setStartsLocal] = useState(() =>
-    toLocalInputValue(row.startsAt),
-  );
-  const [endsLocal, setEndsLocal] = useState(() =>
-    toLocalInputValue(row.endsAt),
-  );
-  const [status, setStatus] = useState<"scheduled" | "cancelled">(row.status);
-  const [capacity, setCapacity] = useState(
-    row.capacity != null ? String(row.capacity) : "",
-  );
-  const [externalUrl, setExternalUrl] = useState(row.externalJoinUrl ?? "");
-
   return (
     <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 space-y-1">
@@ -346,99 +326,7 @@ function SessionAdminRow({
           <span className="font-mono text-[11px]">{row._id}</span>
         </p>
       </div>
-      <div className="grid w-full gap-2 sm:max-w-xl sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Starts</Label>
-          <Input
-            type="datetime-local"
-            value={startsLocal}
-            onChange={(e) => setStartsLocal(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Ends</Label>
-          <Input
-            type="datetime-local"
-            value={endsLocal}
-            onChange={(e) => setEndsLocal(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Status</Label>
-          <Select
-            value={status}
-            onValueChange={(v) =>
-              setStatus((v ?? "scheduled") as "scheduled" | "cancelled")
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="scheduled" label="Scheduled">
-                Scheduled
-              </SelectItem>
-              <SelectItem value="cancelled" label="Cancelled">
-                Cancelled
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Capacity</Label>
-          <Input
-            type="number"
-            min={1}
-            placeholder="Unlimited"
-            value={capacity}
-            onChange={(e) => setCapacity(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1 sm:col-span-2">
-          <Label className="text-xs">External URL</Label>
-          <Input
-            value={externalUrl}
-            onChange={(e) => setExternalUrl(e.target.value)}
-            placeholder="https://…"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={async () => {
-              try {
-                const startsAt = parseLocalInput(startsLocal);
-                const endsAt = parseLocalInput(endsLocal);
-                const capRaw = capacity.trim();
-                const capNum =
-                  capRaw === "" ? null : Number.parseInt(capRaw, 10);
-                if (
-                  capRaw !== "" &&
-                  (Number.isNaN(capNum!) || capNum! < 1)
-                ) {
-                  toast.error("Capacity must be a positive number");
-                  return;
-                }
-                await onSave({
-                  sessionId: row._id,
-                  startsAt,
-                  endsAt,
-                  status,
-                  capacity: capNum,
-                  externalJoinUrl: externalUrl.trim() || null,
-                });
-                toast.success("Session updated");
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Failed");
-              }
-            }}
-          >
-            Save session
-          </Button>
-        </div>
-      </div>
+      <WorkshopSessionEditRow session={row} onSave={onSave} />
     </li>
   );
 }

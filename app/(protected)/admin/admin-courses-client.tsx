@@ -53,10 +53,18 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { format, isSameDay, isSameMonth, startOfDay, startOfMonth } from "date-fns";
+import {
+  addDays,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { WorkshopSessionEditRow } from "@/components/admin/workshop-session-edit-row";
 import {
   WorkshopPlannerCalendar,
   WORKSHOP_CAL_DAY_PREFIX,
@@ -450,7 +458,7 @@ function TrainingColumnChip({
     <div className="relative z-10 -mt-3 mb-1 flex w-full shrink-0 justify-center border-b border-border/40 pb-1">
       <span
         className={cn(
-          "inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border px-3.5 py-1 text-[13px] font-bold leading-tight shadow-sm",
+          "inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-bold leading-tight shadow-sm",
           skin,
         )}
       >
@@ -493,8 +501,8 @@ function TrainingLeftTabChip({
       aria-selected={selected}
       onClick={onClick}
       className={cn(
-        /* Match {@link TrainingColumnChip} pill: px-3.5 py-1 text-[13px], no min-height bump */
-        "inline-flex max-w-full min-w-0 flex-1 basis-0 items-center gap-2 rounded-full border px-3.5 py-1 text-[13px] font-bold leading-tight shadow-sm transition-colors",
+        /* Match {@link TrainingColumnChip} pill: px-3.5 py-1.5 text-[13px] */
+        "inline-flex max-w-full min-w-0 flex-1 basis-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-bold leading-tight shadow-sm transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
           ? tone === "purple"
@@ -559,6 +567,10 @@ export default function AdminCoursesClient() {
   const deleteCertificationLevel = useMutation(api.certifications.remove);
   const deleteUnit = useMutation(api.units.remove);
   const createWorkshopSession = useMutation(api.workshops.createSession);
+  const updateWorkshopSession = useMutation(api.workshops.updateSession);
+  const deleteSessionsForWorkshopUnitOnLocalDay = useMutation(
+    api.workshops.deleteSessionsForWorkshopUnitOnLocalDay,
+  );
   /** Certification chosen in the edit dialog or delete confirmation. */
   const [editCertId, setEditCertId] =
     useState<Id<"certificationLevels"> | null>(null);
@@ -746,12 +758,22 @@ export default function AdminCoursesClient() {
   const [editUnitCategorySelect, setEditUnitCategorySelect] =
     useState<string>(CATEGORY_SELECT_NONE);
 
+  const editUnitWorkshopSessions = useQuery(
+    api.workshops.listSessionsForWorkshopUnitAdmin,
+    editUnitOpen && editUnitId && editUnitDeliveryMode === "live_workshop"
+      ? { workshopUnitId: editUnitId }
+      : "skip",
+  );
+
   const [certDeleteOpen, setCertDeleteOpen] = useState(false);
   const [certDeleteId, setCertDeleteId] = useState<
     Id<"certificationLevels"> | null
   >(null);
   const [unitDeleteOpen, setUnitDeleteOpen] = useState(false);
   const [unitDeleteId, setUnitDeleteId] = useState<Id<"units"> | null>(null);
+  const [unscheduleWorkshopOpen, setUnscheduleWorkshopOpen] = useState(false);
+  const [unscheduleWorkshopUnitId, setUnscheduleWorkshopUnitId] =
+    useState<Id<"units"> | null>(null);
   const [contentDeleteTarget, setContentDeleteTarget] =
     useState<ContentDeleteDialogTarget | null>(null);
   const [detachFromCertOpen, setDetachFromCertOpen] = useState(false);
@@ -2728,18 +2750,57 @@ export default function AdminCoursesClient() {
                             onSelect={() => handleUnitRowClick(u._id)}
                             onEdit={() => openEditUnit(u._id)}
                             deleteVariant={
-                              filterCertId &&
-                              u.certificationLevelIds.includes(filterCertId)
+                              trainingLeftTab === "workshops" &&
+                              workshopPlannerDay != null &&
+                              (u.deliveryMode ?? "self_paced") === "live_workshop"
                                 ? "unlink"
-                                : "trash"
+                                : filterCertId &&
+                                    u.certificationLevelIds.includes(
+                                      filterCertId,
+                                    )
+                                  ? "unlink"
+                                  : "trash"
+                            }
+                            deleteButtonTitle={
+                              trainingLeftTab === "workshops" &&
+                              workshopPlannerDay != null &&
+                              (u.deliveryMode ?? "self_paced") === "live_workshop"
+                                ? "Unschedule workshops on selected date"
+                                : undefined
+                            }
+                            unlinkActionTone={
+                              trainingLeftTab === "workshops" &&
+                              workshopPlannerDay != null &&
+                              (u.deliveryMode ?? "self_paced") === "live_workshop"
+                                ? "sky"
+                                : "muted"
                             }
                             deleteTooltip={
-                              filterCertId &&
-                              u.certificationLevelIds.includes(filterCertId)
-                                ? "Remove from the selected certification only — unit stays in the library"
-                                : "Delete unit permanently from the system"
+                              trainingLeftTab === "workshops" &&
+                              workshopPlannerDay != null &&
+                              (u.deliveryMode ?? "self_paced") === "live_workshop"
+                                ? `Remove every session that starts on ${format(
+                                    workshopPlannerDay,
+                                    "d MMM yyyy",
+                                  )} (your local time). The unit is not deleted.`
+                                : filterCertId &&
+                                    u.certificationLevelIds.includes(
+                                      filterCertId,
+                                    )
+                                  ? "Remove from the selected certification only — unit stays in the library"
+                                  : "Delete unit permanently from the system"
                             }
                             onDelete={() => {
+                              if (
+                                trainingLeftTab === "workshops" &&
+                                workshopPlannerDay != null &&
+                                (u.deliveryMode ?? "self_paced") ===
+                                  "live_workshop"
+                              ) {
+                                setUnscheduleWorkshopUnitId(u._id);
+                                setUnscheduleWorkshopOpen(true);
+                                return;
+                              }
                               if (
                                 filterCertId &&
                                 u.certificationLevelIds.includes(
@@ -3511,7 +3572,11 @@ export default function AdminCoursesClient() {
                 }
               >
                 <SelectTrigger id="add-unit-delivery">
-                  <SelectValue />
+                  <SelectValue>
+                    {newUnitDeliveryMode === "live_workshop"
+                      ? "Workshop"
+                      : "Self-paced"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="self_paced" label="Self-paced">
@@ -4884,7 +4949,11 @@ export default function AdminCoursesClient() {
                 }
               >
                 <SelectTrigger id="edit-unit-delivery">
-                  <SelectValue />
+                  <SelectValue>
+                    {editUnitDeliveryMode === "live_workshop"
+                      ? "Workshop"
+                      : "Self-paced"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="self_paced" label="Self-paced">
@@ -4900,6 +4969,38 @@ export default function AdminCoursesClient() {
                 (Admin → Timetable).
               </p>
             </div>
+            {editUnitDeliveryMode === "live_workshop" ? (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-xs font-semibold text-foreground">
+                  Scheduled sessions
+                </p>
+                {editUnitWorkshopSessions === undefined ? (
+                  <p className="text-xs text-muted-foreground">
+                    Loading sessions…
+                  </p>
+                ) : editUnitWorkshopSessions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No sessions yet. Schedule from Training → Workshops (drag a
+                    unit onto the calendar).
+                  </p>
+                ) : (
+                  <ul className="max-h-[min(28rem,55vh)] space-y-3 overflow-y-auto pr-0.5 text-xs">
+                    {editUnitWorkshopSessions.map((s) => (
+                      <li
+                        key={s._id}
+                        className="rounded-md border border-border/70 bg-background/90 p-2.5"
+                      >
+                        <WorkshopSessionEditRow
+                          compact
+                          session={s}
+                          onSave={(args) => updateWorkshopSession(args)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
             <div className="space-y-1">
               <Label htmlFor="edit-unit-desc">Description</Label>
               <Textarea
@@ -5061,6 +5162,93 @@ export default function AdminCoursesClient() {
               }}
             >
               Remove from certification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={unscheduleWorkshopOpen}
+        onOpenChange={(open) => {
+          setUnscheduleWorkshopOpen(open);
+          if (!open) {
+            setUnscheduleWorkshopUnitId(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unschedule workshops on this date?</DialogTitle>
+            <DialogDescription>
+              {unscheduleWorkshopUnitId && allUnits ? (
+                <>
+                  <span className="font-medium text-foreground">
+                    {allUnits.find((x) => x._id === unscheduleWorkshopUnitId)
+                      ?.title ?? "This unit"}
+                  </span>
+                  {workshopPlannerDay != null ? (
+                    <>
+                      {" "}
+                      — removes every workshop session that starts on{" "}
+                      {format(workshopPlannerDay, "EEEE d MMMM yyyy")} in your
+                      local timezone. Learner registrations for those sessions
+                      are cleared. Linked &ldquo;live workshop&rdquo; library
+                      items for those sessions are archived and detached from
+                      units. The unit itself stays in Training Content.
+                    </>
+                  ) : (
+                    <>Pick a calendar date first, then try again.</>
+                  )}
+                </>
+              ) : (
+                "Pick a unit and a calendar date, then try again."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setUnscheduleWorkshopOpen(false);
+                setUnscheduleWorkshopUnitId(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                !unscheduleWorkshopUnitId || workshopPlannerDay == null
+              }
+              onClick={async () => {
+                if (!unscheduleWorkshopUnitId || workshopPlannerDay == null) {
+                  return;
+                }
+                try {
+                  const dayStartMs = startOfDay(workshopPlannerDay).getTime();
+                  const dayEndExclusiveMs = addDays(
+                    startOfDay(workshopPlannerDay),
+                    1,
+                  ).getTime();
+                  const r = await deleteSessionsForWorkshopUnitOnLocalDay({
+                    workshopUnitId: unscheduleWorkshopUnitId,
+                    dayStartMs,
+                    dayEndExclusiveMs,
+                  });
+                  toast.success(
+                    r.removed === 0
+                      ? "No sessions on that date for this unit"
+                      : `Removed ${r.removed} session${r.removed === 1 ? "" : "s"}`,
+                  );
+                  setUnscheduleWorkshopOpen(false);
+                  setUnscheduleWorkshopUnitId(null);
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed");
+                }
+              }}
+            >
+              Unschedule from date
             </Button>
           </DialogFooter>
         </DialogContent>

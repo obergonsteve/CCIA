@@ -9,6 +9,7 @@ import {
   allocateUniqueCertificationCode,
   allocateUniqueContentCode,
   allocateUniqueUnitCode,
+  SEED_CODE_BASE_MAX_LEN,
 } from "./lib/entityCodes";
 import { requireAdminOrCreator } from "./lib/auth";
 
@@ -222,7 +223,11 @@ export const bootstrapDemo = mutation({
       contentSort,
     );
     const levelId = await ctx.db.insert("certificationLevels", {
-      code: await allocateUniqueCertificationCode(ctx, "Level 1 — Foundations"),
+      code: await allocateUniqueCertificationCode(
+        ctx,
+        "Level 1 — Foundations",
+        { maxBaseLen: SEED_CODE_BASE_MAX_LEN },
+      ),
       name: "Level 1 — Foundations",
       certificationCategoryId: demoCertCat,
       summary:
@@ -234,7 +239,9 @@ export const bootstrapDemo = mutation({
       certificationTier: "bronze",
     });
     const unitId = await ctx.db.insert("units", {
-      code: await allocateUniqueUnitCode(ctx, "Compliance orientation"),
+      code: await allocateUniqueUnitCode(ctx, "Compliance orientation", {
+        maxBaseLen: SEED_CODE_BASE_MAX_LEN,
+      }),
       title: "Compliance orientation",
       description:
         "Key obligations under the Residential (Land Lease) Communities Act and operator duties.",
@@ -353,7 +360,9 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       certSort,
     );
     const levelId = await ctx.db.insert("certificationLevels", {
-      code: await allocateUniqueCertificationCode(ctx, course.name),
+      code: await allocateUniqueCertificationCode(ctx, course.name, {
+        maxBaseLen: SEED_CODE_BASE_MAX_LEN,
+      }),
       name: course.name,
       certificationCategoryId: certCatId,
       summary: course.summary,
@@ -375,7 +384,9 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
         unitSort,
       );
       const unitId = await ctx.db.insert("units", {
-        code: await allocateUniqueUnitCode(ctx, unit.title),
+        code: await allocateUniqueUnitCode(ctx, unit.title, {
+          maxBaseLen: SEED_CODE_BASE_MAX_LEN,
+        }),
         title: unit.title,
         description: unit.description,
         unitCategoryId: unitCatId,

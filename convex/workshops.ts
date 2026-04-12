@@ -1,10 +1,13 @@
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireAdminOrCreator, requireUserId, userCanAccessLevel } from "./lib/auth";
 import { effectiveCertificationTier } from "./lib/certTier";
-import { isLive } from "./lib/softDelete";
-import { syncUnitsContainingWorkshopSession } from "./contentProgress";
+import { isLive, nowDeletedAt } from "./lib/softDelete";
+import {
+  syncUnitCompletion,
+  syncUnitsContainingWorkshopSession,
+} from "./contentProgress";
 import {
   collectLevelIdsForUnit,
   userCanAccessWorkshopSession,
@@ -131,6 +134,92 @@ export const updateSession = mutation({
           }
         : {}),
     });
+  },
+});
+
+/**
+ * Removes every workshop session for this unit whose **start** falls in
+ * `[dayStartMs, dayEndExclusiveMs)` (client should send local-calendar bounds,
+ * e.g. `startOfDay` / `startOfDay(addDays(d,1))`).
+ */
+export const deleteSessionsForWorkshopUnitOnLocalDay = mutation({
+  args: {
+    workshopUnitId: v.id("units"),
+    dayStartMs: v.number(),
+    dayEndExclusiveMs: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminOrCreator(ctx);
+    const { workshopUnitId, dayStartMs, dayEndExclusiveMs } = args;
+    if (dayEndExclusiveMs <= dayStartMs) {
+      throw new Error("Invalid day range");
+    }
+    const unit = await ctx.db.get(workshopUnitId);
+    if (!isLive(unit) || unit.deliveryMode !== "live_workshop") {
+      throw new Error("Unit must be a live workshop unit");
+    }
+    const sessions = await ctx.db
+      .query("workshopSessions")
+      .withIndex("by_workshop_unit", (q) =>
+        q.eq("workshopUnitId", workshopUnitId),
+      )
+      .collect();
+    const toRemove = sessions.filter(
+      (s) => s.startsAt >= dayStartMs && s.startsAt < dayEndExclusiveMs,
+    );
+    if (toRemove.length === 0) {
+      return { removed: 0 as const };
+    }
+    const allAffectedUsers = new Set<Id<"users">>();
+    for (const session of toRemove) {
+      const regs = await ctx.db
+        .query("workshopRegistrations")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const reg of regs) {
+        allAffectedUsers.add(reg.userId);
+        await ctx.db.delete(reg._id);
+      }
+      for (const userId of [...new Set(regs.map((r) => r.userId))]) {
+        await syncUnitsContainingWorkshopSession(ctx, userId, session._id);
+      }
+      const linkedContent = await ctx.db
+        .query("contentItems")
+        .withIndex("by_workshop_session", (q) =>
+          q.eq("workshopSessionId", session._id),
+        )
+        .collect();
+      for (const c of linkedContent) {
+        if (!isLive(c)) {
+          continue;
+        }
+        await ctx.db.patch(c._id, { deletedAt: nowDeletedAt() });
+        const links = await ctx.db
+          .query("unitContents")
+          .withIndex("by_content", (q) => q.eq("contentId", c._id))
+          .collect();
+        const unitIdsForReorder = new Set<Id<"units">>();
+        for (const link of links) {
+          unitIdsForReorder.add(link.unitId);
+          await ctx.db.delete(link._id);
+        }
+        for (const uid of unitIdsForReorder) {
+          const rest = await ctx.db
+            .query("unitContents")
+            .withIndex("by_unit", (q) => q.eq("unitId", uid))
+            .collect();
+          rest.sort((a, b) => a.order - b.order);
+          for (let i = 0; i < rest.length; i++) {
+            await ctx.db.patch(rest[i]!._id, { order: i });
+          }
+        }
+      }
+      await ctx.db.delete(session._id);
+    }
+    for (const userId of allAffectedUsers) {
+      await syncUnitCompletion(ctx, userId, workshopUnitId);
+    }
+    return { removed: toRemove.length };
   },
 });
 

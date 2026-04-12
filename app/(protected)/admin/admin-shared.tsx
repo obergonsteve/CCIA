@@ -188,8 +188,15 @@ export function DraggableUnitPaletteItem({
   onDelete,
   /** Shown on trash hover; reflects whether click opens remove-from-cert vs full delete. */
   deleteTooltip,
+  /** Native `title` on the delete/unlink control; overrides defaults when set. */
+  deleteButtonTitle,
   /** `unlink` = remove from selected cert only; `trash` = delete unit from the system. */
   deleteVariant = "trash",
+  /**
+   * When `deleteVariant` is `unlink`: `sky` matches {@link SortableUnitRow} unlink; `muted` is
+   * neutral (e.g. remove-from-cert in the all-units palette).
+   */
+  unlinkActionTone = "muted",
   onOpenPrerequisites,
 }: {
   unit: UnitAdminListRow;
@@ -204,7 +211,9 @@ export function DraggableUnitPaletteItem({
   onEdit?: () => void;
   onDelete?: () => void;
   deleteTooltip?: string;
+  deleteButtonTitle?: string;
   deleteVariant?: "unlink" | "trash";
+  unlinkActionTone?: "sky" | "muted";
   onOpenPrerequisites?: () => void;
 }) {
   const paletteDragDisabled = Boolean(inSelectedCert);
@@ -334,13 +343,16 @@ export function DraggableUnitPaletteItem({
                       className={cn(
                         "h-7 w-7 rounded-none",
                         deleteVariant === "unlink"
-                          ? "text-muted-foreground hover:text-foreground"
+                          ? unlinkActionTone === "sky"
+                            ? "text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
+                            : "text-muted-foreground hover:text-foreground"
                           : "text-destructive hover:text-destructive",
                       )}
                       title={
-                        deleteVariant === "unlink"
+                        deleteButtonTitle ??
+                        (deleteVariant === "unlink"
                           ? "Remove from certification"
-                          : "Delete unit from system"
+                          : "Delete unit from system")
                       }
                       onClick={(e) => {
                         e.stopPropagation();
