@@ -55,7 +55,7 @@ export default function CertificationsClient() {
   }
 
   return (
-    <div className="space-y-10 pb-8">
+    <div className="space-y-6 pb-8 md:space-y-7">
       <div className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/30 bg-gradient-to-br from-brand-lime/14 via-card to-brand-sky/16 px-6 py-10 shadow-lg shadow-brand-sky/10 md:px-10 md:py-12">
         <div
           className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-lime/30 blur-3xl"
@@ -98,9 +98,41 @@ export default function CertificationsClient() {
           .
         </p>
       ) : (
-        <div className="space-y-12">
+        <div>
+          <nav
+            className="mb-2 flex flex-wrap gap-2 sm:mb-2.5"
+            aria-label="Jump to certification tier"
+          >
+            {grouped.map(({ tier }) => (
+              <a
+                key={tier}
+                href={`#cert-tier-${tier}`}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "gap-1.5 rounded-full border-brand-sky/35 bg-card/90 px-3 py-1.5 hover:bg-muted/60",
+                  tier === "bronze" &&
+                    "border-brand-lime/45 bg-brand-lime/12 hover:bg-brand-lime/18",
+                  tier === "silver" &&
+                    "border-brand-sky/45 bg-brand-sky/10 hover:bg-brand-sky/16",
+                  tier === "gold" &&
+                    "border-brand-gold/50 bg-brand-gold/12 hover:bg-brand-gold/18",
+                )}
+                title={certificationTierSectionTitle(tier)}
+              >
+                <CertificationTierMedallion tier={tier} className="size-5" />
+                <span className="font-semibold">
+                  {certificationTierLabel(tier)}
+                </span>
+              </a>
+            ))}
+          </nav>
+          <div className="space-y-10 md:space-y-12">
           {grouped.map(({ tier, levels }) => (
-            <section key={tier} className="space-y-4">
+            <section
+              key={tier}
+              id={`cert-tier-${tier}`}
+              className="scroll-mt-20 space-y-4"
+            >
               <div className="border-b border-border/80 pb-2">
                 <h3 className="text-lg font-semibold tracking-tight">
                   {certificationTierSectionTitle(tier)}
@@ -132,13 +164,16 @@ export default function CertificationsClient() {
                           <div className="absolute left-4 top-4">
                             <Badge
                               className={cn(
-                                "px-1.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
+                                "h-auto min-h-7 items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
                                 certificationTierBadgeClass(tier),
                               )}
                               aria-label={certificationTierLabel(tier)}
                               title={certificationTierSectionTitle(tier)}
                             >
-                              <CertificationTierMedallion tier={tier} />
+                              <CertificationTierMedallion
+                                tier={tier}
+                                className="size-7"
+                              />
                             </Badge>
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 p-5">
@@ -197,6 +232,7 @@ export default function CertificationsClient() {
               </ul>
             </section>
           ))}
+          </div>
         </div>
       )}
     </div>

@@ -1930,7 +1930,7 @@ export default function AdminCoursesClient() {
                     aria-label={certificationTierLabel(tier)}
                     title={certificationTierSectionTitle(tier)}
                   >
-                    <CertificationTierMedallion tier={tier} className="size-6" />
+                    <CertificationTierMedallion tier={tier} className="size-7" />
                   </Button>
                 ))}
               </div>
@@ -1944,7 +1944,7 @@ export default function AdminCoursesClient() {
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Drag units from the centre column onto a certification below.
+                  Drag Units onto a Certification.
                 </p>
               )}
             </div>
