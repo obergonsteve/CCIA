@@ -34,6 +34,10 @@ export default defineSchema({
     ),
     avatarUrl: v.optional(v.string()),
     lastLogin: v.optional(v.number()),
+    /** Learner dashboard: certification levels pinned from the roadmap (order preserved). */
+    plannedCertificationLevelIds: v.optional(
+      v.array(v.id("certificationLevels")),
+    ),
   })
     .index("by_email", ["email"])
     .index("by_company", ["companyId"]),

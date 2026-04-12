@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import {
   requireAdminOrCreator,
@@ -15,6 +16,55 @@ import {
 import { isLive, nowDeletedAt } from "./lib/softDelete";
 import { countUnitStepProgress } from "./contentProgress";
 import { collectUnitsForLevel } from "./units";
+
+type DashboardCertRow = {
+  level: Doc<"certificationLevels">;
+  unitTotal: number;
+  completedCount: number;
+  touchedCount: number;
+  contentStepsTotal: number;
+  contentStepsCompleted: number;
+};
+
+type DashCtx = QueryCtx | MutationCtx;
+
+async function buildDashboardCertRow(
+  ctx: DashCtx,
+  userId: Id<"users">,
+  level: Doc<"certificationLevels">,
+  progressByUnit: Map<Id<"units">, Doc<"userProgress">>,
+): Promise<DashboardCertRow | null> {
+  const ok = await userCanAccessLevel(ctx, level._id);
+  if (!ok) {
+    return null;
+  }
+  const units = await collectUnitsForLevel(ctx, level._id);
+  const unitIds = units.map((u) => u._id);
+  let completedCount = 0;
+  let touchedCount = 0;
+  let contentStepsTotal = 0;
+  let contentStepsCompleted = 0;
+  for (const uid of unitIds) {
+    const pr = progressByUnit.get(uid);
+    if (pr) {
+      touchedCount += 1;
+      if (pr.completed) {
+        completedCount += 1;
+      }
+    }
+    const stepCounts = await countUnitStepProgress(ctx, userId, uid);
+    contentStepsTotal += stepCounts.total;
+    contentStepsCompleted += stepCounts.completed;
+  }
+  return {
+    level,
+    unitTotal: unitIds.length,
+    completedCount,
+    touchedCount,
+    contentStepsTotal,
+    contentStepsCompleted,
+  };
+}
 
 export const listAllAdmin = query({
   args: {},
@@ -54,15 +104,7 @@ export const listForUser = query({
 export const listDashboardBucketsForUser = query({
   args: {},
   handler: async (ctx) => {
-    type Row = {
-      level: Doc<"certificationLevels">;
-      unitTotal: number;
-      completedCount: number;
-      touchedCount: number;
-      /** All sequential steps (lessons + assessments) across units in this certification. */
-      contentStepsTotal: number;
-      contentStepsCompleted: number;
-    };
+    type Row = DashboardCertRow;
     const userId = await requireUserId(ctx);
     const user = await ctx.db.get(userId);
     if (!user) {
@@ -70,6 +112,7 @@ export const listDashboardBucketsForUser = query({
         current: [] as Row[],
         future: [] as Row[],
         completed: [] as Row[],
+        planned: [] as Row[],
       };
     }
     const all = (await ctx.db.query("certificationLevels").collect()).filter(
@@ -97,56 +140,128 @@ export const listDashboardBucketsForUser = query({
 
     const rows: Row[] = [];
     for (const level of sorted) {
-      const ok = await userCanAccessLevel(ctx, level._id);
-      if (!ok) {
-        continue;
-      }
-      const units = await collectUnitsForLevel(ctx, level._id);
-      const unitIds = units.map((u) => u._id);
-      let completedCount = 0;
-      let touchedCount = 0;
-      let contentStepsTotal = 0;
-      let contentStepsCompleted = 0;
-      for (const uid of unitIds) {
-        const pr = progressByUnit.get(uid);
-        if (pr) {
-          touchedCount += 1;
-          if (pr.completed) {
-            completedCount += 1;
-          }
-        }
-        const stepCounts = await countUnitStepProgress(ctx, userId, uid);
-        contentStepsTotal += stepCounts.total;
-        contentStepsCompleted += stepCounts.completed;
-      }
-      rows.push({
+      const row = await buildDashboardCertRow(
+        ctx,
+        userId,
         level,
-        unitTotal: unitIds.length,
-        completedCount,
-        touchedCount,
-        contentStepsTotal,
-        contentStepsCompleted,
-      });
+        progressByUnit,
+      );
+      if (row) {
+        rows.push(row);
+      }
     }
+
+    const plannedIdSet = new Set(user.plannedCertificationLevelIds ?? []);
 
     const current: Row[] = [];
     const future: Row[] = [];
     const completed: Row[] = [];
     for (const row of rows) {
-      const { unitTotal, completedCount, touchedCount } = row;
+      const { unitTotal, completedCount, touchedCount, level } = row;
       if (unitTotal === 0) {
-        future.push(row);
+        if (!plannedIdSet.has(level._id)) {
+          future.push(row);
+        }
         continue;
       }
       if (completedCount === unitTotal) {
         completed.push(row);
       } else if (touchedCount > 0) {
         current.push(row);
-      } else {
+      } else if (!plannedIdSet.has(level._id)) {
         future.push(row);
       }
     }
-    return { current, future, completed };
+
+    const rowByLevelId = new Map(rows.map((r) => [r.level._id, r]));
+    const planned: Row[] = [];
+    for (const id of user.plannedCertificationLevelIds ?? []) {
+      const row = rowByLevelId.get(id);
+      if (!row) {
+        continue;
+      }
+      if (row.unitTotal === 0) {
+        continue;
+      }
+      if (row.completedCount === row.unitTotal) {
+        continue;
+      }
+      if (row.touchedCount > 0) {
+        continue;
+      }
+      planned.push(row);
+    }
+
+    return { current, future, completed, planned };
+  },
+});
+
+export const addCertificationLevelToMyPlan = mutation({
+  args: { levelId: v.id("certificationLevels") },
+  handler: async (ctx, { levelId }) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    const level = await ctx.db.get(levelId);
+    if (!isLive(level)) {
+      throw new Error("Certification not found");
+    }
+    const allProgress = await ctx.db
+      .query("userProgress")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .collect();
+    const progressByUnit = new Map<Id<"units">, (typeof allProgress)[number]>();
+    for (const p of allProgress) {
+      progressByUnit.set(p.unitId, p);
+    }
+    const row = await buildDashboardCertRow(
+      ctx,
+      userId,
+      level,
+      progressByUnit,
+    );
+    if (!row) {
+      throw new Error("Forbidden");
+    }
+    if (row.unitTotal === 0) {
+      throw new Error("This certification has no units yet");
+    }
+    if (row.touchedCount > 0) {
+      throw new Error("Already started — open it from Current certifications");
+    }
+    if (row.completedCount === row.unitTotal) {
+      throw new Error("Already completed");
+    }
+    const existing = user.plannedCertificationLevelIds ?? [];
+    if (existing.includes(levelId)) {
+      return { success: true as const };
+    }
+    await ctx.db.patch(userId, {
+      plannedCertificationLevelIds: [...existing, levelId],
+    });
+    return { success: true as const };
+  },
+});
+
+export const removeCertificationLevelFromMyPlan = mutation({
+  args: { levelId: v.id("certificationLevels") },
+  handler: async (ctx, { levelId }) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    const existing = user.plannedCertificationLevelIds ?? [];
+    const next = existing.filter((id) => id !== levelId);
+    if (next.length === existing.length) {
+      return { success: true as const };
+    }
+    await ctx.db.patch(userId, {
+      plannedCertificationLevelIds: next.length > 0 ? next : undefined,
+    });
+    return { success: true as const };
   },
 });
 
