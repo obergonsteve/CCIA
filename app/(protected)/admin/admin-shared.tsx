@@ -73,6 +73,36 @@ function unitRowDescription(unit: { description?: string }): {
   return { text, show };
 }
 
+export type AdminUnitDeliveryModeFilter = "self_paced" | "live_workshop";
+
+/** L/R border colors by delivery — palette unit rows and delivery filter chips. */
+export function adminUnitDeliveryLREdgeColors(
+  mode: AdminUnitDeliveryModeFilter,
+): string {
+  return mode === "live_workshop"
+    ? "border-l-purple-600 border-r-purple-600 dark:border-l-purple-400 dark:border-r-purple-400"
+    : "border-l-brand-sky border-r-brand-sky dark:border-l-brand-sky dark:border-r-brand-sky";
+}
+
+/** Same hues, lower contrast when the other delivery filter is active. */
+export function adminUnitDeliveryLREdgeColorsMuted(
+  mode: AdminUnitDeliveryModeFilter,
+): string {
+  return mode === "live_workshop"
+    ? "border-l-purple-600/45 border-r-purple-600/45 dark:border-l-purple-400/40 dark:border-r-purple-400/40"
+    : "border-l-brand-sky/50 border-r-brand-sky/50 dark:border-l-brand-sky/45 dark:border-r-brand-sky/45";
+}
+
+function adminPaletteUnitDeliveryLREdgeClass(
+  unit: Pick<Doc<"units">, "deliveryMode">,
+): string {
+  const mode: AdminUnitDeliveryModeFilter =
+    (unit.deliveryMode ?? "self_paced") === "live_workshop"
+      ? "live_workshop"
+      : "self_paced";
+  return adminUnitDeliveryLREdgeColors(mode);
+}
+
 function UnitRowPereqAssignChips({
   prerequisiteCount,
   assignmentCount,
@@ -196,10 +226,11 @@ export function DraggableUnitPaletteItem({
     <div
       ref={setNodeRef}
       className={cn(
-        "group flex min-w-0 items-stretch overflow-hidden border text-sm shadow-sm",
+        "group flex min-w-0 items-stretch overflow-hidden border border-l-4 border-r-4 text-sm shadow-sm",
         expandDrawerOpen ? "rounded-t-lg rounded-b-none border-b-0" : "rounded-lg",
+        !inSelectedCert && "bg-card border-border",
         inSelectedCert && ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
-        !inSelectedCert && "border-border bg-card",
+        adminPaletteUnitDeliveryLREdgeClass(unit),
         !inSelectedCert && selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
         inSelectedCert && selected && ADMIN_LIST_ROW_SELECTED,
         isDragging && "opacity-40",
@@ -1031,7 +1062,7 @@ export function SortableUnitRow({
             {unit.deliveryMode === "live_workshop" ? (
               <Badge
                 variant="outline"
-                className="shrink-0 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide border-brand-gold/50 text-brand-gold"
+                className="shrink-0 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide border-purple-500/50 text-purple-700 dark:border-purple-400/55 dark:text-purple-300"
               >
                 Live
               </Badge>

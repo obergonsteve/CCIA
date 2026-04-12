@@ -34,7 +34,7 @@ export const primarySidebarNav = [
 export const adminSidebarNav = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Training Content", icon: Layers },
-  { href: "/admin/workshops", label: "Workshops", icon: CalendarDays },
+  { href: "/admin/workshops", label: "Timetable", icon: CalendarDays },
   { href: "/admin/database", label: "Database", icon: Database },
 ] as const;
 
@@ -97,7 +97,7 @@ export function sidebarMainPageHeading(
   }
   if (pathname.startsWith("/admin/workshops")) {
     return {
-      label: "Workshops",
+      label: "Timetable",
       icon: CalendarDays,
       iconClassName: "text-brand-gold",
     };

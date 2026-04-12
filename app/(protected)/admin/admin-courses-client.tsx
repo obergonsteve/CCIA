@@ -69,6 +69,8 @@ import {
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
+  adminUnitDeliveryLREdgeColors,
+  adminUnitDeliveryLREdgeColorsMuted,
   ContentLibraryDragRow,
   DraggableUnitPaletteItem,
   LevelRowDroppable,
@@ -556,6 +558,10 @@ export default function AdminCoursesClient() {
   const [unitCategoryFilter, setUnitCategoryFilter] = useState<"all" | string>(
     "all",
   );
+  /** Units column: self-paced vs live workshop (default self-paced). */
+  const [unitDeliveryFilter, setUnitDeliveryFilter] = useState<
+    "self_paced" | "live_workshop"
+  >("self_paced");
   const [contentSearch, setContentSearch] = useState("");
   /** Content / library column: filter by admin-defined content category (chips). */
   const [contentLibraryCategoryFilter, setContentLibraryCategoryFilter] =
@@ -888,6 +894,16 @@ export default function AdminCoursesClient() {
       return Boolean(meta && legacy === meta.shortCode);
     },
     [unitCategoryFilter, unitCategoryMetaById],
+  );
+
+  const unitMatchesDeliveryChip = useCallback(
+    (u: {
+      deliveryMode?: "self_paced" | "live_workshop" | null;
+    }) => {
+      const mode = u.deliveryMode ?? "self_paced";
+      return mode === unitDeliveryFilter;
+    },
+    [unitDeliveryFilter],
   );
 
   const contentMatchesLibraryCategoryChip = useCallback(
@@ -1714,6 +1730,52 @@ export default function AdminCoursesClient() {
   const detailContentListForUi =
     displayedDetailContent ?? detailContent;
 
+  const unitsInCertForDeliveryCounts = useMemo(() => {
+    if (!unitsInCertListForUi?.length) {
+      return [];
+    }
+    return unitsInCertListForUi.filter(
+      (u) => unitMatchesSearch(u) && unitMatchesCategoryChip(u),
+    );
+  }, [unitsInCertListForUi, unitMatchesSearch, unitMatchesCategoryChip]);
+
+  const allUnitsForDeliveryCounts = useMemo(() => {
+    if (!allUnits?.length) {
+      return [];
+    }
+    return allUnits.filter(
+      (u) => unitMatchesSearch(u) && unitMatchesCategoryChip(u),
+    );
+  }, [allUnits, unitMatchesSearch, unitMatchesCategoryChip]);
+
+  const unitDeliveryCountSource = useMemo(() => {
+    if (filterCertId && !centreUnitsShowAll) {
+      return unitsInCertForDeliveryCounts;
+    }
+    return allUnitsForDeliveryCounts;
+  }, [
+    filterCertId,
+    centreUnitsShowAll,
+    unitsInCertForDeliveryCounts,
+    allUnitsForDeliveryCounts,
+  ]);
+
+  const unitSelfPacedCount = useMemo(
+    () =>
+      unitDeliveryCountSource.filter(
+        (u) => (u.deliveryMode ?? "self_paced") === "self_paced",
+      ).length,
+    [unitDeliveryCountSource],
+  );
+
+  const unitWorkshopCount = useMemo(
+    () =>
+      unitDeliveryCountSource.filter(
+        (u) => (u.deliveryMode ?? "self_paced") === "live_workshop",
+      ).length,
+    [unitDeliveryCountSource],
+  );
+
   const certFilterActive =
     certSearchLower.length > 0 ||
     certCategoryFilter !== "all" ||
@@ -1742,18 +1804,34 @@ export default function AdminCoursesClient() {
       return [];
     }
     return unitsInCertListForUi.filter(
-      (u) => unitMatchesSearch(u) && unitMatchesCategoryChip(u),
+      (u) =>
+        unitMatchesSearch(u) &&
+        unitMatchesCategoryChip(u) &&
+        unitMatchesDeliveryChip(u),
     );
-  }, [unitsInCertListForUi, unitMatchesSearch, unitMatchesCategoryChip]);
+  }, [
+    unitsInCertListForUi,
+    unitMatchesSearch,
+    unitMatchesCategoryChip,
+    unitMatchesDeliveryChip,
+  ]);
 
   const allUnitsVisibleForUi = useMemo(() => {
     if (!allUnits?.length) {
       return [];
     }
     return allUnits.filter(
-      (u) => unitMatchesSearch(u) && unitMatchesCategoryChip(u),
+      (u) =>
+        unitMatchesSearch(u) &&
+        unitMatchesCategoryChip(u) &&
+        unitMatchesDeliveryChip(u),
     );
-  }, [allUnits, unitMatchesSearch, unitMatchesCategoryChip]);
+  }, [
+    allUnits,
+    unitMatchesSearch,
+    unitMatchesCategoryChip,
+    unitMatchesDeliveryChip,
+  ]);
 
   /** When set, unit content list is filtered — reorder would be ambiguous, so drag is disabled. */
   const contentFilterActive =
@@ -1784,14 +1862,10 @@ export default function AdminCoursesClient() {
     filterCertId && !centreUnitsShowAll
       ? unitsInCertListForUi === undefined
         ? null
-        : unitFilterActive
-          ? unitsInCertVisibleForUi.length
-          : unitsInCertListForUi.length
+        : unitsInCertVisibleForUi.length
       : allUnits === undefined
         ? null
-        : unitFilterActive
-          ? allUnitsVisibleForUi.length
-          : allUnits.length;
+        : allUnitsVisibleForUi.length;
   const contentListCount: number | null =
     selectedDetailUnitId && selectedDetailUnit && !libraryShowAll
       ? detailContent === undefined
@@ -1839,7 +1913,7 @@ export default function AdminCoursesClient() {
       >
         {/* Layout matches GritHub app/(dashboard)/dashboard/admin/company-maintenance/page.tsx */}
         <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[repeat(3,minmax(0,1fr))]">
-          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] px-4 pb-4 pt-0 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
+          <div className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-brand-lime/40 border-l-4 border-r-4 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] px-2 pb-4 pt-0 shadow-lg dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]">
             <TrainingColumnChip
               tone="lime"
               count={certListCount}
@@ -1897,46 +1971,46 @@ export default function AdminCoursesClient() {
               onValueChange={setCertCategoryFilter}
               categories={certCategories}
             />
-            <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-lime/50 dark:border-brand-lime/40" />
-            <div className="mb-3 shrink-0 space-y-2">
-              <div
-                className="flex flex-wrap items-center gap-1.5"
-                role="group"
-                aria-label="Filter certifications by tier"
+            <div
+              className="mb-2 flex flex-wrap items-center gap-1.5"
+              role="group"
+              aria-label="Filter certifications by tier"
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant={
+                  certTierFilter === "all" ? "secondary" : "outline"
+                }
+                className="h-10 min-w-10 shrink-0 px-2.5 text-xs font-semibold"
+                onClick={() => setCertTierFilter("all")}
+                aria-label="All tiers"
+                title="Show all certification tiers"
               >
+                All
+              </Button>
+              {(["bronze", "silver", "gold"] as const).map((tier) => (
                 <Button
+                  key={tier}
                   type="button"
-                  size="sm"
+                  size="icon-lg"
                   variant={
-                    certTierFilter === "all" ? "secondary" : "outline"
+                    certTierFilter === tier ? "secondary" : "outline"
                   }
-                  className="h-10 min-w-10 shrink-0 px-2.5 text-xs font-semibold"
-                  onClick={() => setCertTierFilter("all")}
-                  aria-label="All tiers"
-                  title="Show all certification tiers"
+                  className="size-10 shrink-0"
+                  onClick={() => setCertTierFilter(tier)}
+                  aria-label={certificationTierLabel(tier)}
+                  title={certificationTierSectionTitle(tier)}
                 >
-                  All
+                  <CertificationTierMedallion
+                    tier={tier}
+                    className="size-[2.33rem]"
+                  />
                 </Button>
-                {(["bronze", "silver", "gold"] as const).map((tier) => (
-                  <Button
-                    key={tier}
-                    type="button"
-                    size="icon-lg"
-                    variant={
-                      certTierFilter === tier ? "secondary" : "outline"
-                    }
-                    className="size-10 shrink-0"
-                    onClick={() => setCertTierFilter(tier)}
-                    aria-label={certificationTierLabel(tier)}
-                    title={certificationTierSectionTitle(tier)}
-                  >
-                    <CertificationTierMedallion
-                      tier={tier}
-                      className="size-[2.33rem]"
-                    />
-                  </Button>
-                ))}
-              </div>
+              ))}
+            </div>
+            <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-lime/50 dark:border-brand-lime/40" />
+            <div className="mb-3 shrink-0">
               {filterCertId ? (
                 <p className="text-sm text-muted-foreground">
                   Use{" "}
@@ -1999,7 +2073,7 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] px-4 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
               filterCertId
                 ? "border-brand-lime/40 border-l-brand-lime border-r-brand-lime dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime"
                 : "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold",
@@ -2069,6 +2143,62 @@ export default function AdminCoursesClient() {
               onValueChange={setUnitCategoryFilter}
               categories={unitCategories}
             />
+            <div
+              className="mb-2 grid w-full grid-cols-2 gap-2"
+              role="group"
+              aria-label="Filter units by delivery format"
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "h-8 min-w-0 gap-1 border border-border border-l-4 border-r-4 px-2 text-xs leading-tight shadow-none",
+                  unitDeliveryFilter === "self_paced"
+                    ? cn(
+                        adminUnitDeliveryLREdgeColors("self_paced"),
+                        "bg-brand-sky/14 font-medium text-foreground hover:bg-brand-sky/20 dark:bg-brand-sky/16 dark:hover:bg-brand-sky/22",
+                      )
+                    : cn(
+                        adminUnitDeliveryLREdgeColorsMuted("self_paced"),
+                        "bg-background hover:bg-brand-sky/8 dark:hover:bg-brand-sky/10",
+                      ),
+                )}
+                onClick={() => setUnitDeliveryFilter("self_paced")}
+                aria-pressed={unitDeliveryFilter === "self_paced"}
+                title="Show self-paced units (default)"
+              >
+                <span className="min-w-0 truncate">Self-paced</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  ({unitSelfPacedCount})
+                </span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "h-8 min-w-0 gap-1 border border-border border-l-4 border-r-4 px-2 text-xs leading-tight shadow-none",
+                  unitDeliveryFilter === "live_workshop"
+                    ? cn(
+                        adminUnitDeliveryLREdgeColors("live_workshop"),
+                        "bg-purple-500/14 font-medium text-foreground hover:bg-purple-500/22 dark:bg-purple-400/14 dark:hover:bg-purple-400/22",
+                      )
+                    : cn(
+                        adminUnitDeliveryLREdgeColorsMuted("live_workshop"),
+                        "bg-background hover:bg-purple-500/10 dark:hover:bg-purple-400/12",
+                      ),
+                )}
+                onClick={() => setUnitDeliveryFilter("live_workshop")}
+                aria-pressed={unitDeliveryFilter === "live_workshop"}
+                title="Show live workshop units (scheduled sessions)"
+              >
+                <span className="min-w-0 truncate">Workshop</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  ({unitWorkshopCount})
+                </span>
+              </Button>
+            </div>
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-gold/50 dark:border-brand-gold/40" />
             {filterCertId && filterCertName ? (
               <button
@@ -2113,7 +2243,10 @@ export default function AdminCoursesClient() {
                           No units match &ldquo;{unitSearch.trim()}&rdquo;.
                         </>
                       ) : (
-                        <>No units in this category.</>
+                        <>
+                          No units match the current filters (category or
+                          delivery).
+                        </>
                       )}
                     </p>
                   ) : (
@@ -2200,7 +2333,10 @@ export default function AdminCoursesClient() {
                         No units match &ldquo;{unitSearch.trim()}&rdquo;.
                       </>
                     ) : (
-                      <>No units in this category.</>
+                      <>
+                        No units match the current filters (category or
+                        delivery).
+                      </>
                     )}
                   </p>
                 ) : (
@@ -2300,7 +2436,7 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-sky/[0.10] px-4 pb-4 pt-0 shadow-lg dark:bg-brand-sky/[0.12]",
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-sky/[0.10] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-sky/[0.12]",
               selectedDetailUnitId
                 ? "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold"
                 : "border-brand-sky/40 border-l-brand-sky border-r-brand-sky dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky",
@@ -3022,7 +3158,7 @@ export default function AdminCoursesClient() {
               </p>
             </div>
             <div className="space-y-1">
-              <Label>Delivery</Label>
+              <Label htmlFor="add-unit-delivery">Delivery method</Label>
               <Select
                 value={newUnitDeliveryMode}
                 onValueChange={(v) =>
@@ -3035,19 +3171,17 @@ export default function AdminCoursesClient() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="self_paced" label="Self-paced (default)">
-                    Self-paced (default)
+                  <SelectItem value="self_paced" label="Self-paced">
+                    Self-paced
                   </SelectItem>
-                  <SelectItem
-                    value="live_workshop"
-                    label="Live workshop (scheduled sessions)"
-                  >
-                    Live workshop (scheduled sessions)
+                  <SelectItem value="live_workshop" label="Workshop">
+                    Workshop
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
-                Live workshop units get dated sessions under Admin → Workshops.
+                Self-paced: on-demand lessons. Workshop: scheduled live sessions
+                (Admin → Timetable).
               </p>
             </div>
             <div className="space-y-1">
@@ -3379,7 +3513,7 @@ export default function AdminCoursesClient() {
                     <p className="text-sm text-muted-foreground">
                       Create sessions under{" "}
                       <span className="font-medium text-foreground">
-                        Admin → Workshops
+                        Admin → Timetable
                       </span>{" "}
                       first.
                     </p>
@@ -3992,7 +4126,7 @@ export default function AdminCoursesClient() {
                     <p className="text-sm text-muted-foreground">Loading…</p>
                   ) : workshopSessionsAdmin.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      Add sessions under Admin → Workshops.
+                      Add sessions under Admin → Timetable.
                     </p>
                   ) : (
                     <Select
@@ -4397,7 +4531,7 @@ export default function AdminCoursesClient() {
               )}
             </div>
             <div className="space-y-1">
-              <Label>Delivery</Label>
+              <Label htmlFor="edit-unit-delivery">Delivery method</Label>
               <Select
                 value={editUnitDeliveryMode}
                 onValueChange={(v) =>
@@ -4410,17 +4544,18 @@ export default function AdminCoursesClient() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="self_paced" label="Self-paced (default)">
-                    Self-paced (default)
+                  <SelectItem value="self_paced" label="Self-paced">
+                    Self-paced
                   </SelectItem>
-                  <SelectItem
-                    value="live_workshop"
-                    label="Live workshop (scheduled sessions)"
-                  >
-                    Live workshop (scheduled sessions)
+                  <SelectItem value="live_workshop" label="Workshop">
+                    Workshop
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Self-paced: on-demand lessons. Workshop: scheduled live sessions
+                (Admin → Timetable).
+              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="edit-unit-desc">Description</Label>

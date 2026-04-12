@@ -23,7 +23,8 @@ type TierFancyStarGlyphProps = Omit<
   filter: string;
 };
 
-const STAR_BODY_TRANSFORM = "translate(12 12) scale(1.26) translate(-12 -12)";
+/** Slightly inset so strokes + emboss stay inside the 24×24 viewBox (avoids clipping in tight badges). */
+const STAR_BODY_TRANSFORM = "translate(12 12) scale(1.12) translate(-12 -12)";
 
 const TierFancyStarGlyph = forwardRef<SVGSVGElement, TierFancyStarGlyphProps>(
   function TierFancyStarGlyph(
@@ -44,7 +45,7 @@ const TierFancyStarGlyph = forwardRef<SVGSVGElement, TierFancyStarGlyphProps>(
       >
         <g transform={STAR_BODY_TRANSFORM}>
           <g opacity={0.36} aria-hidden>
-            <g transform="translate(12 12) scale(1.08) translate(-12 -12)">
+            <g transform="translate(12 12) scale(1.04) translate(-12 -12)">
               <path d={FANCY_STAR_D} fill={tierPaint} />
             </g>
           </g>
@@ -184,7 +185,8 @@ const STAR_AMBIENT_SHADOW: Record<CertificationTierKey, string> = {
 /** Metallic tier star (bronze / silver / gold) for badges and filters. */
 export function CertificationTierMedallion({
   tier,
-  className = "size-[1.664rem]",
+  /** Fits `Badge` h-5 rows; use explicit `className` where a larger star is intended. */
+  className = "size-4",
   "aria-hidden": ariaHidden = true,
 }: {
   tier: CertificationTierKey;
