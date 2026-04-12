@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  CalendarDays,
   Database,
   GraduationCap,
   Layers,
@@ -21,23 +22,42 @@ export const primarySidebarNav = [
     icon: GraduationCap,
     accent: "sky" as const,
   },
+  {
+    href: "/workshops",
+    label: "Workshops",
+    icon: CalendarDays,
+    accent: "gold" as const,
+  },
 ] as const;
 
 /** Admin section links (same order as sidebar). */
 export const adminSidebarNav = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Training Content", icon: Layers },
+  { href: "/admin/workshops", label: "Workshops", icon: CalendarDays },
   { href: "/admin/database", label: "Database", icon: Database },
 ] as const;
 
 export function primaryNavIconClass(
-  accent: "lime" | "sky",
+  accent: "lime" | "sky" | "gold",
   active: boolean,
 ): string {
   if (active) {
-    return accent === "lime" ? "text-brand-lime" : "text-brand-sky";
+    if (accent === "lime") {
+      return "text-brand-lime";
+    }
+    if (accent === "sky") {
+      return "text-brand-sky";
+    }
+    return "text-brand-gold";
   }
-  return accent === "lime" ? "text-brand-lime/85" : "text-brand-sky/85";
+  if (accent === "lime") {
+    return "text-brand-lime/85";
+  }
+  if (accent === "sky") {
+    return "text-brand-sky/85";
+  }
+  return "text-brand-gold/85";
 }
 
 /** Icon + title for the current route when it matches a direct sidebar destination. */
@@ -58,6 +78,13 @@ export function sidebarMainPageHeading(
       iconClassName: "text-brand-sky",
     };
   }
+  if (pathname === "/workshops" || pathname.startsWith("/workshops/")) {
+    return {
+      label: "Workshops",
+      icon: CalendarDays,
+      iconClassName: "text-brand-gold",
+    };
+  }
   if (pathname.startsWith("/admin/users")) {
     return { label: "Users", icon: Users, iconClassName: "text-brand-gold" };
   }
@@ -65,6 +92,13 @@ export function sidebarMainPageHeading(
     return {
       label: "Training Content",
       icon: Layers,
+      iconClassName: "text-brand-gold",
+    };
+  }
+  if (pathname.startsWith("/admin/workshops")) {
+    return {
+      label: "Workshops",
+      icon: CalendarDays,
       iconClassName: "text-brand-gold",
     };
   }

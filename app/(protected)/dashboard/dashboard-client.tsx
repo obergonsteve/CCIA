@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  certificationTierBadgeClass,
+  certificationTierLabel,
+  effectiveCertificationTier,
+} from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 import { useMemo, type ReactNode } from "react";
 
@@ -113,6 +118,7 @@ function CertificationBucketSection({
                   )
                 : 0;
             const thumb = level.thumbnailUrl?.trim() ?? "";
+            const tier = effectiveCertificationTier(level);
             return (
               <Card
                 key={level._id}
@@ -137,7 +143,17 @@ function CertificationBucketSection({
                   )}
                 </div>
                 <CardHeader className="rounded-t-none">
-                  <CardTitle className="text-lg">{level.name}</CardTitle>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-lg">{level.name}</CardTitle>
+                    <Badge
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-wide",
+                        certificationTierBadgeClass(tier),
+                      )}
+                    >
+                      {certificationTierLabel(tier)}
+                    </Badge>
+                  </div>
                   <CardDescription className="line-clamp-2">
                     {level.summary?.trim() || level.description}
                   </CardDescription>

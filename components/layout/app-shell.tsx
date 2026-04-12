@@ -85,7 +85,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                     active
                       ? accent === "lime"
                         ? "border-brand-lime bg-brand-lime/15 text-white"
-                        : "border-brand-sky bg-brand-sky/18 text-white"
+                        : accent === "sky"
+                          ? "border-brand-sky bg-brand-sky/18 text-white"
+                          : "border-brand-gold bg-brand-gold/20 text-white"
                       : "border-transparent text-white/72 hover:bg-white/8 hover:text-white",
                   )}
                 >
@@ -173,10 +175,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2 text-[15px] text-brand-gold hover:bg-white/10 hover:!text-brand-gold"
+          className={cn(
+            "w-full justify-start gap-2 text-[15px]",
+            /* Explicit purple — not `primary`/ring (hue ~232 reads blue) or ghost hover → foreground (white). */
+            "text-purple-400 hover:bg-purple-500/20 hover:text-purple-200",
+            "dark:text-purple-300 dark:hover:bg-purple-500/22 dark:hover:text-purple-100",
+            "focus-visible:border-purple-400/55 focus-visible:ring-purple-400/40 focus-visible:ring-offset-0",
+          )}
           onClick={() => void logout()}
         >
-          <LogOut className="h-[18px] w-[18px]" />
+          <LogOut className="h-[18px] w-[18px] shrink-0 text-inherit" />
           Sign out
         </Button>
       </div>

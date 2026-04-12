@@ -2,7 +2,7 @@
 
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import {
   Lock,
   RotateCcw,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -48,6 +49,21 @@ export function ContentItemView({
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   const isAssessment = item.type === "test" || item.type === "assignment";
+  const isWorkshopSession = item.type === "workshop_session";
+  const workshopSessionId = item.workshopSessionId;
+  const workshopRegistration = useQuery(
+    api.workshops.registrationStatus,
+    unitId && isWorkshopSession && workshopSessionId
+      ? { sessionId: workshopSessionId }
+      : "skip",
+  );
+  const workshopSessionDetail = useQuery(
+    api.workshops.getSessionForUser,
+    unitId && isWorkshopSession && workshopSessionId
+      ? { sessionId: workshopSessionId }
+      : "skip",
+  );
+  const registerWorkshop = useMutation(api.workshops.registerForSession);
   const lastAssessmentResult = useQuery(
     api.progress.myResultsForAssessmentContent,
     unitId && isAssessment && item.assessment
@@ -64,29 +80,40 @@ export function ContentItemView({
   const reopenContentStep = useMutation(api.contentProgress.reopenContentStep);
   const myStepProgress = useQuery(
     api.contentProgress.myContentProgressForStep,
-    unitId && !isAssessment
+    unitId && !isAssessment && !isWorkshopSession
       ? { unitId, contentId: item._id }
       : "skip",
   );
   const stepProgressLoading =
-    Boolean(unitId) && !isAssessment && myStepProgress === undefined;
+    Boolean(unitId) &&
+    !isAssessment &&
+    !isWorkshopSession &&
+    myStepProgress === undefined;
+  const workshopProgressLoading =
+    Boolean(unitId) &&
+    isWorkshopSession &&
+    workshopSessionId &&
+    workshopRegistration === undefined;
   const nonAssessmentComplete =
     myStepProgress != null &&
     myStepProgress.completedAt != null &&
     (myStepProgress.outcome === "completed" ||
       myStepProgress.outcome === "passed");
+  const workshopRegistered = workshopRegistration?.registered === true;
 
   const isStepComplete =
     isAssessment && item.assessment
       ? lastAssessmentResult?.passed === true
-      : Boolean(unitId && !isAssessment && nonAssessmentComplete);
+      : isWorkshopSession
+        ? workshopRegistered
+        : Boolean(unitId && !isAssessment && nonAssessmentComplete);
 
   const [expanded, setExpanded] = useState<boolean | undefined>(undefined);
   const isOpen = expanded === undefined ? !isStepComplete : expanded;
   const stepBodyId = `step-body-${item._id}`;
 
   useEffect(() => {
-    if (!unitId || locked || !isActive) {
+    if (!unitId || locked || !isActive || isWorkshopSession) {
       return;
     }
     void recordContentStart({ unitId, contentId: item._id, levelId }).catch(
@@ -94,7 +121,15 @@ export function ContentItemView({
         /* surfaced on explicit actions */
       },
     );
-  }, [unitId, item._id, locked, isActive, levelId, recordContentStart]);
+  }, [
+    unitId,
+    item._id,
+    locked,
+    isActive,
+    levelId,
+    recordContentStart,
+    isWorkshopSession,
+  ]);
 
   const typeLabel =
     item.type === "slideshow"
@@ -103,7 +138,9 @@ export function ContentItemView({
         ? "Test"
         : item.type === "assignment"
           ? "Assignment"
-          : item.type;
+          : item.type === "workshop_session"
+            ? "Live workshop"
+            : item.type;
 
   return (
     <Card
@@ -227,6 +264,128 @@ export function ContentItemView({
             Open resource
           </a>
         )}
+        {isWorkshopSession && (
+          <div className="space-y-3">
+            {!workshopSessionId ? (
+              <p className="text-sm text-destructive">
+                This step is not linked to a session (admin configuration).
+              </p>
+            ) : workshopSessionDetail === null ? (
+              <p className="text-sm text-muted-foreground">
+                You do not have access to this session.
+              </p>
+            ) : workshopProgressLoading ? (
+              <p className="text-sm text-muted-foreground">Loading session…</p>
+            ) : (
+              <>
+                {item.url.trim() ? (
+                  <p className="text-sm text-muted-foreground">{item.url}</p>
+                ) : null}
+                {workshopSessionDetail ? (
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium text-foreground">
+                      {workshopSessionDetail.workshopTitle}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {new Date(
+                        workshopSessionDetail.session.startsAt,
+                      ).toLocaleString()}{" "}
+                      —{" "}
+                      {new Date(
+                        workshopSessionDetail.session.endsAt,
+                      ).toLocaleString()}
+                    </p>
+                    {workshopSessionDetail.session.status === "cancelled" ? (
+                      <p className="text-destructive text-sm">
+                        This session was cancelled.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {workshopRegistered ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={!unitId || locked}
+                      onClick={async () => {
+                        if (!unitId) {
+                          return;
+                        }
+                        try {
+                          await reopenContentStep({
+                            unitId,
+                            contentId: item._id,
+                            levelId,
+                          });
+                          toast.success(
+                            "Registration cleared. Register again when you are ready.",
+                          );
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error
+                              ? e.message
+                              : "Could not re-open step",
+                          );
+                        }
+                      }}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                      Re-open step
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        !unitId ||
+                        locked ||
+                        workshopSessionDetail?.session.status !==
+                          "scheduled"
+                      }
+                      onClick={async () => {
+                        if (!workshopSessionId) {
+                          return;
+                        }
+                        try {
+                          await registerWorkshop({
+                            sessionId: workshopSessionId,
+                          });
+                          toast.success("Registered — step complete");
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error ? e.message : "Failed",
+                          );
+                        }
+                      }}
+                    >
+                      Register for session
+                    </Button>
+                  )}
+                  {workshopSessionDetail?.session.externalJoinUrl ? (
+                    <Link
+                      href={workshopSessionDetail.session.externalJoinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        buttonVariants({ variant: "ghost", size: "sm" }),
+                        "inline-flex gap-1",
+                      )}
+                    >
+                      Join link
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  ) : null}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  LiveKit room will replace the join link in a future update.
+                </p>
+              </>
+            )}
+          </div>
+        )}
         {isAssessment && item.assessment && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -311,7 +470,10 @@ export function ContentItemView({
             ) : null}
           </div>
         )}
-        {!isAssessment && unitId && !locked && (
+        {!isAssessment &&
+          !isWorkshopSession &&
+          unitId &&
+          !locked && (
           <div className="flex flex-wrap items-center gap-2">
             {stepProgressLoading ? (
               <Button type="button" variant="secondary" size="sm" disabled>

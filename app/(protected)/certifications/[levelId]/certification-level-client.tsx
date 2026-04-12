@@ -2,6 +2,7 @@
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { Badge } from "@/components/ui/badge";
 import { useQuery } from "convex/react";
 import {
   ArrowRight,
@@ -14,6 +15,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  certificationTierBadgeClass,
+  certificationTierLabel,
+  effectiveCertificationTier,
+} from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 
 type PathStep = {
@@ -140,6 +146,8 @@ export default function CertificationLevelClient({
     );
   }
 
+  const tier = effectiveCertificationTier(level);
+
   return (
     <div className="space-y-8">
       {level.thumbnailUrl ? (
@@ -155,9 +163,19 @@ export default function CertificationLevelClient({
             />
             <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/70 to-transparent md:from-background/90" />
             <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8 md:max-w-xl">
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                {level.name}
-              </h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+                  {level.name}
+                </h1>
+                <Badge
+                  className={cn(
+                    "text-[10px] font-bold uppercase tracking-wide",
+                    certificationTierBadgeClass(tier),
+                  )}
+                >
+                  {certificationTierLabel(tier)}
+                </Badge>
+              </div>
               {level.tagline ? (
                 <p className="mt-1 text-sm font-medium text-brand-gold md:text-base">
                   {level.tagline}
@@ -168,7 +186,17 @@ export default function CertificationLevelClient({
         </div>
       ) : (
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{level.name}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">{level.name}</h1>
+            <Badge
+              className={cn(
+                "text-[10px] font-bold uppercase tracking-wide",
+                certificationTierBadgeClass(tier),
+              )}
+            >
+              {certificationTierLabel(tier)}
+            </Badge>
+          </div>
           {level.tagline ? (
             <p className="mt-1 text-sm font-medium text-brand-gold">
               {level.tagline}

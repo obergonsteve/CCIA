@@ -231,6 +231,7 @@ export const bootstrapDemo = mutation({
         "Introduction to residential land lease community operations in Australia — governance, site models, and how legislation shapes day-to-day management.",
       order: 0,
       companyId: undefined,
+      certificationTier: "bronze",
     });
     const unitId = await ctx.db.insert("units", {
       code: await allocateUniqueUnitCode(ctx, "Compliance orientation"),
@@ -325,6 +326,18 @@ function seededContentCategoryForLesson(type: SeedContent["type"]): string {
   }
 }
 
+function certificationTierForCourseName(
+  name: string,
+): "bronze" | "silver" | "gold" {
+  if (name === "Land Lease 101") {
+    return "bronze";
+  }
+  if (name === "Commercials, Fees & Asset Care") {
+    return "gold";
+  }
+  return "silver";
+}
+
 async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
   const levelIds: Id<"certificationLevels">[] = [];
   const unitIdBySeedKey = new Map<string, Id<"units">>();
@@ -349,6 +362,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       thumbnailUrl: course.thumbnailUrl,
       order: course.order,
       companyId: undefined,
+      certificationTier: certificationTierForCourseName(course.name),
     });
     levelIds.push(levelId);
 

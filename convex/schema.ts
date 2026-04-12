@@ -89,12 +89,24 @@ export default defineSchema({
     thumbnailUrl: v.optional(v.string()),
     order: v.number(),
     companyId: v.optional(v.id("companies")),
+    /**
+     * Bronze = mandatory baseline; Silver/Gold = optional tracks (WORKSHOPS.md).
+     * Undefined on legacy rows — treat as bronze in app code until backfilled.
+     */
+    certificationTier: v.optional(
+      v.union(
+        v.literal("bronze"),
+        v.literal("silver"),
+        v.literal("gold"),
+      ),
+    ),
     /** Set when “deleted” — row retained, hidden from UI. */
     deletedAt: v.optional(v.number()),
   })
     .index("by_company", ["companyId"])
     .index("by_certification_category", ["certificationCategoryId"])
-    .index("by_code", ["code"]),
+    .index("by_code", ["code"])
+    .index("by_certification_tier", ["certificationTier"]),
 
   units: defineTable({
     /** Unique short identifier (same rules as certification `code`). */
@@ -108,6 +120,10 @@ export default defineSchema({
     /** Legacy (pre–junction table). Remove after migrating or clearing training data. */
     levelId: v.optional(v.id("certificationLevels")),
     order: v.optional(v.number()),
+    /** `live_workshop` = unit is scheduled as live sessions; default/omit = self-paced. */
+    deliveryMode: v.optional(
+      v.union(v.literal("self_paced"), v.literal("live_workshop")),
+    ),
     /** Set when “deleted” — row retained, hidden from UI. */
     deletedAt: v.optional(v.number()),
   })
@@ -146,14 +162,18 @@ export default defineSchema({
       v.literal("pdf"),
       v.literal("test"),
       v.literal("assignment"),
+      /** Step that completes when the user registers for the linked live session. */
+      v.literal("workshop_session"),
     ),
     title: v.string(),
     contentCategoryId: v.optional(v.id("contentCategories")),
     /** Pre–FK era; strip via `migrateLegacyCategories.adminMigrateLegacyCategoryStrings`. */
     contentCategory: v.optional(v.string()),
     contentCategoryShortDescription: v.optional(v.string()),
-    /** Media URL or empty for test/assignment items. */
+    /** Media URL or empty for test/assignment / workshop_session items. */
     url: v.string(),
+    /** Set when `type` is `workshop_session`. */
+    workshopSessionId: v.optional(v.id("workshopSessions")),
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
     /** Quiz payload when `type` is test or assignment. */
@@ -179,7 +199,31 @@ export default defineSchema({
     deletedAt: v.optional(v.number()),
   })
     .index("by_content_category", ["contentCategoryId"])
-    .index("by_code", ["code"]),
+    .index("by_code", ["code"])
+    .index("by_workshop_session", ["workshopSessionId"]),
+
+  /** Scheduled occurrence of a `live_workshop` unit. */
+  workshopSessions: defineTable({
+    workshopUnitId: v.id("units"),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    titleOverride: v.optional(v.string()),
+    capacity: v.optional(v.number()),
+    status: v.union(v.literal("scheduled"), v.literal("cancelled")),
+    /** Until LiveKit: optional link opened in a new tab. */
+    externalJoinUrl: v.optional(v.string()),
+  })
+    .index("by_workshop_unit", ["workshopUnitId"])
+    .index("by_starts_at", ["startsAt"]),
+
+  workshopRegistrations: defineTable({
+    userId: v.id("users"),
+    sessionId: v.id("workshopSessions"),
+    registeredAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_user", ["sessionId", "userId"]),
 
   /** Content order within a specific unit (many-to-many link). */
   unitContents: defineTable({

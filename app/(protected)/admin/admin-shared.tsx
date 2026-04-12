@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,11 @@ import {
   Unlink2,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  certificationTierBadgeClass,
+  certificationTierLabel,
+  effectiveCertificationTier,
+} from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 
 export type UnitAdminListRow = Doc<"units"> & {
@@ -358,7 +364,9 @@ function contentLibrarySubtitle(item: Doc<"contentItems">): string {
             ? "Test"
             : item.type === "assignment"
               ? "Assignment"
-              : "Link";
+              : item.type === "workshop_session"
+                ? "Live workshop"
+                : "Link";
   const parts: string[] = [typeLabel];
   if (item.duration != null && item.duration > 0) {
     parts.push(`${item.duration} min`);
@@ -807,6 +815,8 @@ export function SortableLevelRow({
         ? "1 unit in this certification. Drag units from the centre column onto this certification to add them."
         : `${unitCount} units in this certification. Drag units from the centre column onto this certification to add them.`;
 
+  const tier = effectiveCertificationTier(level);
+
   return (
     <div
       ref={setNodeRef}
@@ -859,6 +869,14 @@ export function SortableLevelRow({
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
+          <Badge
+            className={cn(
+              "shrink-0 px-2 py-0 text-[10px] font-bold uppercase tracking-wide",
+              certificationTierBadgeClass(tier),
+            )}
+          >
+            {certificationTierLabel(tier)}
+          </Badge>
           <Tooltip>
             <TooltipTrigger asChild>
               <span
@@ -1004,7 +1022,17 @@ export function SortableUnitRow({
           className="min-w-0 text-left leading-tight"
           onClick={onSelect}
         >
-          <span className="block truncate font-medium">{unit.title}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-medium">{unit.title}</span>
+            {unit.deliveryMode === "live_workshop" ? (
+              <Badge
+                variant="outline"
+                className="shrink-0 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide border-brand-gold/50 text-brand-gold"
+              >
+                Live
+              </Badge>
+            ) : null}
+          </span>
           {unit.code?.trim() ? (
             <span className="mt-0.5 block truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
               {unit.code.trim()}

@@ -380,6 +380,12 @@ export const get = query({
   },
 });
 
+const certificationTierValidator = v.union(
+  v.literal("bronze"),
+  v.literal("silver"),
+  v.literal("gold"),
+);
+
 export const create = mutation({
   args: {
     name: v.string(),
@@ -392,10 +398,12 @@ export const create = mutation({
     companyId: v.optional(v.id("companies")),
     tagline: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
+    certificationTier: v.optional(certificationTierValidator),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    const { certificationCategoryId, code: codeRaw, ...rest } = args;
+    const { certificationCategoryId, code: codeRaw, certificationTier, ...rest } =
+      args;
     const code =
       codeRaw !== undefined && String(codeRaw).trim() !== ""
         ? normalizeEntityCode(codeRaw)
@@ -408,6 +416,7 @@ export const create = mutation({
       ...(certificationCategoryId
         ? { certificationCategoryId }
         : {}),
+      certificationTier: certificationTier ?? "bronze",
     });
   },
 });
@@ -426,8 +435,15 @@ export const update = mutation({
     companyId: v.optional(v.id("companies")),
     tagline: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
+    certificationTier: v.optional(certificationTierValidator),
   },
-  handler: async (ctx, { levelId, certificationCategoryId, code, ...fields }) => {
+  handler: async (ctx, {
+    levelId,
+    certificationCategoryId,
+    code,
+    certificationTier,
+    ...fields
+  }) => {
     await requireAdminOrCreator(ctx);
     const row = await ctx.db.get(levelId);
     if (!isLive(row)) {
@@ -447,6 +463,7 @@ export const update = mutation({
                 : certificationCategoryId,
           }
         : {}),
+      ...(certificationTier !== undefined ? { certificationTier } : {}),
     });
   },
 });

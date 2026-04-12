@@ -145,10 +145,13 @@ export const create = mutation({
     code: v.optional(v.string()),
     description: v.string(),
     unitCategoryId: v.optional(v.id("unitCategories")),
+    deliveryMode: v.optional(
+      v.union(v.literal("self_paced"), v.literal("live_workshop")),
+    ),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    const { unitCategoryId, code: codeRaw, ...rest } = args;
+    const { unitCategoryId, code: codeRaw, deliveryMode, ...rest } = args;
     const code =
       codeRaw !== undefined && String(codeRaw).trim() !== ""
         ? normalizeEntityCode(codeRaw)
@@ -159,6 +162,7 @@ export const create = mutation({
       ...rest,
       code,
       ...(unitCategoryId ? { unitCategoryId } : {}),
+      ...(deliveryMode ? { deliveryMode } : {}),
     });
   },
 });
@@ -172,8 +176,15 @@ export const update = mutation({
     unitCategoryId: v.optional(
       v.union(v.id("unitCategories"), v.null()),
     ),
+    deliveryMode: v.optional(
+      v.union(
+        v.literal("self_paced"),
+        v.literal("live_workshop"),
+        v.null(),
+      ),
+    ),
   },
-  handler: async (ctx, { unitId, unitCategoryId, code, ...fields }) => {
+  handler: async (ctx, { unitId, unitCategoryId, deliveryMode, code, ...fields }) => {
     await requireAdminOrCreator(ctx);
     const row = await ctx.db.get(unitId);
     if (!isLive(row)) {
@@ -189,6 +200,12 @@ export const update = mutation({
         ? {
             unitCategoryId:
               unitCategoryId === null ? undefined : unitCategoryId,
+          }
+        : {}),
+      ...(deliveryMode !== undefined
+        ? {
+            deliveryMode:
+              deliveryMode === null ? undefined : deliveryMode,
           }
         : {}),
     });

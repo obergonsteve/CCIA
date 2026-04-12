@@ -22,10 +22,12 @@ import type * as curriculumSeedData from "../curriculumSeedData.js";
 import type * as entityCodesAdmin from "../entityCodesAdmin.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_certTier from "../lib/certTier.js";
 import type * as lib_entityCodes from "../lib/entityCodes.js";
 import type * as lib_httpCookies from "../lib/httpCookies.js";
 import type * as lib_prerequisites from "../lib/prerequisites.js";
 import type * as lib_softDelete from "../lib/softDelete.js";
+import type * as lib_workshopUnitLevels from "../lib/workshopUnitLevels.js";
 import type * as migrateLegacyCategories from "../migrateLegacyCategories.js";
 import type * as prerequisites from "../prerequisites.js";
 import type * as progress from "../progress.js";
@@ -33,6 +35,7 @@ import type * as seed from "../seed.js";
 import type * as unitCategories from "../unitCategories.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
+import type * as workshops from "../workshops.js";
 
 import type {
   ApiFromModules,
@@ -55,10 +58,12 @@ declare const fullApi: ApiFromModules<{
   entityCodesAdmin: typeof entityCodesAdmin;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/certTier": typeof lib_certTier;
   "lib/entityCodes": typeof lib_entityCodes;
   "lib/httpCookies": typeof lib_httpCookies;
   "lib/prerequisites": typeof lib_prerequisites;
   "lib/softDelete": typeof lib_softDelete;
+  "lib/workshopUnitLevels": typeof lib_workshopUnitLevels;
   migrateLegacyCategories: typeof migrateLegacyCategories;
   prerequisites: typeof prerequisites;
   progress: typeof progress;
@@ -66,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   unitCategories: typeof unitCategories;
   units: typeof units;
   users: typeof users;
+  workshops: typeof workshops;
 }>;
 
 /**

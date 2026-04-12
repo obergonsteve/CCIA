@@ -10,6 +10,7 @@ import { collectContentInUnit, type ContentInUnit } from "./content";
 import { collectUnitsForLevel } from "./units";
 import { requireUserId, userCanAccessLevel, userCanAccessUnit } from "./lib/auth";
 import { getIncompletePrerequisites } from "./lib/prerequisites";
+import { isLive } from "./lib/softDelete";
 
 export type UnitStep =
   | {
@@ -101,6 +102,19 @@ async function contentStepDone(
   contentId: Id<"contentItems">,
   item: ContentInUnit,
 ): Promise<boolean> {
+  if (item.type === "workshop_session") {
+    const sid = item.workshopSessionId;
+    if (!sid) {
+      return false;
+    }
+    const reg = await ctx.db
+      .query("workshopRegistrations")
+      .withIndex("by_session_and_user", (q) =>
+        q.eq("sessionId", sid).eq("userId", userId),
+      )
+      .unique();
+    return reg != null;
+  }
   if (isAssessmentContent(item)) {
     const last = await latestAssessmentContentResult(ctx, userId, contentId);
     return last?.passed === true;
@@ -308,6 +322,38 @@ export async function syncUnitCompletion(
       completedAt: undefined,
       lastAccessed: now,
     });
+  }
+}
+
+/** After workshop registration changes, re-evaluate unit completion for affected units. */
+export async function syncUnitsContainingWorkshopSession(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  sessionId: Id<"workshopSessions">,
+) {
+  const items = (
+    await ctx.db
+      .query("contentItems")
+      .withIndex("by_workshop_session", (q) =>
+        q.eq("workshopSessionId", sessionId),
+      )
+      .collect()
+  ).filter((c) => isLive(c) && c.type === "workshop_session");
+  const unitIds = new Set<Id<"units">>();
+  for (const item of items) {
+    const links = await ctx.db
+      .query("unitContents")
+      .withIndex("by_content", (q) => q.eq("contentId", item._id))
+      .collect();
+    for (const link of links) {
+      unitIds.add(link.unitId);
+    }
+    if (item.unitId) {
+      unitIds.add(item.unitId);
+    }
+  }
+  for (const unitId of unitIds) {
+    await syncUnitCompletion(ctx, userId, unitId);
   }
 }
 
@@ -666,11 +712,15 @@ async function computePathStepsForCertDisplay(
       return false;
     }
     if (s.kind === "content") {
+      const doc = byContentId.get(s.contentId)!;
+      if (doc.type === "workshop_session") {
+        return !row.locked;
+      }
       const cp = row.contentProgress;
       if (cp?.startedAt != null) {
         return true;
       }
-      if (isAssessmentContent(byContentId.get(s.contentId)!)) {
+      if (isAssessmentContent(doc)) {
         return row.lastPassed === false;
       }
       return false;
@@ -820,6 +870,13 @@ export const recordContentStart = mutation({
       throw new Error("Content is not part of this unit");
     }
     await assertPreviousStepsComplete(ctx, userId, unitId, stepIdx);
+    const itemsForKind = await collectContentInUnit(ctx, unitId);
+    const itemForKind = itemsForKind.find((c) => c._id === contentId);
+    if (itemForKind?.type === "workshop_session") {
+      throw new Error(
+        "Workshop steps are tracked via registration, not lesson start.",
+      );
+    }
     const now = Date.now();
     const existing = await ctx.db
       .query("userContentProgress")
@@ -900,6 +957,11 @@ export const recordContentComplete = mutation({
     }
     if (isAssessmentContent(item)) {
       throw new Error("Use the assessment submit flow for tests and assignments");
+    }
+    if (item.type === "workshop_session") {
+      throw new Error(
+        "Register for the workshop session to complete this step.",
+      );
     }
     const steps = await getOrderedStepsForUnit(ctx, unitId);
     const stepIdx = steps.findIndex(
@@ -994,6 +1056,34 @@ export const reopenContentStep = mutation({
     }
     if (isAssessmentContent(item)) {
       throw new Error("Use the assessment flow for tests and assignments");
+    }
+    if (item.type === "workshop_session") {
+      const sid = item.workshopSessionId;
+      if (!sid) {
+        throw new Error("Invalid workshop step");
+      }
+      const reg = await ctx.db
+        .query("workshopRegistrations")
+        .withIndex("by_session_and_user", (q) =>
+          q.eq("sessionId", sid).eq("userId", userId),
+        )
+        .unique();
+      if (!reg) {
+        throw new Error("This step is not completed yet");
+      }
+      const now = Date.now();
+      await ctx.db.delete(reg._id);
+      await syncUnitsContainingWorkshopSession(ctx, userId, sid);
+      await logProgressEvent(ctx, {
+        userId,
+        unitId,
+        contentId,
+        kind: "reopen",
+        at: now,
+      });
+      await touchUnitProgress(ctx, userId, unitId);
+      await syncUnitCompletion(ctx, userId, unitId);
+      return { ok: true as const };
     }
     const row = await ctx.db
       .query("userContentProgress")

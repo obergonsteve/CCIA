@@ -13,7 +13,7 @@ import {
   validateEntityCodeFormat,
 } from "./lib/entityCodes";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 const assessmentQuestionValidator = v.object({
   id: v.string(),
@@ -36,6 +36,7 @@ const contentTypeValidator = v.union(
   v.literal("pdf"),
   v.literal("test"),
   v.literal("assignment"),
+  v.literal("workshop_session"),
 );
 
 export type ContentInUnit = Doc<"contentItems"> & {
@@ -130,6 +131,27 @@ function isAssessmentType(
   return t === "test" || t === "assignment";
 }
 
+async function assertValidWorkshopSessionRef(
+  ctx: MutationCtx,
+  workshopSessionId: Doc<"contentItems">["workshopSessionId"],
+  type: Doc<"contentItems">["type"],
+) {
+  if (type !== "workshop_session") {
+    return;
+  }
+  if (!workshopSessionId) {
+    throw new Error("workshop_session content requires a linked session");
+  }
+  const session = await ctx.db.get(workshopSessionId);
+  if (!session) {
+    throw new Error("Workshop session not found");
+  }
+  const unit = await ctx.db.get(session.workshopUnitId);
+  if (!isLive(unit) || unit.deliveryMode !== "live_workshop") {
+    throw new Error("Session must belong to a live workshop unit");
+  }
+}
+
 /** Create a reusable library item (attach to units with `attachToUnit`). */
 export const create = mutation({
   args: {
@@ -142,11 +164,18 @@ export const create = mutation({
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
     assessment: v.optional(assessmentPayloadValidator),
+    workshopSessionId: v.optional(v.id("workshopSessions")),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-    const { assessment, type, contentCategoryId, code: codeRaw, ...rest } =
-      args;
+    const {
+      assessment,
+      type,
+      contentCategoryId,
+      code: codeRaw,
+      workshopSessionId,
+      ...rest
+    } = args;
     const code =
       codeRaw !== undefined && String(codeRaw).trim() !== ""
         ? normalizeEntityCode(codeRaw)
@@ -171,6 +200,16 @@ export const create = mutation({
     if (assessment !== undefined) {
       throw new Error("assessment is only valid for test or assignment type");
     }
+    await assertValidWorkshopSessionRef(ctx, workshopSessionId, type);
+    if (type === "workshop_session") {
+      return await ctx.db.insert("contentItems", {
+        type,
+        ...rest,
+        code,
+        ...categoryFields,
+        workshopSessionId,
+      });
+    }
     return await ctx.db.insert("contentItems", {
       type,
       ...rest,
@@ -193,6 +232,9 @@ export const update = mutation({
     storageId: v.optional(v.id("_storage")),
     duration: v.optional(v.number()),
     assessment: v.optional(assessmentPayloadValidator),
+    workshopSessionId: v.optional(
+      v.union(v.id("workshopSessions"), v.null()),
+    ),
   },
   handler: async (ctx, {
     contentId,
@@ -200,6 +242,7 @@ export const update = mutation({
     type,
     contentCategoryId,
     code,
+    workshopSessionId,
     ...fields
   }) => {
     await requireAdminOrCreator(ctx);
@@ -227,15 +270,27 @@ export const update = mutation({
         ...cat,
         type,
         assessment,
+        workshopSessionId: undefined,
       });
       return;
     }
+    const nextWorkshopSessionId =
+      type === "workshop_session"
+        ? workshopSessionId !== undefined
+          ? workshopSessionId === null
+            ? undefined
+            : workshopSessionId
+          : existing.workshopSessionId
+        : undefined;
+    await assertValidWorkshopSessionRef(ctx, nextWorkshopSessionId, type);
     await ctx.db.patch(contentId, {
       ...fields,
       code: normalizedCode,
       ...cat,
       type,
       assessment: undefined,
+      workshopSessionId:
+        type === "workshop_session" ? nextWorkshopSessionId : undefined,
     });
   },
 });
