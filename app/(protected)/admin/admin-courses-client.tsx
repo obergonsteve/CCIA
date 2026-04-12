@@ -2360,11 +2360,11 @@ export default function AdminCoursesClient() {
                 className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col gap-2 outline-none data-[state=inactive]:hidden"
               >
                 <h2 className="sr-only">Workshops</h2>
-                {workshopPlannerDay == null ? (
-                  <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                    Drag a workshop unit onto a date to schedule it.
-                  </p>
-                ) : null}
+                <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                  {workshopPlannerDay == null
+                    ? "Drag a workshop unit onto a date to schedule it."
+                    : "Select All to drag workshop units onto a date."}
+                </p>
                 <div className="min-h-0 flex-1 overflow-y-auto scrollbar-panel">
                   <WorkshopPlannerCalendar
                     sessions={workshopSessionMarkers}
@@ -2465,7 +2465,7 @@ export default function AdminCoursesClient() {
                   unitDeliveryFilter === "self_paced"
                     ? cn(
                         adminUnitDeliveryLREdgeColors("self_paced"),
-                        "bg-brand-sky/14 font-medium text-foreground hover:bg-brand-sky/20 dark:bg-brand-sky/16 dark:hover:bg-brand-sky/22",
+                        "bg-brand-sky/26 font-medium text-foreground hover:bg-brand-sky/32 dark:bg-brand-sky/28 dark:hover:bg-brand-sky/36",
                       )
                     : cn(
                         adminUnitDeliveryLREdgeColorsMuted("self_paced"),
@@ -2494,7 +2494,7 @@ export default function AdminCoursesClient() {
                   unitDeliveryFilter === "live_workshop"
                     ? cn(
                         adminUnitDeliveryLREdgeColors("live_workshop"),
-                        "bg-purple-500/14 font-medium text-foreground hover:bg-purple-500/22 dark:bg-purple-400/14 dark:hover:bg-purple-400/22",
+                        "bg-purple-500/28 font-medium text-foreground hover:bg-purple-500/36 dark:bg-purple-400/26 dark:hover:bg-purple-400/34",
                       )
                     : cn(
                         adminUnitDeliveryLREdgeColorsMuted("live_workshop"),
@@ -2527,25 +2527,17 @@ export default function AdminCoursesClient() {
                   : "Show all units"}
               </button>
             ) : null}
-            {trainingLeftTab === "workshops" ? (
-              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Live workshop units only. Use{" "}
-                <span className="font-medium text-foreground">All</span> in the
-                calendar header to list every unit here, or pick a day to show
-                only units with a session that day. Drag a unit onto a date in
-                the left{" "}
-                <span className="font-medium text-foreground">Workshops</span>{" "}
-                tab to schedule.
-              </p>
-            ) : filterCertId && !centreUnitsShowAll ? (
-              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Show all units to drag and drop onto a Certification.
-              </p>
-            ) : (
-              <p className="mb-3 shrink-0 text-sm text-muted-foreground">
-                Drag and drop Content onto a Unit.
-              </p>
-            )}
+            {trainingLeftTab !== "workshops" ? (
+              filterCertId && !centreUnitsShowAll ? (
+                <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                  Show all units to drag and drop onto a Certification.
+                </p>
+              ) : (
+                <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                  Drag and drop Content onto a Unit.
+                </p>
+              )
+            ) : null}
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-panel">
                 {/*
                   ADMIN.md: cert click filters centre to that cert’s units.
