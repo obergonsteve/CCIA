@@ -216,9 +216,6 @@ export default function DashboardClient() {
           <span className="text-base font-semibold tabular-nums text-foreground">
             {totalUnitsDone}
           </span>
-          <span className="text-xs text-muted-foreground">
-            across your certifications
-          </span>
         </div>
         <span
           className="hidden h-4 w-px bg-border sm:block"
