@@ -488,7 +488,7 @@ export default function CertificationLevelClient({
       >
         <DialogContent
           className={cn(
-            "max-w-lg border-2 border-purple-500/45 bg-background shadow-lg shadow-purple-500/15 ring-purple-500/20 sm:max-w-lg",
+            "max-w-lg gap-2 border-2 border-purple-500/45 bg-background shadow-lg shadow-purple-500/15 ring-purple-500/20 sm:max-w-lg",
             "dark:border-purple-400/40 dark:bg-card dark:shadow-purple-950/40 dark:ring-purple-400/25",
           )}
         >
@@ -509,7 +509,7 @@ export default function CertificationLevelClient({
               your current session first, then pick another.
             </DialogDescription>
             {workshopPickerUnitId ? (
-              <div className="pt-2">
+              <div className="pt-1">
                 <Link
                   href={`/units/${workshopPickerUnitId}?level=${levelId}`}
                   className={cn(
@@ -522,7 +522,7 @@ export default function CertificationLevelClient({
               </div>
             ) : null}
           </DialogHeader>
-          <div className="mt-4 max-h-[min(70vh,480px)] space-y-2 overflow-y-auto pr-1">
+          <div className="max-h-[min(70vh,480px)] space-y-2 overflow-y-auto pr-1">
             {workshopPickerData === undefined ? (
               <p className="text-sm text-purple-900/70 dark:text-purple-200/80">
                 Loading sessions…
