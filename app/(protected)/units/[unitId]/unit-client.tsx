@@ -448,9 +448,14 @@ export default function UnitClient({
             </div>
             <Button
               type="button"
-              variant={showCompletedSteps ? "secondary" : "outline"}
+              variant="outline"
               size="sm"
-              className="h-7 shrink-0 rounded-full px-3 text-xs font-medium"
+              className={cn(
+                "h-7 shrink-0 rounded-full px-3 text-xs font-medium",
+                showCompletedSteps
+                  ? "border-brand-lime/55 bg-brand-lime/20 text-foreground hover:bg-brand-lime/28 dark:border-brand-lime/50 dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25"
+                  : "border-brand-lime/40 bg-transparent text-foreground hover:bg-brand-lime/12 dark:border-brand-lime/35 dark:hover:bg-brand-lime/10",
+              )}
               aria-pressed={showCompletedSteps}
               onClick={() => setShowCompletedSteps((v) => !v)}
             >
