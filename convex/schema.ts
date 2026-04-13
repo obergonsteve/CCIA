@@ -225,6 +225,30 @@ export default defineSchema({
     .index("by_session", ["sessionId"])
     .index("by_session_and_user", ["sessionId", "userId"]),
 
+  /**
+   * User × certification placement × scheduled session: who must / did attend
+   * a live workshop for a specific unit within a certification track.
+   * (`workshopRegistrations` remains the capacity/session join record; this ties
+   * that attendance to the `certificationUnits` path context.)
+   */
+  certificationWorkshopAttendees: defineTable({
+    userId: v.id("users"),
+    certificationUnitId: v.id("certificationUnits"),
+    workshopSessionId: v.id("workshopSessions"),
+    enrolledAt: v.number(),
+    status: v.union(
+      v.literal("enrolled"),
+      v.literal("attended"),
+      v.literal("no_show"),
+      v.literal("withdrawn"),
+    ),
+    attendedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_workshop_session", ["workshopSessionId"])
+    .index("by_certification_unit", ["certificationUnitId"])
+    .index("by_user_and_certification_unit", ["userId", "certificationUnitId"]),
+
   /** Content order within a specific unit (many-to-many link). */
   unitContents: defineTable({
     unitId: v.id("units"),

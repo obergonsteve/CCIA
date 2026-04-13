@@ -172,6 +172,16 @@ export const deleteSessionsForWorkshopUnitOnLocalDay = mutation({
     }
     const allAffectedUsers = new Set<Id<"users">>();
     for (const session of toRemove) {
+      const pathAttendees = await ctx.db
+        .query("certificationWorkshopAttendees")
+        .withIndex("by_workshop_session", (q) =>
+          q.eq("workshopSessionId", session._id),
+        )
+        .collect();
+      for (const row of pathAttendees) {
+        allAffectedUsers.add(row.userId);
+        await ctx.db.delete(row._id);
+      }
       const regs = await ctx.db
         .query("workshopRegistrations")
         .withIndex("by_session", (q) => q.eq("sessionId", session._id))
