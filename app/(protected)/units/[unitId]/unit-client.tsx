@@ -108,7 +108,7 @@ function LegacyAssignmentStepBlock({
   onSubmitLegacyAssignment: (assignmentId: Id<"assignments">) => void;
 }) {
   const [expanded, setExpanded] = useState<boolean | undefined>(undefined);
-  const isOpen = expanded === undefined ? !row.done : expanded;
+  const isOpen = expanded === undefined ? false : expanded;
   const bodyId = `legacy-step-body-${assignment._id}`;
 
   return (

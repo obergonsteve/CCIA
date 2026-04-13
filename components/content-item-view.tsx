@@ -109,7 +109,8 @@ export function ContentItemView({
         : Boolean(unitId && !isAssessment && nonAssessmentComplete);
 
   const [expanded, setExpanded] = useState<boolean | undefined>(undefined);
-  const isOpen = expanded === undefined ? !isStepComplete : expanded;
+  /** All steps start collapsed; learner expands to view or act. */
+  const isOpen = expanded === undefined ? false : expanded;
   const stepBodyId = `step-body-${item._id}`;
 
   useEffect(() => {
@@ -162,7 +163,7 @@ export function ContentItemView({
             <Lock className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
           ) : isStepComplete ? (
             <CheckCircle2
-              className="mt-0.5 h-4 w-4 shrink-0 text-brand-lime"
+              className="mt-0.5 h-6 w-6 shrink-0 text-brand-lime"
               aria-hidden
             />
           ) : null}
