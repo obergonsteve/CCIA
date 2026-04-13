@@ -235,8 +235,10 @@ export default function CertificationLevelClient({
             </p>
           ) : (
             <ol className="mt-6 flex w-full flex-col gap-6 border-t border-border/60 pt-6">
-            {roadmap.units.map((u, i) => {
+            {roadmap.units.map((u) => {
               const pathSteps = u.pathSteps satisfies PathStep[];
+              const isWorkshop =
+                (u.deliveryMode ?? "self_paced") === "live_workshop";
               const pct =
                 u.stepTotal > 0
                   ? Math.round((u.stepsCompleted / u.stepTotal) * 100)
@@ -252,24 +254,48 @@ export default function CertificationLevelClient({
                     <Link
                       href={`/units/${u.unitId}?level=${levelId}`}
                       className={cn(
-                        "block w-full rounded-xl border-2 bg-card px-3 py-3 shadow-sm transition-colors hover:border-brand-sky/40 hover:bg-muted/40",
-                        u.completed && "border-brand-lime/50 bg-brand-lime/[0.06]",
+                        "block w-full rounded-xl border bg-card px-3 py-3 shadow-sm transition-colors hover:bg-muted/40",
+                        u.completed &&
+                          "border-2 border-brand-lime/50 bg-brand-lime/[0.06]",
+                        u.locked &&
+                          "cursor-not-allowed opacity-80",
+                        u.locked &&
+                          isWorkshop &&
+                          "border border-border/80 border-l-4 border-r-4 border-l-purple-500/55 border-r-purple-500/55 bg-muted/25 dark:border-l-purple-400/50 dark:border-r-purple-400/50",
+                        u.locked &&
+                          !isWorkshop &&
+                          "border border-border/80 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-muted/25 dark:border-l-brand-gold dark:border-r-brand-gold",
                         !u.completed &&
                           !u.locked &&
-                          "border-brand-sky/35 bg-background",
-                        u.locked && "cursor-not-allowed border-border opacity-80",
+                          isWorkshop &&
+                          "border border-purple-500/40 border-l-4 border-r-4 border-l-purple-600 border-r-purple-600 bg-background hover:border-purple-500/55 hover:border-l-purple-500 hover:border-r-purple-500 dark:border-purple-400/45 dark:border-l-purple-400 dark:border-r-purple-400 dark:hover:border-purple-300/55",
+                        !u.completed &&
+                          !u.locked &&
+                          !isWorkshop &&
+                          "border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-background hover:border-brand-gold/55 hover:border-l-brand-gold hover:border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:hover:border-brand-gold/50",
                       )}
                       aria-disabled={u.locked}
+                      aria-label={`${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", locked" : ""}`}
                       onClick={(e) => {
                         if (u.locked) {
                           e.preventDefault();
                         }
                       }}
                     >
-                      <div className="flex flex-col gap-1.5 text-left">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Unit {i + 1}
-                        </span>
+                      <div className="flex flex-col gap-2 text-left">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "h-5 w-fit shrink-0 px-2 py-0 text-[10px] font-bold uppercase tracking-wide",
+                            isWorkshop
+                              ? "border-purple-500/45 bg-purple-500/10 text-purple-900 dark:border-purple-400/50 dark:bg-purple-500/15 dark:text-purple-100"
+                              : "border-brand-gold/50 bg-brand-gold/[0.12] text-foreground dark:border-brand-gold/45 dark:bg-brand-gold/[0.10]",
+                            u.completed &&
+                              "border-border/70 bg-background/60 text-muted-foreground dark:bg-background/40",
+                          )}
+                        >
+                          {isWorkshop ? "Live workshop" : "Self-paced"}
+                        </Badge>
                         <span className="flex items-start gap-2">
                           {u.completed ? (
                             <CheckCircle2
@@ -283,7 +309,12 @@ export default function CertificationLevelClient({
                             />
                           ) : (
                             <Circle
-                              className="h-5 w-5 shrink-0 text-brand-sky fill-brand-sky/20 mt-0.5"
+                              className={cn(
+                                "h-5 w-5 shrink-0 mt-0.5",
+                                isWorkshop
+                                  ? "text-purple-600 fill-purple-500/20 dark:text-purple-400 dark:fill-purple-400/20"
+                                  : "text-brand-gold fill-brand-gold/25 dark:text-brand-gold dark:fill-brand-gold/20",
+                              )}
                               aria-hidden
                             />
                           )}
@@ -292,7 +323,11 @@ export default function CertificationLevelClient({
                               {u.title}
                             </span>
                             <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                              Open unit
+                              {u.locked
+                                ? "Open unit"
+                                : isWorkshop
+                                  ? "Sessions & join"
+                                  : "Open unit"}
                               <ChevronRight
                                 className="h-3.5 w-3.5 shrink-0 opacity-70"
                                 aria-hidden

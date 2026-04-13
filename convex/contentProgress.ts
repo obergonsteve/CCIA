@@ -766,6 +766,8 @@ export const roadmapForCertification = query({
       title: string;
       description: string;
       order: number;
+      /** Omitted on legacy rows — treat as self-paced in UI. */
+      deliveryMode?: "self_paced" | "live_workshop";
       locked: boolean;
       lockReason: "prerequisite" | "previous_unit" | null;
       completed: boolean;
@@ -831,6 +833,7 @@ export const roadmapForCertification = query({
         title: unit.title,
         description: unit.description,
         order: i,
+        deliveryMode: unit.deliveryMode,
         locked,
         lockReason,
         completed: prog?.completed ?? false,
