@@ -17,6 +17,7 @@ import {
   Circle,
   CircleDashed,
   Lock,
+  MonitorPlay,
   Route,
 } from "lucide-react";
 import Link from "next/link";
@@ -228,6 +229,57 @@ function LegacyAssignmentStepBlock({
   );
 }
 
+/** Placeholder shell for a future LiveKit room (video, chat, screen share). */
+function LiveWorkshopRoomPanel() {
+  const [open, setOpen] = useState(false);
+  const bodyId = "unit-live-workshop-room-panel";
+
+  return (
+    <section
+      className={cn(
+        "rounded-xl border border-purple-500/25 bg-purple-500/[0.04] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/20 dark:bg-purple-500/[0.07]",
+      )}
+      aria-label="Live workshop room"
+    >
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left outline-none transition-colors hover:bg-purple-500/[0.07] focus-visible:ring-2 focus-visible:ring-purple-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:bg-purple-500/[0.10]"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <MonitorPlay
+            className="h-5 w-5 shrink-0 text-purple-600 dark:text-purple-400"
+            aria-hidden
+          />
+          <span className="font-heading font-semibold text-foreground">
+            Live workshop
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      <div
+        id={bodyId}
+        hidden={!open}
+        className="space-y-2 border-t border-purple-500/20 px-4 py-4 dark:border-purple-400/15"
+      >
+        <p className="text-sm text-muted-foreground">
+          The embedded live session (LiveKit video, chat, and screen share) will
+          appear here in a future update. This panel is a placeholder for that
+          proof of concept.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export default function UnitClient({
   unitId: unitIdRaw,
   levelId: levelIdRaw,
@@ -376,6 +428,8 @@ export default function UnitClient({
           </span>
         </div>
       </div>
+
+      {isLiveWorkshopUnit ? <LiveWorkshopRoomPanel /> : null}
 
       {lockedByPrereq && prereqStatus.prerequisites.length > 0 ? (
         <div

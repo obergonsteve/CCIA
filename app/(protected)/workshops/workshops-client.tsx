@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { CalendarDays, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -69,7 +69,7 @@ export default function WorkshopsClient() {
       : "/certifications";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10 px-4 py-8">
+    <div className="mx-auto max-w-4xl space-y-4 px-3 pb-4 pt-0 sm:px-4 sm:pb-6 sm:pt-1">
       {filterUnitId ? (
         <div
           className="flex flex-col gap-3 rounded-xl border border-purple-500/35 bg-purple-500/[0.06] px-4 py-3 dark:border-purple-400/30 dark:bg-purple-500/[0.08] sm:flex-row sm:items-start sm:justify-between"
@@ -113,22 +113,13 @@ export default function WorkshopsClient() {
         </div>
       ) : null}
 
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-purple-950 dark:text-purple-50">
-          <CalendarDays
-            className="h-7 w-7 shrink-0 text-purple-600 dark:text-purple-400"
-            aria-hidden
-          />
-          Workshops
-        </h1>
-        <p className="mt-1 text-sm text-purple-900/80 dark:text-purple-200/85">
-          Browse upcoming live sessions and add them to{" "}
-          <span className="font-semibold text-purple-950 dark:text-purple-50">
-            My workshops
-          </span>
-          . In-app list only — calendar export may come later.
-        </p>
-      </div>
+      <p className="text-sm text-purple-900/80 dark:text-purple-200/85">
+        Browse upcoming live sessions and add them to{" "}
+        <span className="font-semibold text-purple-950 dark:text-purple-50">
+          My workshops
+        </span>
+        . In-app list only — calendar export may come later.
+      </p>
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-purple-950 dark:text-purple-100">
