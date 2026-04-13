@@ -479,27 +479,40 @@ export default function CertificationLevelClient({
           }
         }}
       >
-        <DialogContent className="max-w-lg sm:max-w-lg">
+        <DialogContent
+          className={cn(
+            "max-w-lg border-2 border-purple-500/45 bg-background shadow-lg shadow-purple-500/15 ring-purple-500/20 sm:max-w-lg",
+            "dark:border-purple-400/40 dark:bg-card dark:shadow-purple-950/40 dark:ring-purple-400/25",
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>
+            <Badge
+              variant="outline"
+              className="h-5 w-fit border-purple-500/50 bg-purple-500/10 px-2 py-0 text-[10px] font-bold uppercase tracking-wide text-purple-950 dark:border-purple-400/50 dark:bg-purple-500/15 dark:text-purple-100"
+            >
+              Workshop unit
+            </Badge>
+            <DialogTitle className="text-balance text-purple-950 dark:text-purple-50">
               {workshopPickerTitle ||
                 workshopPickerData?.unitTitle ||
                 "Workshop sessions"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-purple-900/85 dark:text-purple-200/90">
               Register for one session below. To switch dates, unregister from
               your current session first, then pick another.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 max-h-[min(70vh,480px)] space-y-2 overflow-y-auto pr-1">
             {workshopPickerData === undefined ? (
-              <p className="text-sm text-muted-foreground">Loading sessions…</p>
+              <p className="text-sm text-purple-900/70 dark:text-purple-200/80">
+                Loading sessions…
+              </p>
             ) : workshopPickerData === null ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-purple-900/70 dark:text-purple-200/80">
                 You cannot access sessions for this workshop.
               </p>
             ) : workshopPickerData.sessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-purple-900/70 dark:text-purple-200/80">
                 No upcoming sessions are scheduled for this unit yet.
               </p>
             ) : (
@@ -507,14 +520,14 @@ export default function CertificationLevelClient({
                 {workshopPickerData.sessions.map(({ session, registered, full }) => (
                   <li
                     key={session._id}
-                    className="flex flex-col gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 rounded-lg border border-purple-500/30 bg-purple-500/[0.06] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-purple-400/25 dark:bg-purple-500/[0.10]"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground tabular-nums">
+                      <p className="text-xs font-medium text-purple-950 tabular-nums dark:text-purple-50">
                         {formatWorkshopSlot(session.startsAt, session.endsAt)}
                       </p>
                       {session.titleOverride ? (
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        <p className="mt-0.5 text-[11px] text-purple-900/75 dark:text-purple-200/80">
                           {session.titleOverride}
                         </p>
                       ) : null}
@@ -525,7 +538,7 @@ export default function CertificationLevelClient({
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8"
+                          className="h-8 border-purple-500/45 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/50 dark:text-purple-100 dark:hover:bg-purple-500/15"
                           onClick={async () => {
                             try {
                               await unregisterWorkshop({
@@ -545,7 +558,7 @@ export default function CertificationLevelClient({
                         <Button
                           type="button"
                           size="sm"
-                          className="h-8"
+                          className="h-8 bg-purple-600 text-white hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-500"
                           disabled={full}
                           onClick={async () => {
                             try {
