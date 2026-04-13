@@ -2184,6 +2184,7 @@ export default function AdminCoursesClient() {
       <div className="pb-2">
         <p className="text-base leading-snug text-muted-foreground">
           Assemble Units and Content into structured Certification courses.
+          Construct and schedule live Workshop Units.
         </p>
         <p
           className={cn(
