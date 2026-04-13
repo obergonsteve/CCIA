@@ -178,10 +178,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Button
           variant="ghost"
           className={cn(
-            "w-full justify-start gap-2 text-[15px]",
-            "text-fuchsia-500 hover:bg-fuchsia-500/20 hover:text-fuchsia-100",
-            "dark:text-fuchsia-400 dark:hover:bg-fuchsia-500/22 dark:hover:text-fuchsia-50",
-            "focus-visible:border-fuchsia-400/55 focus-visible:ring-fuchsia-400/40 focus-visible:ring-offset-0",
+            "w-full justify-start gap-2 text-[15px] font-normal",
+            "text-sidebar-foreground/55 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/92",
+            "focus-visible:border-sidebar-border focus-visible:ring-sidebar-ring/40 focus-visible:ring-offset-0",
           )}
           onClick={() => void logout()}
         >
