@@ -7,13 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   certificationTierBadgeClass,
   certificationTierLabel,
   certificationTierSectionTitle,
@@ -23,7 +16,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { CalendarDays, ExternalLink } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 
 export default function WorkshopsClient() {
@@ -39,11 +32,8 @@ export default function WorkshopsClient() {
       ? (filterLevelIdRaw as Id<"certificationLevels">)
       : null;
 
-  const [tierFilter, setTierFilter] = useState<
-    "all" | "bronze" | "silver" | "gold"
-  >("all");
   const upcoming = useQuery(api.workshops.listUpcomingForUser, {
-    certificationTier: tierFilter,
+    certificationTier: "all",
   });
   const mine = useQuery(api.workshops.myRegistrations);
   const filterUnit = useQuery(
@@ -101,11 +91,21 @@ export default function WorkshopsClient() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            <Button variant="outline" size="sm" asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
+              asChild
+            >
               <Link href="/workshops">All workshops</Link>
             </Button>
             {filterLevelId ? (
-              <Button variant="secondary" size="sm" asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="border border-purple-500/30 bg-purple-500/15 text-purple-950 hover:bg-purple-500/22 dark:border-purple-400/25 dark:bg-purple-500/20 dark:text-purple-50 dark:hover:bg-purple-500/28"
+                asChild
+              >
                 <Link href={certPathHref}>Certification path</Link>
               </Button>
             ) : null}
@@ -113,59 +113,33 @@ export default function WorkshopsClient() {
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <CalendarDays className="h-7 w-7 text-brand-gold" aria-hidden />
-            Workshops
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Browse upcoming live sessions and add them to{" "}
-            <span className="font-medium text-foreground">My workshops</span>.
-            In-app list only — calendar export may come later.
-          </p>
-        </div>
-        <div className="space-y-1 sm:w-56">
-          <span className="text-xs font-medium text-muted-foreground">
-            Filter by certification tier
+      <div>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-purple-950 dark:text-purple-50">
+          <CalendarDays
+            className="h-7 w-7 shrink-0 text-purple-600 dark:text-purple-400"
+            aria-hidden
+          />
+          Workshops
+        </h1>
+        <p className="mt-1 text-sm text-purple-900/80 dark:text-purple-200/85">
+          Browse upcoming live sessions and add them to{" "}
+          <span className="font-semibold text-purple-950 dark:text-purple-50">
+            My workshops
           </span>
-          <Select
-            value={tierFilter}
-            onValueChange={(v) =>
-              setTierFilter(
-                (v ?? "all") as "all" | "bronze" | "silver" | "gold",
-              )
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" label="All tiers">
-                All tiers
-              </SelectItem>
-              <SelectItem value="bronze" label="Bronze">
-                Bronze
-              </SelectItem>
-              <SelectItem value="silver" label="Silver">
-                Silver
-              </SelectItem>
-              <SelectItem value="gold" label="Gold">
-                Gold
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          . In-app list only — calendar export may come later.
+        </p>
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-semibold text-purple-950 dark:text-purple-100">
           {filterUnitId ? "My workshops (this unit)" : "My workshops"}
         </h2>
         {mySessionsForUnit === undefined ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
+            Loading…
+          </p>
         ) : mySessionsForUnit.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
             {filterUnitId
               ? "You have no registration for this workshop yet. Choose a session under Upcoming sessions."
               : "You have not registered for any sessions yet."}
@@ -176,6 +150,7 @@ export default function WorkshopsClient() {
               <li key={session._id}>
                 <Card
                   className={cn(
+                    "border border-purple-500/25 bg-purple-500/[0.04] shadow-sm dark:border-purple-400/20 dark:bg-purple-500/[0.07]",
                     past && "opacity-80 border-dashed",
                   )}
                 >
@@ -197,11 +172,11 @@ export default function WorkshopsClient() {
                         rel="noopener noreferrer"
                         className={cn(
                           buttonVariants({ variant: "secondary", size: "sm" }),
-                          "inline-flex gap-1.5",
+                          "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
                         )}
                       >
                         Open join link
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
                       </Link>
                     ) : !past ? (
                       <span className="text-xs text-muted-foreground">
@@ -213,6 +188,7 @@ export default function WorkshopsClient() {
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
                         onClick={async () => {
                           try {
                             await unregister({ sessionId: session._id });
@@ -236,22 +212,24 @@ export default function WorkshopsClient() {
       </section>
 
       <section id="workshop-upcoming-sessions" className="space-y-3 scroll-mt-24">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-lg font-semibold text-purple-950 dark:text-purple-100">
           {filterUnitId ? "Upcoming sessions for this unit" : "Upcoming sessions"}
         </h2>
         {upcomingSessions === undefined ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
+            Loading…
+          </p>
         ) : upcomingSessions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
             {filterUnitId
-              ? "No upcoming sessions are scheduled for this workshop yet. Try another tier filter or check back later."
-              : "No upcoming sessions match this filter."}
+              ? "No upcoming sessions are scheduled for this workshop yet. Check back later."
+              : "No upcoming sessions right now."}
           </p>
         ) : (
           <ul className="space-y-2">
             {upcomingSessions.map((s) => (
               <li key={s._id}>
-                <Card>
+                <Card className="border border-purple-500/25 bg-purple-500/[0.04] shadow-sm dark:border-purple-400/20 dark:bg-purple-500/[0.07]">
                   <CardHeader className="py-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <CardTitle className="text-base font-medium">
@@ -281,11 +259,17 @@ export default function WorkshopsClient() {
                   <CardContent className="flex flex-wrap gap-2 pb-4">
                     {s.registered ? (
                       <>
-                        <Badge variant="secondary">Registered</Badge>
+                        <Badge
+                          variant="secondary"
+                          className="border border-purple-500/35 bg-purple-500/15 text-purple-950 dark:border-purple-400/40 dark:bg-purple-500/20 dark:text-purple-50"
+                        >
+                          Registered
+                        </Badge>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
+                          className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
                           onClick={async () => {
                             try {
                               await unregister({ sessionId: s._id });
@@ -304,6 +288,7 @@ export default function WorkshopsClient() {
                       <Button
                         type="button"
                         size="sm"
+                        className="bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 dark:bg-purple-600 dark:hover:bg-purple-500"
                         disabled={s.full}
                         onClick={async () => {
                           try {
@@ -326,7 +311,7 @@ export default function WorkshopsClient() {
                         rel="noopener noreferrer"
                         className={cn(
                           buttonVariants({ variant: "ghost", size: "sm" }),
-                          "inline-flex gap-1",
+                          "inline-flex gap-1 text-purple-700 hover:bg-purple-500/15 hover:text-purple-900 dark:text-purple-300 dark:hover:bg-purple-500/20 dark:hover:text-purple-50",
                         )}
                       >
                         Join link

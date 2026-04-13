@@ -87,7 +87,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                         ? "border-brand-lime bg-brand-lime/15 text-white"
                         : accent === "sky"
                           ? "border-brand-sky bg-brand-sky/18 text-white"
-                          : "border-brand-gold bg-brand-gold/20 text-white"
+                          : accent === "purple"
+                            ? "border-purple-400 bg-purple-500/25 text-white"
+                            : "border-brand-gold bg-brand-gold/20 text-white"
                       : "border-transparent text-white/72 hover:bg-white/8 hover:text-white",
                   )}
                 >

@@ -26,7 +26,7 @@ export const primarySidebarNav = [
     href: "/workshops",
     label: "Workshops",
     icon: CalendarDays,
-    accent: "gold" as const,
+    accent: "purple" as const,
   },
 ] as const;
 
@@ -39,7 +39,7 @@ export const adminSidebarNav = [
 ] as const;
 
 export function primaryNavIconClass(
-  accent: "lime" | "sky" | "gold",
+  accent: "lime" | "sky" | "gold" | "purple",
   active: boolean,
 ): string {
   if (active) {
@@ -49,6 +49,9 @@ export function primaryNavIconClass(
     if (accent === "sky") {
       return "text-brand-sky";
     }
+    if (accent === "purple") {
+      return "text-purple-100";
+    }
     return "text-brand-gold";
   }
   if (accent === "lime") {
@@ -56,6 +59,9 @@ export function primaryNavIconClass(
   }
   if (accent === "sky") {
     return "text-brand-sky/85";
+  }
+  if (accent === "purple") {
+    return "text-purple-400/90";
   }
   return "text-brand-gold/85";
 }
@@ -82,7 +88,7 @@ export function sidebarMainPageHeading(
     return {
       label: "Workshops",
       icon: CalendarDays,
-      iconClassName: "text-brand-gold",
+      iconClassName: "text-purple-600 dark:text-purple-400",
     };
   }
   if (pathname.startsWith("/admin/users")) {
