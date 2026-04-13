@@ -245,6 +245,7 @@ export default function CertificationLevelClient({
                   : u.completed
                     ? 100
                     : 0;
+              const certificationNavLocked = u.locked && !isWorkshop;
               return (
                 <li
                   key={u.unitId}
@@ -257,27 +258,23 @@ export default function CertificationLevelClient({
                         "block w-full rounded-xl border bg-card px-3 py-3 shadow-sm transition-colors hover:bg-muted/40",
                         u.completed &&
                           "border-2 border-brand-lime/50 bg-brand-lime/[0.06]",
-                        u.locked &&
+                        certificationNavLocked &&
                           "cursor-not-allowed opacity-80",
-                        u.locked &&
-                          isWorkshop &&
-                          "border border-border/80 border-l-4 border-r-4 border-l-purple-500/55 border-r-purple-500/55 bg-muted/25 dark:border-l-purple-400/50 dark:border-r-purple-400/50",
                         u.locked &&
                           !isWorkshop &&
                           "border border-border/80 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-muted/25 dark:border-l-brand-gold dark:border-r-brand-gold",
                         !u.completed &&
-                          !u.locked &&
                           isWorkshop &&
                           "border border-purple-500/40 border-l-4 border-r-4 border-l-purple-600 border-r-purple-600 bg-background hover:border-purple-500/55 hover:border-l-purple-500 hover:border-r-purple-500 dark:border-purple-400/45 dark:border-l-purple-400 dark:border-r-purple-400 dark:hover:border-purple-300/55",
                         !u.completed &&
-                          !u.locked &&
                           !isWorkshop &&
+                          !u.locked &&
                           "border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-background hover:border-brand-gold/55 hover:border-l-brand-gold hover:border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:hover:border-brand-gold/50",
                       )}
-                      aria-disabled={u.locked}
-                      aria-label={`${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", locked" : ""}`}
+                      aria-disabled={certificationNavLocked}
+                      aria-label={`${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`}
                       onClick={(e) => {
-                        if (u.locked) {
+                        if (certificationNavLocked) {
                           e.preventDefault();
                         }
                       }}
@@ -304,7 +301,12 @@ export default function CertificationLevelClient({
                             />
                           ) : u.locked ? (
                             <Lock
-                              className="h-5 w-5 shrink-0 text-brand-gold mt-0.5"
+                              className={cn(
+                                "h-5 w-5 shrink-0 mt-0.5",
+                                isWorkshop
+                                  ? "text-purple-600 dark:text-purple-400"
+                                  : "text-brand-gold",
+                              )}
                               aria-hidden
                             />
                           ) : (
@@ -323,7 +325,7 @@ export default function CertificationLevelClient({
                               {u.title}
                             </span>
                             <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                              {u.locked
+                              {u.completed
                                 ? "Open unit"
                                 : isWorkshop
                                   ? "Sessions & join"

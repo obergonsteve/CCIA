@@ -382,6 +382,14 @@ export const roadmapForUnit = query({
           e instanceof Error ? e.message : "Previous unit not complete.";
       }
     }
+    const unitDoc = await ctx.db.get(unitId);
+    const isLiveWorkshopUnit =
+      isLive(unitDoc) && unitDoc.deliveryMode === "live_workshop";
+    /** Lets learners open the unit to register for sessions even if earlier cert units are incomplete. */
+    const workshopSequentialBypass =
+      isLiveWorkshopUnit &&
+      prereqs.length === 0 &&
+      sequentialUnitBlocked !== null;
     const steps = await getOrderedStepsForUnit(ctx, unitId);
     const items = await collectContentInUnit(ctx, unitId);
     const byContentId = new Map(items.map((c) => [c._id, c] as const));
@@ -396,7 +404,9 @@ export const roadmapForUnit = query({
       progressRows.map((r) => [r.contentId, r] as const),
     );
 
-    const outerBlocked = prereqs.length > 0 || sequentialUnitBlocked !== null;
+    const outerBlocked =
+      prereqs.length > 0 ||
+      (sequentialUnitBlocked !== null && !workshopSequentialBypass);
 
     const stepStates: Array<{
       step: UnitStep;
@@ -533,6 +543,7 @@ export const roadmapForUnit = query({
         title: u.title,
       })),
       sequentialUnitBlocked,
+      workshopSequentialBypass,
       steps: stepStates,
       unitProgress: unitProg,
       fraction,

@@ -315,7 +315,10 @@ export default function UnitClient({
 
   const lockedByPrereq = !prereqStatus.ready;
   const sequentialBlockedMessage = roadmap.sequentialUnitBlocked;
-  const blocked = lockedByPrereq || sequentialBlockedMessage !== null;
+  const workshopSequentialBypass = roadmap.workshopSequentialBypass === true;
+  const blocked =
+    lockedByPrereq ||
+    (sequentialBlockedMessage !== null && !workshopSequentialBypass);
 
   async function onSubmitLegacyAssignment(assignmentId: Id<"assignments">) {
     const assignment = assignmentsById.get(assignmentId);
@@ -388,7 +391,21 @@ export default function UnitClient({
         </div>
       ) : null}
 
-      {sequentialBlockedMessage ? (
+      {sequentialBlockedMessage && workshopSequentialBypass ? (
+        <div
+          className="flex gap-3 rounded-xl border border-purple-500/35 bg-purple-500/[0.08] px-4 py-3 text-sm dark:border-purple-400/30 dark:bg-purple-500/[0.10]"
+          role="status"
+        >
+          <Route className="h-5 w-5 shrink-0 text-purple-600 dark:text-purple-400" />
+          <div className="space-y-1.5 text-muted-foreground">
+            <p>{sequentialBlockedMessage}</p>
+            <p className="text-xs text-foreground/90">
+              You can still browse workshop sessions and register below; other
+              certification units stay in order.
+            </p>
+          </div>
+        </div>
+      ) : sequentialBlockedMessage ? (
         <div
           className="flex gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm"
           role="status"
