@@ -645,6 +645,11 @@ export default function AdminCoursesClient() {
   const [unitCategoryFilter, setUnitCategoryFilter] = useState<"all" | string>(
     "all",
   );
+  /** Timetable tab: limit calendar markers and day-scoped workshop units by category. */
+  const [
+    workshopTimetableUnitCategoryFilter,
+    setWorkshopTimetableUnitCategoryFilter,
+  ] = useState<"all" | string>("all");
   /** Units column: self-paced vs live workshop (default self-paced). */
   const [unitDeliveryFilter, setUnitDeliveryFilter] = useState<
     "self_paced" | "live_workshop"
@@ -1033,6 +1038,23 @@ export default function AdminCoursesClient() {
       return Boolean(meta && legacy === meta.shortCode);
     },
     [unitCategoryFilter, unitCategoryMetaById],
+  );
+
+  const unitMatchesWorkshopTimetableCategory = useCallback(
+    (u: { unitCategoryId?: Id<"unitCategories">; unitCategory?: string }) => {
+      if (workshopTimetableUnitCategoryFilter === "all") {
+        return true;
+      }
+      if ((u.unitCategoryId ?? "") === workshopTimetableUnitCategoryFilter) {
+        return true;
+      }
+      const meta = unitCategoryMetaById.get(
+        workshopTimetableUnitCategoryFilter as Id<"unitCategories">,
+      );
+      const legacy = u.unitCategory?.trim() ?? "";
+      return Boolean(meta && legacy === meta.shortCode);
+    },
+    [workshopTimetableUnitCategoryFilter, unitCategoryMetaById],
   );
 
   const unitMatchesDeliveryChip = useCallback(
@@ -1911,6 +1933,20 @@ export default function AdminCoursesClient() {
 
   useEffect(() => {
     if (
+      workshopTimetableUnitCategoryFilter === "all" ||
+      unitCategories === undefined
+    ) {
+      return;
+    }
+    if (
+      !unitCategories.some((c) => c._id === workshopTimetableUnitCategoryFilter)
+    ) {
+      setWorkshopTimetableUnitCategoryFilter("all");
+    }
+  }, [workshopTimetableUnitCategoryFilter, unitCategories]);
+
+  useEffect(() => {
+    if (
       contentLibraryCategoryFilter === "all" ||
       contentCategories === undefined
     ) {
@@ -2031,23 +2067,56 @@ export default function AdminCoursesClient() {
     unitMatchesDeliveryChip,
   ]);
 
-  const workshopSessionMarkers = useMemo(
-    () =>
-      workshopSessionsAdmin?.map((s) => ({
+  const workshopSessionMarkers = useMemo(() => {
+    if (!workshopSessionsAdmin?.length) {
+      return [];
+    }
+    return workshopSessionsAdmin
+      .filter((s) => {
+        if (workshopTimetableUnitCategoryFilter === "all") {
+          return true;
+        }
+        const u = allUnits?.find((x) => x._id === s.workshopUnitId);
+        if (!u) {
+          return true;
+        }
+        return unitMatchesWorkshopTimetableCategory(u);
+      })
+      .map((s) => ({
         startsAt: s.startsAt,
         status: s.status,
-      })) ?? [],
-    [workshopSessionsAdmin],
-  );
+      }));
+  }, [
+    workshopSessionsAdmin,
+    workshopTimetableUnitCategoryFilter,
+    allUnits,
+    unitMatchesWorkshopTimetableCategory,
+  ]);
 
   const workshopSessionsInViewMonthCount = useMemo(() => {
     if (!workshopSessionsAdmin) {
       return null;
     }
-    return workshopSessionsAdmin.filter((s) =>
-      isSameMonth(new Date(s.startsAt), workshopCalendarViewMonth),
-    ).length;
-  }, [workshopSessionsAdmin, workshopCalendarViewMonth]);
+    return workshopSessionsAdmin.filter((s) => {
+      if (!isSameMonth(new Date(s.startsAt), workshopCalendarViewMonth)) {
+        return false;
+      }
+      if (workshopTimetableUnitCategoryFilter === "all") {
+        return true;
+      }
+      const u = allUnits?.find((x) => x._id === s.workshopUnitId);
+      if (!u) {
+        return true;
+      }
+      return unitMatchesWorkshopTimetableCategory(u);
+    }).length;
+  }, [
+    workshopSessionsAdmin,
+    workshopCalendarViewMonth,
+    workshopTimetableUnitCategoryFilter,
+    allUnits,
+    unitMatchesWorkshopTimetableCategory,
+  ]);
 
   const unitIdsScheduledOnWorkshopPlannerDay = useMemo(() => {
     if (workshopPlannerDay == null || !workshopSessionsAdmin?.length) {
@@ -2056,14 +2125,28 @@ export default function AdminCoursesClient() {
     const ids = new Set<string>();
     for (const s of workshopSessionsAdmin) {
       if (
-        s.status === "scheduled" &&
-        isSameDay(new Date(s.startsAt), workshopPlannerDay)
+        s.status !== "scheduled" ||
+        !isSameDay(new Date(s.startsAt), workshopPlannerDay)
       ) {
+        continue;
+      }
+      if (workshopTimetableUnitCategoryFilter === "all") {
+        ids.add(s.workshopUnitId);
+        continue;
+      }
+      const u = allUnits?.find((x) => x._id === s.workshopUnitId);
+      if (u && unitMatchesWorkshopTimetableCategory(u)) {
         ids.add(s.workshopUnitId);
       }
     }
     return ids;
-  }, [workshopSessionsAdmin, workshopPlannerDay]);
+  }, [
+    workshopSessionsAdmin,
+    workshopPlannerDay,
+    workshopTimetableUnitCategoryFilter,
+    allUnits,
+    unitMatchesWorkshopTimetableCategory,
+  ]);
 
   const workshopCentreSplit = useMemo(() => {
     if (trainingLeftTab !== "workshops") {
@@ -2411,10 +2494,17 @@ export default function AdminCoursesClient() {
                 className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col gap-2 outline-none data-[state=inactive]:hidden"
               >
                 <h2 className="sr-only">Timetable</h2>
+                <AdminCategoryFilterSelect
+                  htmlId="admin-workshop-timetable-unit-category-filter"
+                  label="Unit category"
+                  value={workshopTimetableUnitCategoryFilter}
+                  onValueChange={setWorkshopTimetableUnitCategoryFilter}
+                  categories={unitCategories}
+                />
                 <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                   {workshopPlannerDay == null
                     ? "Drag a workshop unit onto a date to schedule it."
-                    : "Choose 'All workshop units' in the centre column to drag units onto the Timetable calendar."}
+                    : "Select 'All workshops' to drag Workshop Units onto the timetable calendar."}
                 </p>
                 <div className="min-h-0 flex-1 overflow-y-auto scrollbar-panel">
                   <WorkshopPlannerCalendar
@@ -2448,7 +2538,7 @@ export default function AdminCoursesClient() {
               trailing={
                 <span className="min-w-0 truncate">
                   {trainingLeftTab === "workshops" && workshopPlannerDay != null
-                    ? `Timetable on ${format(workshopPlannerDay, "d MMM yyyy")}`
+                    ? `Workshops on ${format(workshopPlannerDay, "d MMM yyyy")}`
                     : trainingLeftTab === "workshops" && workshopPlannerDay == null
                       ? filterCertId && !centreUnitsShowAll
                         ? (filterCertName ?? "…")
