@@ -190,7 +190,7 @@ function CertificationBucketSection({
     <section
       id={sectionId}
       className={cn(
-        "scroll-mt-6 space-y-4 rounded-xl p-4 shadow-sm sm:p-5 sm:scroll-mt-8",
+        "scroll-mt-6 space-y-3 rounded-xl p-3 shadow-sm sm:p-4 sm:scroll-mt-8",
         s.sectionSurface,
       )}
     >
@@ -237,11 +237,11 @@ function CertificationBucketSection({
           aria-hidden
         />
       </button>
-      <div id={bodyId} hidden={!open} className="space-y-4">
+      <div id={bodyId} hidden={!open} className="space-y-3">
         {rows.length === 0 ? (
           <p
             className={cn(
-              "text-sm border rounded-lg px-4 py-6 text-center",
+              "text-sm border rounded-lg px-4 py-4 text-center",
               s.muted,
               s.emptyInner,
             )}
@@ -249,7 +249,7 @@ function CertificationBucketSection({
             {emptyMessage}
           </p>
         ) : (
-          <div className="grid gap-4 pt-6 sm:pt-8 md:grid-cols-2">
+          <div className="grid gap-3 pt-4 sm:pt-5 md:grid-cols-2">
           {rows.map(
             ({
               level,
@@ -408,15 +408,21 @@ export default function DashboardClient() {
     me.name.trim().split(/\s+/)[0] || me.name.trim() || me.name;
 
   return (
-    <div className="-mt-2 space-y-8">
-      <div className="space-y-5">
+    <div className="-mt-2 space-y-5">
+      <div className="space-y-4">
         <h2 className="text-center text-2xl font-semibold tracking-tight text-[oklch(0.43_0.095_232)] dark:text-brand-sky/95">
           Welcome, {firstName}!
         </h2>
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2 text-sm">
+        <div
+          className={cn(
+            "rounded-lg p-px",
+            "bg-[linear-gradient(90deg,var(--brand-gold),var(--brand-sky),var(--brand-lime))]",
+          )}
+        >
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[calc(var(--radius)-1px)] bg-muted px-3 py-1.5 text-sm">
         <nav
-          className="flex flex-wrap items-center gap-2 border-l-2 border-l-border/60 pl-2.5 min-w-0"
+          className="flex flex-wrap items-center gap-2 min-w-0"
           aria-label="Certification sections"
         >
           <a
@@ -469,10 +475,10 @@ export default function DashboardClient() {
           </a>
         </nav>
         <span
-          className="hidden h-4 w-px bg-border sm:block"
+          className="hidden h-5 w-0.5 shrink-0 rounded-full bg-brand-gold/85 sm:block dark:bg-brand-gold/75"
           aria-hidden
         />
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-l-2 border-l-brand-gold/80 pl-2.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-muted-foreground">Role</span>
           <span className="font-medium capitalize">{me.role}</span>
           <Badge variant="secondary" className="text-xs font-normal">
@@ -481,8 +487,9 @@ export default function DashboardClient() {
         </div>
       </div>
       </div>
+      </div>
 
-      <div className="space-y-8">
+      <div className="space-y-5">
       <CertificationBucketSection
         bucketKey="current"
         sectionId={DASHBOARD_CERT_SECTION_IDS.current}
