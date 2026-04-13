@@ -1,0 +1,19 @@
+/*
+ * VideoConference always renders LiveKit's prefab .lk-control-bar (mic, camera, screen,
+ * chat, leave, StartMediaButton). This app uses BrainstormCallControls instead.
+ * Hide the whole bar; StartMediaButton is rendered next to our controls in TSX.
+ */
+#unit-live-workshop-room-panel .lk-control-bar,
+.livekit-workshop-room .lk-control-bar {
+  display: none !important;
+}
+
+/*
+ * Prefab CSS gives .lk-grid-layout-wrapper height: calc(100% - var(--lk-control-bar-height)).
+ * The bar is hidden but that variable still reserves ~69px (black strip). Do NOT override
+ * flex/height on the grid wrapper — that breaks participant video layout. Zero the token
+ * instead so the calc matches the hidden bar.
+ */
+.livekit-workshop-room[data-lk-theme] {
+  --lk-control-bar-height: 0px !important;
+}

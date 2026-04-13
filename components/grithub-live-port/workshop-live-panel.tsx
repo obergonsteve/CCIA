@@ -2,15 +2,22 @@
 
 import { BrainstormCallControls } from "@/components/grithub-live-port/brainstorm-call-controls";
 import { BrainstormScreenShareBlock } from "@/components/grithub-live-port/brainstorm-screen-share-block";
+import { EmojiStrip } from "@/components/grithub-live-port/emoji-strip";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
+import { cn } from "@/lib/utils";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { LiveKitRoom, VideoConference } from "@livekit/components-react";
+import {
+  LiveKitRoom,
+  StartMediaButton,
+  VideoConference,
+} from "@livekit/components-react";
 import "@livekit/components-styles";
+import "./workshop-livekit-overrides.css";
 import { Room } from "livekit-client";
 import { format } from "date-fns";
-import { Loader2, Pencil, Video } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Pencil, Smile, Video } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -90,6 +97,9 @@ export function WorkshopLivePanel({
     useState<LiveKitCreds | null>(null);
   const [joining, setJoining] = useState(false);
   const [draft, setDraft] = useState("");
+  const [chatEmojiStripOpen, setChatEmojiStripOpen] = useState(false);
+  const [chatEmojiStripExpanded, setChatEmojiStripExpanded] = useState(false);
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const sessionEnded = useMemo(() => {
     if (!session) return true;
@@ -134,6 +144,30 @@ export function WorkshopLivePanel({
       toast.error(e instanceof Error ? e.message : "Send failed");
     }
   }, [draft, sendChat, session]);
+
+  const insertChatEmoji = useCallback(
+    (emoji: string) => {
+      const ta = chatTextareaRef.current;
+      const v = draft;
+      if (ta && document.activeElement === ta) {
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const next = v.slice(0, start) + emoji + v.slice(end);
+        setDraft(next);
+        requestAnimationFrame(() => {
+          const el = chatTextareaRef.current;
+          if (!el) return;
+          const pos = start + emoji.length;
+          el.focus();
+          el.setSelectionRange(pos, pos);
+        });
+      } else {
+        setDraft(v + emoji);
+        requestAnimationFrame(() => chatTextareaRef.current?.focus());
+      }
+    },
+    [draft],
+  );
 
   if (sessionRow === undefined && liveKitCredentials === null) {
     return (
@@ -191,13 +225,13 @@ export function WorkshopLivePanel({
       <div
         className={`rounded-lg border border-slate-300 flex flex-col min-w-0 ${
           liveKitCredentials
-            ? "bg-gradient-to-b from-cyan-100/80 via-cyan-100/65 to-cyan-200/55 dark:from-cyan-950/40 dark:via-cyan-950/30 dark:to-slate-900/60"
-            : "items-center justify-center gap-4 p-6 text-center bg-gradient-to-b from-cyan-100/90 via-cyan-100/75 to-cyan-200/60 dark:from-cyan-950/35 dark:via-cyan-950/25 dark:to-slate-900/50"
+            ? "bg-sky-50/90 p-2 dark:bg-sky-950/25"
+            : "items-center justify-center gap-4 p-6 text-center bg-sky-50/90 dark:bg-sky-950/25"
         }`}
       >
         {liveKitCredentials && !sessionEnded ? (
           <div
-            className="livekit-workshop-room rounded-lg overflow-hidden flex flex-col bg-[linear-gradient(to_right,#b6cad4_0%,#c2d6df_22%,#d6e6ec_50%,#c2d6df_78%,#b6cad4_100%)] dark:bg-[linear-gradient(to_right,#1e293b_0%,#334155_50%,#1e293b_100%)] flex-1 min-h-[260px] min-w-0"
+            className="livekit-workshop-room flex min-h-[260px] min-w-0 flex-1 flex-col overflow-hidden rounded-md"
             data-lk-theme="default"
           >
             <LiveKitRoom
@@ -216,6 +250,7 @@ export function WorkshopLivePanel({
               <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
                 <VideoConference />
               </div>
+              <StartMediaButton className="shrink-0 mx-auto my-1" />
               <BrainstormCallControls />
             </LiveKitRoom>
           </div>
@@ -252,11 +287,22 @@ export function WorkshopLivePanel({
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-card/50 flex flex-col min-h-[200px] max-h-[320px]">
-        <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div
+        className={cn(
+          "grid min-h-[200px] grid-rows-[auto_minmax(7rem,1fr)_auto] overflow-hidden rounded-lg border border-border bg-card/50",
+          !chatEmojiStripOpen && "max-h-[min(320px,50vh)]",
+          chatEmojiStripOpen &&
+            !chatEmojiStripExpanded &&
+            "max-h-[min(440px,62vh)] sm:max-h-[min(480px,68vh)]",
+          chatEmojiStripOpen &&
+            chatEmojiStripExpanded &&
+            "max-h-[min(520px,72vh)] sm:max-h-[min(560px,78vh)]",
+        )}
+      >
+        <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Session chat
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2">
+        <div className="min-h-0 overflow-y-auto px-3 py-2 space-y-2">
           {messages === undefined ? (
             <p className="text-xs text-muted-foreground">Loading messages…</p>
           ) : messages.length === 0 ? (
@@ -270,15 +316,59 @@ export function WorkshopLivePanel({
                 <span className="text-muted-foreground text-xs ml-2">
                   {format(new Date(m.createdAt), "p")}
                 </span>
-                <p className="text-foreground whitespace-pre-wrap break-words">
+                <p className="text-foreground whitespace-pre-wrap break-words [font-family:ui-sans-serif,system-ui,sans-serif,'Apple_Color_Emoji','Segoe_UI_Emoji','Segoe_UI_Symbol','Noto_Color_Emoji']">
                   {m.text}
                 </p>
               </div>
             ))
           )}
         </div>
-        <div className="shrink-0 border-t border-border p-2 flex gap-2">
+        <div className="flex min-h-0 flex-col gap-2 border-t border-border p-2">
+          {!sessionEnded ? (
+            <div className="flex min-h-0 flex-col gap-1">
+              {chatEmojiStripOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setChatEmojiStripOpen(false)}
+                  className="flex w-fit shrink-0 items-center gap-1.5 rounded py-1 pl-0 pr-2 text-xs font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label="Hide emoji picker"
+                >
+                  Hide <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setChatEmojiStripOpen(true)}
+                  className="flex w-fit shrink-0 items-center gap-1 rounded py-1 pl-0 pr-2 text-xs font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label="Show emoji picker"
+                >
+                  <Smile className="h-4 w-4 shrink-0" aria-hidden />
+                  <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              )}
+              {chatEmojiStripOpen ? (
+                <div
+                  className={cn(
+                    "min-h-0 max-h-[min(11rem,32vh)] overflow-y-auto overscroll-y-contain rounded-md border border-border bg-background/95 p-1.5 shadow-sm sm:max-h-[min(13rem,36vh)]",
+                    chatEmojiStripExpanded &&
+                      "max-h-[min(15rem,40vh)] sm:max-h-[min(17rem,44vh)]",
+                  )}
+                >
+                  <EmojiStrip
+                    onInsert={insertChatEmoji}
+                    expanded={chatEmojiStripExpanded}
+                    onToggleExpand={() => setChatEmojiStripExpanded((e) => !e)}
+                    expandButtonClass="text-primary hover:text-primary/90 hover:underline"
+                    buttonFocusRingClass="focus:ring-ring"
+                    tabVariant="primary"
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="flex shrink-0 gap-2">
           <textarea
+            ref={chatTextareaRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
@@ -286,7 +376,7 @@ export function WorkshopLivePanel({
             }
             disabled={sessionEnded}
             rows={2}
-            className="flex-1 min-w-0 resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            className="flex-1 min-w-0 resize-none rounded-md border border-input bg-background px-2 py-1.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 [font-family:ui-sans-serif,system-ui,sans-serif,'Apple_Color_Emoji','Segoe_UI_Emoji','Segoe_UI_Symbol','Noto_Color_Emoji']"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -303,6 +393,7 @@ export function WorkshopLivePanel({
           >
             Send
           </Button>
+          </div>
         </div>
       </div>
     </div>
