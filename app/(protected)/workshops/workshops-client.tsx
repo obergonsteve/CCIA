@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,12 +20,25 @@ import {
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { CalendarDays, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function WorkshopsClient() {
+  const searchParams = useSearchParams();
+  const filterUnitIdRaw = searchParams.get("unit");
+  const filterLevelIdRaw = searchParams.get("level");
+  const filterUnitId =
+    filterUnitIdRaw && filterUnitIdRaw.length > 0
+      ? (filterUnitIdRaw as Id<"units">)
+      : null;
+  const filterLevelId =
+    filterLevelIdRaw && filterLevelIdRaw.length > 0
+      ? (filterLevelIdRaw as Id<"certificationLevels">)
+      : null;
+
   const [tierFilter, setTierFilter] = useState<
     "all" | "bronze" | "silver" | "gold"
   >("all");
@@ -32,11 +46,73 @@ export default function WorkshopsClient() {
     certificationTier: tierFilter,
   });
   const mine = useQuery(api.workshops.myRegistrations);
+  const filterUnit = useQuery(
+    api.units.get,
+    filterUnitId ? { unitId: filterUnitId } : "skip",
+  );
   const register = useMutation(api.workshops.registerForSession);
   const unregister = useMutation(api.workshops.unregisterFromSession);
 
+  const upcomingSessions = useMemo(() => {
+    if (!upcoming) {
+      return undefined;
+    }
+    if (!filterUnitId) {
+      return upcoming;
+    }
+    return upcoming.filter((s) => s.workshopUnitId === filterUnitId);
+  }, [upcoming, filterUnitId]);
+
+  const mySessionsForUnit = useMemo(() => {
+    if (!mine) {
+      return undefined;
+    }
+    if (!filterUnitId) {
+      return mine;
+    }
+    return mine.filter(({ session }) => session.workshopUnitId === filterUnitId);
+  }, [mine, filterUnitId]);
+
+  const certPathHref =
+    filterLevelId != null
+      ? `/certifications/${filterLevelId}#certification-path`
+      : "/certifications";
+
   return (
     <div className="mx-auto max-w-4xl space-y-10 px-4 py-8">
+      {filterUnitId ? (
+        <div
+          className="flex flex-col gap-3 rounded-xl border border-purple-500/35 bg-purple-500/[0.06] px-4 py-3 dark:border-purple-400/30 dark:bg-purple-500/[0.08] sm:flex-row sm:items-start sm:justify-between"
+          role="region"
+          aria-label="Filtered workshop unit"
+        >
+          <div className="min-w-0 space-y-1">
+            <p className="text-sm font-semibold text-foreground">
+              {filterUnit === undefined
+                ? "Loading this workshop…"
+                : filterUnit === null
+                  ? "Workshop unit unavailable"
+                  : filterUnit.title}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Pick a scheduled session below to register, or unregister under{" "}
+              <span className="font-medium text-foreground">My workshops</span>{" "}
+              to choose a different date.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/workshops">All workshops</Link>
+            </Button>
+            {filterLevelId ? (
+              <Button variant="secondary" size="sm" asChild>
+                <Link href={certPathHref}>Certification path</Link>
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -83,16 +159,20 @@ export default function WorkshopsClient() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">My workshops</h2>
-        {mine === undefined ? (
+        <h2 className="text-lg font-semibold">
+          {filterUnitId ? "My workshops (this unit)" : "My workshops"}
+        </h2>
+        {mySessionsForUnit === undefined ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : mine.length === 0 ? (
+        ) : mySessionsForUnit.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            You have not registered for any sessions yet.
+            {filterUnitId
+              ? "You have no registration for this workshop yet. Choose a session under Upcoming sessions."
+              : "You have not registered for any sessions yet."}
           </p>
         ) : (
           <ul className="space-y-2">
-            {mine.map(({ session, workshopTitle, past }) => (
+            {mySessionsForUnit.map(({ session, workshopTitle, past }) => (
               <li key={session._id}>
                 <Card
                   className={cn(
@@ -155,17 +235,21 @@ export default function WorkshopsClient() {
         )}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Upcoming sessions</h2>
-        {upcoming === undefined ? (
+      <section id="workshop-upcoming-sessions" className="space-y-3 scroll-mt-24">
+        <h2 className="text-lg font-semibold">
+          {filterUnitId ? "Upcoming sessions for this unit" : "Upcoming sessions"}
+        </h2>
+        {upcomingSessions === undefined ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : upcoming.length === 0 ? (
+        ) : upcomingSessions.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No upcoming sessions match this filter.
+            {filterUnitId
+              ? "No upcoming sessions are scheduled for this workshop yet. Try another tier filter or check back later."
+              : "No upcoming sessions match this filter."}
           </p>
         ) : (
           <ul className="space-y-2">
-            {upcoming.map((s) => (
+            {upcomingSessions.map((s) => (
               <li key={s._id}>
                 <Card>
                   <CardHeader className="py-3">

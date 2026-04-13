@@ -346,6 +346,49 @@ export const myRegistrations = query({
   },
 });
 
+/** Learner: upcoming sessions for one live workshop unit (register / change date from certification path). */
+export const listUpcomingSessionsForWorkshopUnit = query({
+  args: { workshopUnitId: v.id("units") },
+  handler: async (ctx, { workshopUnitId }) => {
+    const userId = await requireUserId(ctx);
+    const ok = await userCanAccessWorkshopSession(ctx, workshopUnitId);
+    if (!ok) {
+      return null;
+    }
+    const unit = await ctx.db.get(workshopUnitId);
+    if (!isLive(unit) || unit.deliveryMode !== "live_workshop") {
+      return null;
+    }
+    const now = Date.now();
+    const sessions = await ctx.db
+      .query("workshopSessions")
+      .withIndex("by_workshop_unit", (q) =>
+        q.eq("workshopUnitId", workshopUnitId),
+      )
+      .collect();
+    const upcoming = sessions.filter(
+      (s) => s.status === "scheduled" && s.endsAt >= now,
+    );
+    upcoming.sort((a, b) => a.startsAt - b.startsAt);
+    const rows: Array<{
+      session: Doc<"workshopSessions">;
+      registered: boolean;
+      full: boolean;
+    }> = [];
+    for (const s of upcoming) {
+      const regs = await ctx.db
+        .query("workshopRegistrations")
+        .withIndex("by_session", (q) => q.eq("sessionId", s._id))
+        .collect();
+      const registered = regs.some((r) => r.userId === userId);
+      const full =
+        s.capacity != null && s.capacity > 0 && regs.length >= s.capacity;
+      rows.push({ session: s, registered, full });
+    }
+    return { unitTitle: unit.title, sessions: rows };
+  },
+});
+
 export const registerForSession = mutation({
   args: { sessionId: v.id("workshopSessions") },
   handler: async (ctx, { sessionId }) => {

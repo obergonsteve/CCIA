@@ -4,11 +4,18 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "convex/react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowRight,
   CheckCircle2,
-  ChevronRight,
   Circle,
   CircleDashed,
   Lock,
@@ -16,6 +23,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
 import {
   certificationTierBadgeClass,
   certificationTierLabel,
@@ -23,6 +32,14 @@ import {
   effectiveCertificationTier,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
+
+function formatWorkshopSlot(startsAt: number, endsAt: number): string {
+  const df = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  return `${df.format(startsAt)} – ${df.format(endsAt)}`;
+}
 
 type PathStep = {
   kind: "content" | "legacy_assignment";
@@ -133,10 +150,23 @@ export default function CertificationLevelClient({
 }) {
   const levelId = levelIdRaw as Id<"certificationLevels">;
 
+  const [workshopPickerOpen, setWorkshopPickerOpen] = useState(false);
+  const [workshopPickerUnitId, setWorkshopPickerUnitId] =
+    useState<Id<"units"> | null>(null);
+  const [workshopPickerTitle, setWorkshopPickerTitle] = useState("");
+
   const level = useQuery(api.certifications.get, { levelId });
   const roadmap = useQuery(api.contentProgress.roadmapForCertification, {
     levelId,
   });
+  const workshopPickerData = useQuery(
+    api.workshops.listUpcomingSessionsForWorkshopUnit,
+    workshopPickerOpen && workshopPickerUnitId
+      ? { workshopUnitId: workshopPickerUnitId }
+      : "skip",
+  );
+  const registerWorkshop = useMutation(api.workshops.registerForSession);
+  const unregisterWorkshop = useMutation(api.workshops.unregisterFromSession);
 
   if (level === undefined || roadmap === undefined) {
     return <div className="animate-pulse h-48 bg-muted rounded" />;
@@ -246,113 +276,133 @@ export default function CertificationLevelClient({
                     ? 100
                     : 0;
               const certificationNavLocked = u.locked && !isWorkshop;
+              const unitCardHref = `/units/${u.unitId}?level=${levelId}`;
+              const cardClassName = cn(
+                "block w-full rounded-xl border bg-card px-3 py-3 text-left shadow-sm transition-colors hover:bg-muted/40",
+                u.completed && "border-2 border-brand-lime/50 bg-brand-lime/[0.06]",
+                certificationNavLocked && "cursor-not-allowed opacity-80",
+                u.locked &&
+                  !isWorkshop &&
+                  "border border-border/80 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-muted/25 dark:border-l-brand-gold dark:border-r-brand-gold",
+                !u.completed &&
+                  isWorkshop &&
+                  "border border-purple-500/40 border-l-4 border-r-4 border-l-purple-600 border-r-purple-600 bg-background hover:border-purple-500/55 hover:border-l-purple-500 hover:border-r-purple-500 dark:border-purple-400/45 dark:border-l-purple-400 dark:border-r-purple-400 dark:hover:border-purple-300/55",
+                !u.completed &&
+                  !isWorkshop &&
+                  !u.locked &&
+                  "border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-background hover:border-brand-gold/55 hover:border-l-brand-gold hover:border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:hover:border-brand-gold/50",
+              );
+              const reg = u.workshopRegistration;
+              const showRegisteredSlot =
+                isWorkshop && reg != null && !u.completed;
+              const cardBody = (
+                <div className="flex flex-col gap-2 text-left">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "h-5 w-fit shrink-0 px-2 py-0 text-[10px] font-bold uppercase tracking-wide",
+                      isWorkshop
+                        ? "border-purple-500/45 bg-purple-500/10 text-purple-900 dark:border-purple-400/50 dark:bg-purple-500/15 dark:text-purple-100"
+                        : "border-brand-gold/50 bg-brand-gold/[0.12] text-foreground dark:border-brand-gold/45 dark:bg-brand-gold/[0.10]",
+                      u.completed &&
+                        "border-border/70 bg-background/60 text-muted-foreground dark:bg-background/40",
+                    )}
+                  >
+                    {isWorkshop ? "Live workshop" : "Self-paced"}
+                  </Badge>
+                  <span className="flex items-start gap-2">
+                    {u.completed ? (
+                      <CheckCircle2
+                        className="h-5 w-5 shrink-0 text-brand-lime mt-0.5"
+                        aria-hidden
+                      />
+                    ) : u.locked ? (
+                      <Lock
+                        className={cn(
+                          "h-5 w-5 shrink-0 mt-0.5",
+                          isWorkshop
+                            ? "text-purple-600 dark:text-purple-400"
+                            : "text-brand-gold",
+                        )}
+                        aria-hidden
+                      />
+                    ) : (
+                      <Circle
+                        className={cn(
+                          "h-5 w-5 shrink-0 mt-0.5",
+                          isWorkshop
+                            ? "text-purple-600 fill-purple-500/20 dark:text-purple-400 dark:fill-purple-400/20"
+                            : "text-brand-gold fill-brand-gold/25 dark:text-brand-gold dark:fill-brand-gold/20",
+                        )}
+                        aria-hidden
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 leading-snug">
+                      <span className="line-clamp-3 text-sm font-semibold text-foreground">
+                        {u.title}
+                      </span>
+                    </span>
+                  </span>
+                  {showRegisteredSlot ? (
+                    <p className="text-[10px] font-semibold leading-snug text-purple-800 tabular-nums dark:text-purple-200">
+                      Registered · {formatWorkshopSlot(reg.startsAt, reg.endsAt)}
+                    </p>
+                  ) : null}
+                  {u.locked && u.lockReason === "prerequisite" ? (
+                    <p className="text-[11px] font-medium text-neutral-700 dark:text-neutral-400">
+                      Prerequisites required
+                    </p>
+                  ) : u.locked && u.lockReason === "previous_unit" ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      Complete the previous unit first
+                    </p>
+                  ) : (
+                    <p className="text-[11px] tabular-nums text-muted-foreground">
+                      {u.stepsCompleted}/{u.stepTotal || 0} lessons
+                      {u.stepTotal > 0 ? ` · ${pct}%` : ""}
+                    </p>
+                  )}
+                </div>
+              );
+              const linkAria = `${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`;
+              const workshopOpenAria = `${u.title}, live workshop${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}. Opens scheduled sessions for this unit.`;
               return (
                 <li
                   key={u.unitId}
                   className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-1 md:gap-1.5"
                 >
                   <div className="w-full shrink-0 sm:max-w-[min(100%,260px)] sm:w-[216px]">
-                    <Link
-                      href={`/units/${u.unitId}?level=${levelId}`}
-                      className={cn(
-                        "block w-full rounded-xl border bg-card px-3 py-3 shadow-sm transition-colors hover:bg-muted/40",
-                        u.completed &&
-                          "border-2 border-brand-lime/50 bg-brand-lime/[0.06]",
-                        certificationNavLocked &&
-                          "cursor-not-allowed opacity-80",
-                        u.locked &&
-                          !isWorkshop &&
-                          "border border-border/80 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-muted/25 dark:border-l-brand-gold dark:border-r-brand-gold",
-                        !u.completed &&
-                          isWorkshop &&
-                          "border border-purple-500/40 border-l-4 border-r-4 border-l-purple-600 border-r-purple-600 bg-background hover:border-purple-500/55 hover:border-l-purple-500 hover:border-r-purple-500 dark:border-purple-400/45 dark:border-l-purple-400 dark:border-r-purple-400 dark:hover:border-purple-300/55",
-                        !u.completed &&
-                          !isWorkshop &&
-                          !u.locked &&
-                          "border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-background hover:border-brand-gold/55 hover:border-l-brand-gold hover:border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:hover:border-brand-gold/50",
-                      )}
-                      aria-disabled={certificationNavLocked}
-                      aria-label={`${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`}
-                      onClick={(e) => {
-                        if (certificationNavLocked) {
-                          e.preventDefault();
-                        }
-                      }}
-                    >
-                      <div className="flex flex-col gap-2 text-left">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "h-5 w-fit shrink-0 px-2 py-0 text-[10px] font-bold uppercase tracking-wide",
-                            isWorkshop
-                              ? "border-purple-500/45 bg-purple-500/10 text-purple-900 dark:border-purple-400/50 dark:bg-purple-500/15 dark:text-purple-100"
-                              : "border-brand-gold/50 bg-brand-gold/[0.12] text-foreground dark:border-brand-gold/45 dark:bg-brand-gold/[0.10]",
-                            u.completed &&
-                              "border-border/70 bg-background/60 text-muted-foreground dark:bg-background/40",
-                          )}
-                        >
-                          {isWorkshop ? "Live workshop" : "Self-paced"}
-                        </Badge>
-                        <span className="flex items-start gap-2">
-                          {u.completed ? (
-                            <CheckCircle2
-                              className="h-5 w-5 shrink-0 text-brand-lime mt-0.5"
-                              aria-hidden
-                            />
-                          ) : u.locked ? (
-                            <Lock
-                              className={cn(
-                                "h-5 w-5 shrink-0 mt-0.5",
-                                isWorkshop
-                                  ? "text-purple-600 dark:text-purple-400"
-                                  : "text-brand-gold",
-                              )}
-                              aria-hidden
-                            />
-                          ) : (
-                            <Circle
-                              className={cn(
-                                "h-5 w-5 shrink-0 mt-0.5",
-                                isWorkshop
-                                  ? "text-purple-600 fill-purple-500/20 dark:text-purple-400 dark:fill-purple-400/20"
-                                  : "text-brand-gold fill-brand-gold/25 dark:text-brand-gold dark:fill-brand-gold/20",
-                              )}
-                              aria-hidden
-                            />
-                          )}
-                          <span className="min-w-0 flex-1 leading-snug">
-                            <span className="line-clamp-3 text-sm font-semibold text-foreground">
-                              {u.title}
-                            </span>
-                            <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                              {u.completed
-                                ? "Open unit"
-                                : isWorkshop
-                                  ? "Sessions & join"
-                                  : "Open unit"}
-                              <ChevronRight
-                                className="h-3.5 w-3.5 shrink-0 opacity-70"
-                                aria-hidden
-                              />
-                            </span>
-                          </span>
-                        </span>
-                        {u.locked && u.lockReason === "prerequisite" ? (
-                          <p className="text-[11px] text-brand-gold">
-                            Prerequisites required
-                          </p>
-                        ) : u.locked && u.lockReason === "previous_unit" ? (
-                          <p className="text-[11px] text-muted-foreground">
-                            Complete the previous unit first
-                          </p>
-                        ) : (
-                          <p className="text-[11px] tabular-nums text-muted-foreground">
-                            {u.stepsCompleted}/{u.stepTotal || 0} lessons
-                            {u.stepTotal > 0 ? ` · ${pct}%` : ""}
-                          </p>
+                    {!u.completed && isWorkshop ? (
+                      <button
+                        type="button"
+                        className={cn(
+                          cardClassName,
+                          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         )}
-                      </div>
-                    </Link>
+                        aria-label={workshopOpenAria}
+                        onClick={() => {
+                          setWorkshopPickerUnitId(u.unitId);
+                          setWorkshopPickerTitle(u.title);
+                          setWorkshopPickerOpen(true);
+                        }}
+                      >
+                        {cardBody}
+                      </button>
+                    ) : (
+                      <Link
+                        href={unitCardHref}
+                        className={cardClassName}
+                        aria-disabled={certificationNavLocked}
+                        aria-label={linkAria}
+                        onClick={(e) => {
+                          if (certificationNavLocked) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        {cardBody}
+                      </Link>
+                    )}
                   </div>
 
                   {pathSteps.length > 0 ? (
@@ -419,6 +469,108 @@ export default function CertificationLevelClient({
           {level.description}
         </p>
       </div>
+
+      <Dialog
+        open={workshopPickerOpen}
+        onOpenChange={(open) => {
+          setWorkshopPickerOpen(open);
+          if (!open) {
+            setWorkshopPickerUnitId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {workshopPickerTitle ||
+                workshopPickerData?.unitTitle ||
+                "Workshop sessions"}
+            </DialogTitle>
+            <DialogDescription>
+              Register for one session below. To switch dates, unregister from
+              your current session first, then pick another.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 max-h-[min(70vh,480px)] space-y-2 overflow-y-auto pr-1">
+            {workshopPickerData === undefined ? (
+              <p className="text-sm text-muted-foreground">Loading sessions…</p>
+            ) : workshopPickerData === null ? (
+              <p className="text-sm text-muted-foreground">
+                You cannot access sessions for this workshop.
+              </p>
+            ) : workshopPickerData.sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No upcoming sessions are scheduled for this unit yet.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {workshopPickerData.sessions.map(({ session, registered, full }) => (
+                  <li
+                    key={session._id}
+                    className="flex flex-col gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground tabular-nums">
+                        {formatWorkshopSlot(session.startsAt, session.endsAt)}
+                      </p>
+                      {session.titleOverride ? (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {session.titleOverride}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      {registered ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={async () => {
+                            try {
+                              await unregisterWorkshop({
+                                sessionId: session._id,
+                              });
+                              toast.success("Unregistered — you can pick another session.");
+                            } catch (e) {
+                              toast.error(
+                                e instanceof Error ? e.message : "Failed",
+                              );
+                            }
+                          }}
+                        >
+                          Unregister
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8"
+                          disabled={full}
+                          onClick={async () => {
+                            try {
+                              await registerWorkshop({
+                                sessionId: session._id,
+                              });
+                              toast.success("You are registered for this session.");
+                            } catch (e) {
+                              toast.error(
+                                e instanceof Error ? e.message : "Failed",
+                              );
+                            }
+                          }}
+                        >
+                          {full ? "Full" : "Register"}
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

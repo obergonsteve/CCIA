@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   type MutationCtx,
   type QueryCtx,
@@ -772,6 +772,39 @@ export const roadmapForCertification = query({
       return null;
     }
     const units = await collectUnitsForLevel(ctx, levelId);
+    const now = Date.now();
+    const userRegs = await ctx.db
+      .query("workshopRegistrations")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const sessionById = new Map<
+      Id<"workshopSessions">,
+      Doc<"workshopSessions"> | null
+    >();
+    for (const r of userRegs) {
+      if (!sessionById.has(r.sessionId)) {
+        sessionById.set(r.sessionId, await ctx.db.get(r.sessionId));
+      }
+    }
+    const activeRegistrationByWorkshopUnit = new Map<
+      Id<"units">,
+      { startsAt: number; endsAt: number }
+    >();
+    for (const r of userRegs) {
+      const s = sessionById.get(r.sessionId);
+      if (!s || s.status !== "scheduled" || s.endsAt < now) {
+        continue;
+      }
+      const wid = s.workshopUnitId;
+      const cur = activeRegistrationByWorkshopUnit.get(wid);
+      if (!cur || s.startsAt < cur.startsAt) {
+        activeRegistrationByWorkshopUnit.set(wid, {
+          startsAt: s.startsAt,
+          endsAt: s.endsAt,
+        });
+      }
+    }
+
     const out: Array<{
       unitId: Id<"units">;
       title: string;
@@ -779,6 +812,8 @@ export const roadmapForCertification = query({
       order: number;
       /** Omitted on legacy rows — treat as self-paced in UI. */
       deliveryMode?: "self_paced" | "live_workshop";
+      /** Next upcoming scheduled session this user is registered for (live workshop units only). */
+      workshopRegistration?: { startsAt: number; endsAt: number } | null;
       locked: boolean;
       lockReason: "prerequisite" | "previous_unit" | null;
       completed: boolean;
@@ -845,6 +880,10 @@ export const roadmapForCertification = query({
         description: unit.description,
         order: i,
         deliveryMode: unit.deliveryMode,
+        workshopRegistration:
+          unit.deliveryMode === "live_workshop"
+            ? activeRegistrationByWorkshopUnit.get(unit._id) ?? null
+            : undefined,
         locked,
         lockReason,
         completed: prog?.completed ?? false,
