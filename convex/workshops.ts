@@ -389,6 +389,52 @@ export const listUpcomingSessionsForWorkshopUnit = query({
   },
 });
 
+/**
+ * Session to drive the embedded live room on a workshop unit: earliest upcoming
+ * registration for this unit, else the most recently ended one (chat-only context).
+ */
+export const myRegisteredSessionForLiveWorkshopUnit = query({
+  args: { workshopUnitId: v.id("units") },
+  handler: async (ctx, { workshopUnitId }) => {
+    const userId = await requireUserId(ctx);
+    const ok = await userCanAccessWorkshopSession(ctx, workshopUnitId);
+    if (!ok) {
+      return null;
+    }
+    const unit = await ctx.db.get(workshopUnitId);
+    if (!isLive(unit) || unit.deliveryMode !== "live_workshop") {
+      return null;
+    }
+    const regs = await ctx.db
+      .query("workshopRegistrations")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const now = Date.now();
+    type Row = {
+      session: Doc<"workshopSessions">;
+      registration: Doc<"workshopRegistrations">;
+    };
+    const rows: Row[] = [];
+    for (const r of regs) {
+      const s = await ctx.db.get(r.sessionId);
+      if (!s || s.workshopUnitId !== workshopUnitId || s.status !== "scheduled") {
+        continue;
+      }
+      rows.push({ session: s, registration: r });
+    }
+    if (rows.length === 0) {
+      return null;
+    }
+    rows.sort((a, b) => a.session.startsAt - b.session.startsAt);
+    const upcoming = rows.filter((r) => r.session.endsAt >= now);
+    if (upcoming.length > 0) {
+      return upcoming[0]!;
+    }
+    rows.sort((a, b) => b.session.endsAt - a.session.endsAt);
+    return rows[0]!;
+  },
+});
+
 export const registerForSession = mutation({
   args: { sessionId: v.id("workshopSessions") },
   handler: async (ctx, { sessionId }) => {

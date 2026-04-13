@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -508,6 +508,19 @@ export default function CertificationLevelClient({
               Register for one session below. To switch dates, unregister from
               your current session first, then pick another.
             </DialogDescription>
+            {workshopPickerUnitId ? (
+              <div className="pt-2">
+                <Link
+                  href={`/units/${workshopPickerUnitId}?level=${levelId}`}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "h-8 border-purple-500/45 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/50 dark:text-purple-100 dark:hover:bg-purple-500/15",
+                  )}
+                >
+                  Open workshop unit
+                </Link>
+              </div>
+            ) : null}
           </DialogHeader>
           <div className="mt-4 max-h-[min(70vh,480px)] space-y-2 overflow-y-auto pr-1">
             {workshopPickerData === undefined ? (

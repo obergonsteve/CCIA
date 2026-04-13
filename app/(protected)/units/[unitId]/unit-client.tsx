@@ -25,6 +25,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { WorkshopLivePanel } from "@/components/grithub-live-port/workshop-live-panel";
 
 function unitStepPathHref(
   unitId: Id<"units">,
@@ -229,8 +230,8 @@ function LegacyAssignmentStepBlock({
   );
 }
 
-/** Placeholder shell for a future LiveKit room (video, chat, screen share). */
-function LiveWorkshopRoomPanel() {
+/** LiveKit room, screen share, and session chat (ported from GritHub Brainstorm). */
+function LiveWorkshopRoomPanel({ unitId }: { unitId: Id<"units"> }) {
   const [open, setOpen] = useState(false);
   const bodyId = "unit-live-workshop-room-panel";
 
@@ -270,11 +271,7 @@ function LiveWorkshopRoomPanel() {
         hidden={!open}
         className="space-y-2 border-t border-purple-500/20 px-4 py-4 dark:border-purple-400/15"
       >
-        <p className="text-sm text-muted-foreground">
-          The embedded live session (LiveKit video, chat, and screen share) will
-          appear here in a future update. This panel is a placeholder for that
-          proof of concept.
-        </p>
+        <WorkshopLivePanel workshopUnitId={unitId} />
       </div>
     </section>
   );
@@ -429,7 +426,7 @@ export default function UnitClient({
         </div>
       </div>
 
-      {isLiveWorkshopUnit ? <LiveWorkshopRoomPanel /> : null}
+      {isLiveWorkshopUnit ? <LiveWorkshopRoomPanel unitId={unitId} /> : null}
 
       {lockedByPrereq && prereqStatus.prerequisites.length > 0 ? (
         <div

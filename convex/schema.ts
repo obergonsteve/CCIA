@@ -225,6 +225,14 @@ export default defineSchema({
     .index("by_session", ["sessionId"])
     .index("by_session_and_user", ["sessionId", "userId"]),
 
+  /** Text chat during an embedded LiveKit workshop (registered learners only). */
+  workshopSessionChatMessages: defineTable({
+    workshopSessionId: v.id("workshopSessions"),
+    userId: v.id("users"),
+    text: v.string(),
+    createdAt: v.number(),
+  }).index("by_workshop_session", ["workshopSessionId"]),
+
   /**
    * User × certification placement × scheduled session: who must / did attend
    * a live workshop for a specific unit within a certification track.

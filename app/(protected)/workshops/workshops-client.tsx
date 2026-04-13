@@ -15,9 +15,22 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
+import { format, isSameDay } from "date-fns";
 import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
+
+/** Date + hours:minutes only (no seconds). Same calendar day → one date, two times. */
+function formatWorkshopSessionRange(startMs: number, endMs: number): string {
+  const start = new Date(startMs);
+  const end = new Date(endMs);
+  const startTime = format(start, "HH:mm");
+  const endTime = format(end, "HH:mm");
+  if (isSameDay(start, end)) {
+    return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${endTime}`;
+  }
+  return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${format(end, "dd/MM/yyyy")}, ${endTime}`;
+}
 
 export default function WorkshopsClient() {
   const searchParams = useSearchParams();
@@ -147,16 +160,24 @@ export default function WorkshopsClient() {
                     past && "opacity-80 border-dashed",
                   )}
                 >
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-base font-medium">
-                      {workshopTitle}
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(session.startsAt).toLocaleString()} —{" "}
-                      {new Date(session.endsAt).toLocaleString()}
-                      {past ? " · Past" : ""}
-                    </p>
-                  </CardHeader>
+                  <Link
+                    href={`/units/${session.workshopUnitId}`}
+                    className={cn(
+                      "group block rounded-t-xl outline-none transition-colors",
+                      "hover:bg-purple-500/[0.08] focus-visible:bg-purple-500/[0.08] focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-500/[0.12] dark:focus-visible:bg-purple-500/[0.12]",
+                    )}
+                    aria-label={`Open workshop unit: ${workshopTitle}`}
+                  >
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-base font-medium text-foreground underline-offset-4 group-hover:underline">
+                        {workshopTitle}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
+                        {past ? " · Past" : ""}
+                      </p>
+                    </CardHeader>
+                  </Link>
                   <CardContent className="flex flex-wrap gap-2 pb-4">
                     {session.externalJoinUrl && !past ? (
                       <Link
@@ -172,9 +193,12 @@ export default function WorkshopsClient() {
                         <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
                       </Link>
                     ) : !past ? (
-                      <span className="text-xs text-muted-foreground">
-                        Live room (LiveKit) will appear here in a future update.
-                      </span>
+                      <Link
+                        href={`/units/${session.workshopUnitId}`}
+                        className="text-xs font-medium text-purple-800 underline-offset-4 hover:underline dark:text-purple-200/90"
+                      >
+                        Open unit page — Live workshop (video, chat, screen share)
+                      </Link>
                     ) : null}
                     {!past && session.status === "scheduled" ? (
                       <Button
@@ -245,8 +269,7 @@ export default function WorkshopsClient() {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(s.startsAt).toLocaleString()} —{" "}
-                      {new Date(s.endsAt).toLocaleString()}
+                      {formatWorkshopSessionRange(s.startsAt, s.endsAt)}
                     </p>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-2 pb-4">
