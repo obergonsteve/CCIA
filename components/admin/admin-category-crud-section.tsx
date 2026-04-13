@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQuery } from "convex/react";
-import { Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -221,7 +221,11 @@ function CategoryCrudColumn({
   );
 }
 
+const CATEGORY_CRUD_PANEL_ID = "admin-category-crud-panel";
+
 export function AdminCategoryCrudSection() {
+  const [panelOpen, setPanelOpen] = useState(false);
+
   const certRows = useQuery(api.certificationCategories.listAdmin);
   const unitRows = useQuery(api.unitCategories.listAdmin);
   const contentRows = useQuery(api.contentCategories.listAdmin);
@@ -248,60 +252,97 @@ export function AdminCategoryCrudSection() {
         <div className="bg-brand-gold" />
         <div className="bg-brand-sky" />
       </div>
-      <div className="bg-card/80 px-4 pb-8 pt-6 backdrop-blur-sm dark:bg-card/60 sm:px-6">
-        <h2 className="text-base font-semibold tracking-tight text-foreground">
-          Categories
-        </h2>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Add and edit categories here, then assign them from the dropdowns on
-          each certification, unit, and content form above.
-        </p>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <CategoryCrudColumn
-            title="Certifications"
-            tone="lime"
-            rows={certRows as CategoryRow[] | undefined}
-            onCreate={(a) => certCreate(a)}
-            onUpdate={(a) =>
-              certUpdate({
-                id: a.id as Id<"certificationCategories">,
-                shortCode: a.shortCode,
-                longDescription: a.longDescription,
-              })
+      <div
+        className={cn(
+          "bg-card/80 px-4 pt-6 backdrop-blur-sm dark:bg-card/60 sm:px-6",
+          panelOpen ? "pb-8" : "pb-6",
+        )}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            Categories
+          </h2>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 gap-1.5 text-muted-foreground hover:text-foreground"
+            aria-expanded={panelOpen}
+            aria-controls={
+              panelOpen ? CATEGORY_CRUD_PANEL_ID : undefined
             }
-            onRemove={(id) =>
-              certRemove({ id: id as Id<"certificationCategories"> })
-            }
-          />
-          <CategoryCrudColumn
-            title="Units"
-            tone="gold"
-            rows={unitRows as CategoryRow[] | undefined}
-            onCreate={(a) => unitCreate(a)}
-            onUpdate={(a) =>
-              unitUpdate({
-                id: a.id as Id<"unitCategories">,
-                shortCode: a.shortCode,
-                longDescription: a.longDescription,
-              })
-            }
-            onRemove={(id) => unitRemove({ id: id as Id<"unitCategories"> })}
-          />
-          <CategoryCrudColumn
-            title="Content"
-            tone="sky"
-            rows={contentRows as CategoryRow[] | undefined}
-            onCreate={(a) => contentCreate(a)}
-            onUpdate={(a) =>
-              contentUpdate({
-                id: a.id as Id<"contentCategories">,
-                shortCode: a.shortCode,
-                longDescription: a.longDescription,
-              })
-            }
-            onRemove={(id) => contentRemove({ id: id as Id<"contentCategories"> })}
-          />
+            onClick={() => setPanelOpen((v) => !v)}
+          >
+            <span className="text-xs font-medium">
+              {panelOpen ? "Hide" : "Show"}
+            </span>
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform duration-200",
+                panelOpen ? "rotate-180" : "rotate-0",
+              )}
+              aria-hidden
+            />
+          </Button>
         </div>
+        {panelOpen ? (
+          <div id={CATEGORY_CRUD_PANEL_ID}>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Add and edit categories here, then assign them from the dropdowns
+              on each certification, unit, and content form above.
+            </p>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <CategoryCrudColumn
+                title="Certifications"
+                tone="lime"
+                rows={certRows as CategoryRow[] | undefined}
+                onCreate={(a) => certCreate(a)}
+                onUpdate={(a) =>
+                  certUpdate({
+                    id: a.id as Id<"certificationCategories">,
+                    shortCode: a.shortCode,
+                    longDescription: a.longDescription,
+                  })
+                }
+                onRemove={(id) =>
+                  certRemove({ id: id as Id<"certificationCategories"> })
+                }
+              />
+              <CategoryCrudColumn
+                title="Units"
+                tone="gold"
+                rows={unitRows as CategoryRow[] | undefined}
+                onCreate={(a) => unitCreate(a)}
+                onUpdate={(a) =>
+                  unitUpdate({
+                    id: a.id as Id<"unitCategories">,
+                    shortCode: a.shortCode,
+                    longDescription: a.longDescription,
+                  })
+                }
+                onRemove={(id) =>
+                  unitRemove({ id: id as Id<"unitCategories"> })
+                }
+              />
+              <CategoryCrudColumn
+                title="Content"
+                tone="sky"
+                rows={contentRows as CategoryRow[] | undefined}
+                onCreate={(a) => contentCreate(a)}
+                onUpdate={(a) =>
+                  contentUpdate({
+                    id: a.id as Id<"contentCategories">,
+                    shortCode: a.shortCode,
+                    longDescription: a.longDescription,
+                  })
+                }
+                onRemove={(id) =>
+                  contentRemove({ id: id as Id<"contentCategories"> })
+                }
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );

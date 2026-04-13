@@ -79,7 +79,7 @@ function DroppablePlannerDayCell({
         "relative flex aspect-square max-h-11 flex-col items-center justify-center rounded-md border border-transparent text-sm transition-colors",
         inMonth ? "text-foreground" : "text-muted-foreground/45",
         selected
-          ? "border-brand-gold/60 bg-brand-gold/15 font-semibold"
+          ? "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30"
           : "hover:bg-muted/80",
         (isOver || highlighted) &&
           "ring-2 ring-inset ring-purple-500/55 dark:ring-purple-400/50",
@@ -138,7 +138,7 @@ function StaticPlannerDayCell({
         "relative flex aspect-square max-h-11 flex-col items-center justify-center rounded-md border border-transparent text-sm transition-colors",
         inMonth ? "text-foreground" : "text-muted-foreground/45",
         selected
-          ? "border-brand-gold/60 bg-brand-gold/15 font-semibold"
+          ? "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30"
           : "hover:bg-muted/80",
       )}
     >
@@ -249,12 +249,13 @@ export function WorkshopPlannerCalendar({
               type="button"
               variant={selectedDay == null ? "secondary" : "outline"}
               size="sm"
-              className="h-8 text-xs"
+              className="h-8 whitespace-nowrap px-2.5 text-xs"
               aria-pressed={selectedDay == null}
+              aria-label="All workshops — list every live workshop unit in the centre column (no day filter)"
               title="List all workshop units in the centre column (no day filter)"
               onClick={() => onSelectDay(null)}
             >
-              All
+              All workshops
             </Button>
           ) : null}
           <Button
@@ -312,26 +313,6 @@ export function WorkshopPlannerCalendar({
           ),
         )}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <span className="size-1.5 rounded-full bg-purple-500 dark:bg-purple-400" />{" "}
-          Scheduled
-        </span>
-        {" · "}
-        <span className="inline-flex items-center gap-1">
-          <span className="size-1.5 rounded-full bg-muted-foreground/50" />{" "}
-          Cancelled
-        </span>
-        {droppableDays ? (
-          <>
-            {" · "}
-            <span className="text-foreground/80">
-              Drag a workshop unit onto a date to schedule.
-            </span>
-          </>
-        ) : null}
-      </p>
     </div>
   );
 }

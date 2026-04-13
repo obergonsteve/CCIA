@@ -479,7 +479,7 @@ function TrainingColumnChip({
   );
 }
 
-/** Left-column tab switcher — same visual language as {@link TrainingColumnChip} (lime = certs, purple = workshops). */
+/** Left-column tab switcher — same visual language as {@link TrainingColumnChip} (lime = certs, purple = Timetable). */
 function TrainingLeftTabChip({
   selected,
   onClick,
@@ -2220,8 +2220,7 @@ export default function AdminCoursesClient() {
         <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[repeat(3,minmax(0,1fr))]">
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border px-2 pb-4 pt-0 shadow-lg",
-              ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 px-2 pb-4 pt-0 shadow-lg",
               trainingLeftTab === "workshops"
                 ? "border-purple-500/40 border-l-purple-500 border-r-purple-500 bg-purple-500/[0.11] dark:border-purple-400/35 dark:border-l-purple-400 dark:border-r-purple-400 dark:bg-purple-400/[0.12]"
                 : "border-brand-lime/40 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]",
@@ -2256,7 +2255,7 @@ export default function AdminCoursesClient() {
                   onClick={() => selectTrainingLeftTab("workshops")}
                   count={workshopSessionsInViewMonthCount}
                   trailing={
-                    <span className="min-w-0 truncate">Workshops</span>
+                    <span className="min-w-0 truncate">Timetable</span>
                   }
                 />
               </div>
@@ -2411,11 +2410,11 @@ export default function AdminCoursesClient() {
                 value="workshops"
                 className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col gap-2 outline-none data-[state=inactive]:hidden"
               >
-                <h2 className="sr-only">Workshops</h2>
+                <h2 className="sr-only">Timetable</h2>
                 <p className="mb-3 shrink-0 text-sm text-muted-foreground">
                   {workshopPlannerDay == null
                     ? "Drag a workshop unit onto a date to schedule it."
-                    : "Select All to drag workshop units onto a date."}
+                    : "Choose 'All workshop units' in the centre column to drag units onto the Timetable calendar."}
                 </p>
                 <div className="min-h-0 flex-1 overflow-y-auto scrollbar-panel">
                   <WorkshopPlannerCalendar
@@ -2435,9 +2434,8 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border bg-brand-gold/[0.14] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
-              ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
-              trainingLeftTab === "workshops" && workshopPlannerDay != null
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
+              trainingLeftTab === "workshops"
                 ? "border-purple-500/40 border-l-purple-500 border-r-purple-500 dark:border-purple-400/35 dark:border-l-purple-400 dark:border-r-purple-400"
                 : filterCertId
                   ? "border-brand-lime/40 border-l-brand-lime border-r-brand-lime dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime"
@@ -2450,10 +2448,14 @@ export default function AdminCoursesClient() {
               trailing={
                 <span className="min-w-0 truncate">
                   {trainingLeftTab === "workshops" && workshopPlannerDay != null
-                    ? format(workshopPlannerDay, "d MMM yyyy")
-                    : filterCertId && !centreUnitsShowAll
-                      ? (filterCertName ?? "…")
-                      : "All units"}
+                    ? `Timetable on ${format(workshopPlannerDay, "d MMM yyyy")}`
+                    : trainingLeftTab === "workshops" && workshopPlannerDay == null
+                      ? filterCertId && !centreUnitsShowAll
+                        ? (filterCertName ?? "…")
+                        : "All workshop units"
+                      : filterCertId && !centreUnitsShowAll
+                        ? (filterCertName ?? "…")
+                        : "All units"}
                 </span>
               }
             />
@@ -2509,7 +2511,7 @@ export default function AdminCoursesClient() {
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 disabled={trainingLeftTab === "workshops"}
                 className={cn(
                   "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
@@ -2517,18 +2519,18 @@ export default function AdminCoursesClient() {
                   unitDeliveryFilter === "self_paced"
                     ? cn(
                         adminUnitDeliveryLREdgeColors("self_paced"),
-                        "bg-brand-sky/26 font-medium text-foreground hover:bg-brand-sky/32 dark:bg-brand-sky/28 dark:hover:bg-brand-sky/36",
+                        "bg-brand-gold/26 font-medium text-foreground hover:bg-brand-gold/32 dark:bg-brand-gold/28 dark:hover:bg-brand-gold/36",
                       )
                     : cn(
                         adminUnitDeliveryLREdgeColorsMuted("self_paced"),
-                        "bg-background hover:bg-brand-sky/8 dark:hover:bg-brand-sky/10",
+                        "bg-background hover:bg-brand-gold/10 dark:hover:bg-brand-gold/12",
                       ),
                 )}
                 onClick={() => setUnitDeliveryFilter("self_paced")}
                 aria-pressed={unitDeliveryFilter === "self_paced"}
                 title={
                   trainingLeftTab === "workshops"
-                    ? "Self-paced is hidden while scheduling workshops (left tab)"
+                    ? "Self-paced is hidden while the Timetable tab is open"
                     : "Show self-paced units (default)"
                 }
               >
@@ -2540,7 +2542,7 @@ export default function AdminCoursesClient() {
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 className={cn(
                   "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
                   ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
@@ -2609,7 +2611,7 @@ export default function AdminCoursesClient() {
                       workshopPlannerDay != null &&
                       !unitSearch.trim() ? (
                         <>
-                          No scheduled workshops on{" "}
+                          No sessions on{" "}
                           {format(workshopPlannerDay, "d MMM yyyy")}.
                         </>
                       ) : unitSearch.trim() ? (
@@ -2707,7 +2709,7 @@ export default function AdminCoursesClient() {
                     !unitSearch.trim() &&
                     (allUnitsVisibleForUi?.length ?? 0) > 0 ? (
                       <>
-                        No scheduled workshops on{" "}
+                        No sessions on{" "}
                         {format(workshopPlannerDay, "d MMM yyyy")}.
                       </>
                     ) : unitSearch.trim() ? (
@@ -2759,7 +2761,7 @@ export default function AdminCoursesClient() {
                               trainingLeftTab === "workshops" &&
                               workshopPlannerDay != null &&
                               (u.deliveryMode ?? "self_paced") === "live_workshop"
-                                ? "unlink"
+                                ? "cancel"
                                 : filterCertId &&
                                     u.certificationLevelIds.includes(
                                       filterCertId,
@@ -2771,21 +2773,14 @@ export default function AdminCoursesClient() {
                               trainingLeftTab === "workshops" &&
                               workshopPlannerDay != null &&
                               (u.deliveryMode ?? "self_paced") === "live_workshop"
-                                ? "Unschedule workshops on selected date"
+                                ? "Cancel workshop sessions on selected date"
                                 : undefined
-                            }
-                            unlinkActionTone={
-                              trainingLeftTab === "workshops" &&
-                              workshopPlannerDay != null &&
-                              (u.deliveryMode ?? "self_paced") === "live_workshop"
-                                ? "sky"
-                                : "muted"
                             }
                             deleteTooltip={
                               trainingLeftTab === "workshops" &&
                               workshopPlannerDay != null &&
                               (u.deliveryMode ?? "self_paced") === "live_workshop"
-                                ? `Remove every session that starts on ${format(
+                                ? `Cancel every session that starts on ${format(
                                     workshopPlannerDay,
                                     "d MMM yyyy",
                                   )} (your local time). The unit is not deleted.`
@@ -2857,8 +2852,7 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border bg-brand-sky/[0.10] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-sky/[0.12]",
-              ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-sky/[0.10] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-sky/[0.12]",
               selectedDetailUnitId
                 ? "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold"
                 : "border-brand-sky/40 border-l-brand-sky border-r-brand-sky dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky",
@@ -4987,7 +4981,7 @@ export default function AdminCoursesClient() {
                   </p>
                 ) : editUnitWorkshopSessions.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    No sessions yet. Schedule from Training → Workshops (drag a
+                    No sessions yet. Schedule from Training → Timetable (drag a
                     unit onto the calendar).
                   </p>
                 ) : (
@@ -5185,7 +5179,7 @@ export default function AdminCoursesClient() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Unschedule workshops on this date?</DialogTitle>
+            <DialogTitle>Cancel workshop sessions on this date?</DialogTitle>
             <DialogDescription>
               {unscheduleWorkshopUnitId && allUnits ? (
                 <>
@@ -5196,7 +5190,7 @@ export default function AdminCoursesClient() {
                   {workshopPlannerDay != null ? (
                     <>
                       {" "}
-                      — removes every workshop session that starts on{" "}
+                      — cancels every workshop session that starts on{" "}
                       {format(workshopPlannerDay, "EEEE d MMMM yyyy")} in your
                       local timezone. Learner registrations for those sessions
                       are cleared. Linked &ldquo;live workshop&rdquo; library
@@ -5255,7 +5249,7 @@ export default function AdminCoursesClient() {
                 }
               }}
             >
-              Unschedule from date
+              Cancel sessions on date
             </Button>
           </DialogFooter>
         </DialogContent>

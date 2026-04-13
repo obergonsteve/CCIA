@@ -26,6 +26,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery } from "convex/react";
 import {
+  CircleX,
   GripHorizontal,
   GripVertical,
   Layers,
@@ -90,13 +91,16 @@ function unitRowDescription(unit: { description?: string }): {
 
 export type AdminUnitDeliveryModeFilter = "self_paced" | "live_workshop";
 
-/** L/R border colors by delivery — palette unit rows and delivery filter chips. */
+/**
+ * L/R border colors for **units** by delivery (palette rows + delivery filter chips).
+ * Self-paced uses **gold** (Units column); workshop uses purple.
+ */
 export function adminUnitDeliveryLREdgeColors(
   mode: AdminUnitDeliveryModeFilter,
 ): string {
   return mode === "live_workshop"
     ? "border-l-purple-600 border-r-purple-600 dark:border-l-purple-400 dark:border-r-purple-400"
-    : "border-l-brand-sky border-r-brand-sky dark:border-l-brand-sky dark:border-r-brand-sky";
+    : "border-l-brand-gold border-r-brand-gold dark:border-l-brand-gold dark:border-r-brand-gold";
 }
 
 /** Same hues, lower contrast when the other delivery filter is active. */
@@ -105,7 +109,23 @@ export function adminUnitDeliveryLREdgeColorsMuted(
 ): string {
   return mode === "live_workshop"
     ? "border-l-purple-600/45 border-r-purple-600/45 dark:border-l-purple-400/40 dark:border-r-purple-400/40"
-    : "border-l-brand-sky/50 border-r-brand-sky/50 dark:border-l-brand-sky/45 dark:border-r-brand-sky/45";
+    : "border-l-brand-gold/50 border-r-brand-gold/50 dark:border-l-brand-gold/45 dark:border-r-brand-gold/45";
+}
+
+/** L/R edges for non–workshop-session **content** rows (library column = sky). */
+export const ADMIN_CONTENT_NON_SESSION_LR_EDGE =
+  "border-l-brand-sky border-r-brand-sky dark:border-l-brand-sky dark:border-r-brand-sky";
+
+/**
+ * Units under a selected certification ({@link SortableUnitRow}): gold L/R for self-paced,
+ * purple for live workshop — same as {@link adminUnitDeliveryLREdgeColors}.
+ */
+export function adminCertScopedUnitLREdgeClass(
+  unit: Pick<Doc<"units">, "deliveryMode">,
+): string {
+  return (unit.deliveryMode ?? "self_paced") === "live_workshop"
+    ? adminUnitDeliveryLREdgeColors("live_workshop")
+    : adminUnitDeliveryLREdgeColors("self_paced");
 }
 
 function adminPaletteUnitDeliveryLREdgeClass(
@@ -205,11 +225,11 @@ export function DraggableUnitPaletteItem({
   deleteTooltip,
   /** Native `title` on the delete/unlink control; overrides defaults when set. */
   deleteButtonTitle,
-  /** `unlink` = remove from selected cert only; `trash` = delete unit from the system. */
+  /** `unlink` = remove from cert; `cancel` = cancel sessions on a date (destructive); `trash` = delete unit. */
   deleteVariant = "trash",
   /**
    * When `deleteVariant` is `unlink`: `sky` matches {@link SortableUnitRow} unlink; `muted` is
-   * neutral (e.g. remove-from-cert in the all-units palette).
+   * neutral (e.g. remove-from-cert in the all-units palette). Ignored for `cancel` / `trash`.
    */
   unlinkActionTone = "muted",
   onOpenPrerequisites,
@@ -227,7 +247,7 @@ export function DraggableUnitPaletteItem({
   onDelete?: () => void;
   deleteTooltip?: string;
   deleteButtonTitle?: string;
-  deleteVariant?: "unlink" | "trash";
+  deleteVariant?: "unlink" | "trash" | "cancel";
   unlinkActionTone?: "sky" | "muted";
   onOpenPrerequisites?: () => void;
 }) {
@@ -368,7 +388,9 @@ export function DraggableUnitPaletteItem({
                         deleteButtonTitle ??
                         (deleteVariant === "unlink"
                           ? "Remove from certification"
-                          : "Delete unit from system")
+                          : deleteVariant === "cancel"
+                            ? "Cancel workshop sessions on selected date"
+                            : "Delete unit from system")
                       }
                       onClick={(e) => {
                         e.stopPropagation();
@@ -377,6 +399,8 @@ export function DraggableUnitPaletteItem({
                     >
                       {deleteVariant === "unlink" ? (
                         <Unlink2 className="h-3 w-3" aria-hidden />
+                      ) : deleteVariant === "cancel" ? (
+                        <CircleX className="h-3 w-3" aria-hidden />
                       ) : (
                         <Trash2 className="h-3 w-3" aria-hidden />
                       )}
@@ -386,7 +410,9 @@ export function DraggableUnitPaletteItem({
                     {deleteTooltip ??
                       (deleteVariant === "unlink"
                         ? "Remove from the selected certification only — unit stays in the library"
-                        : "Delete unit from the system (all certifications and links)")}
+                        : deleteVariant === "cancel"
+                          ? "Cancel every session that starts on the selected calendar day (your local time). The unit is not deleted."
+                          : "Delete unit from the system (all certifications and links)")}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -477,7 +503,7 @@ export function ContentLibraryDragRow({
   const libraryContentLREdge =
     item.type === "workshop_session"
       ? adminUnitDeliveryLREdgeColors("live_workshop")
-      : adminUnitDeliveryLREdgeColors("self_paced");
+      : ADMIN_CONTENT_NON_SESSION_LR_EDGE;
   return (
     <div
       ref={setNodeRef}
@@ -619,7 +645,7 @@ export function SortableUnitContentRow({
   const unitAttachedContentLREdge =
     item.type === "workshop_session"
       ? adminUnitDeliveryLREdgeColors("live_workshop")
-      : adminUnitDeliveryLREdgeColors("self_paced");
+      : ADMIN_CONTENT_NON_SESSION_LR_EDGE;
   return (
     <div
       ref={setNodeRef}
@@ -1085,11 +1111,7 @@ export function SortableUnitRow({
     />
   ) : null;
 
-  const unitListLREdge = adminUnitDeliveryLREdgeColors(
-    (unit.deliveryMode ?? "self_paced") === "live_workshop"
-      ? "live_workshop"
-      : "self_paced",
-  );
+  const unitListLREdge = adminCertScopedUnitLREdgeClass(unit);
   return (
     <div
       ref={setNodeRef}
