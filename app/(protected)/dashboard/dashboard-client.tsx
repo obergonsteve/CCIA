@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Bookmark,
   CheckCircle2,
+  ChevronDown,
   CircleDot,
   GraduationCap,
   Sparkles,
@@ -32,7 +33,7 @@ import {
   effectiveCertificationTier,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 type BucketRow = {
   level: Doc<"certificationLevels">;
@@ -51,54 +52,204 @@ const DASHBOARD_CERT_SECTION_IDS = {
   completed: "dashboard-cert-completed",
 } as const;
 
+type DashboardCertBucketKey = keyof typeof DASHBOARD_CERT_SECTION_IDS;
+
+/** Shared with nav chips: border, tint, top accent, and in-section typography. */
+const DASHBOARD_CERT_BUCKET_STYLES: Record<
+  DashboardCertBucketKey,
+  {
+    chipLink: string;
+    sectionSurface: string;
+    headerHover: string;
+    title: string;
+    muted: string;
+    chevron: string;
+    emptyInner: string;
+    icon: string;
+    cardBorder: string;
+  }
+> = {
+  current: {
+    chipLink: cn(
+      "inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm shadow-sm transition-colors",
+      "border-brand-gold/55 bg-brand-gold/[0.16] hover:border-brand-gold/75 hover:bg-brand-gold/24",
+      "dark:border-brand-gold/45 dark:bg-brand-gold/[0.12] dark:hover:bg-brand-gold/20",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    ),
+    sectionSurface: cn(
+      "border border-brand-gold/55 bg-brand-gold/[0.16] dark:border-brand-gold/45 dark:bg-brand-gold/[0.12]",
+      "border-t-2 border-t-brand-gold/70 dark:border-t-brand-gold/58",
+    ),
+    headerHover:
+      "hover:bg-brand-gold/18 dark:hover:bg-brand-gold/14 focus-visible:ring-brand-gold/40",
+    title: "text-amber-950 dark:text-amber-50",
+    muted: "text-amber-900/78 dark:text-amber-100/72",
+    chevron: "text-amber-900/50 dark:text-amber-200/50",
+    emptyInner: cn(
+      "border border-brand-gold/45 bg-brand-gold/[0.10] dark:border-brand-gold/35 dark:bg-brand-gold/[0.08]",
+    ),
+    icon: "text-brand-gold",
+    cardBorder: "border-l-brand-gold/75",
+  },
+  roadmap: {
+    chipLink: cn(
+      "inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm shadow-sm transition-colors",
+      "border-brand-sky/50 bg-brand-sky/[0.14] hover:border-brand-sky/70 hover:bg-brand-sky/22",
+      "dark:border-brand-sky/45 dark:bg-brand-sky/[0.12] dark:hover:bg-brand-sky/20",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    ),
+    sectionSurface: cn(
+      "border border-brand-sky/50 bg-brand-sky/[0.14] dark:border-brand-sky/45 dark:bg-brand-sky/[0.12]",
+      "border-t-2 border-t-brand-sky/68 dark:border-t-brand-sky/56",
+    ),
+    headerHover:
+      "hover:bg-brand-sky/16 dark:hover:bg-brand-sky/14 focus-visible:ring-brand-sky/40",
+    title: "text-sky-950 dark:text-sky-50",
+    muted: "text-sky-900/78 dark:text-sky-100/72",
+    chevron: "text-sky-900/50 dark:text-sky-200/50",
+    emptyInner: cn(
+      "border border-brand-sky/45 bg-brand-sky/[0.10] dark:border-brand-sky/35 dark:bg-brand-sky/[0.08]",
+    ),
+    icon: "text-brand-sky",
+    cardBorder: "border-l-brand-sky/75",
+  },
+  available: {
+    chipLink: cn(
+      "inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm shadow-sm transition-colors",
+      "border-pink-500/45 bg-pink-500/[0.12] hover:border-pink-500/65 hover:bg-pink-500/20",
+      "dark:border-pink-400/40 dark:bg-pink-500/[0.14] dark:hover:bg-pink-500/22",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    ),
+    sectionSurface: cn(
+      "border border-pink-500/45 bg-pink-500/[0.12] dark:border-pink-400/40 dark:bg-pink-500/[0.14]",
+      "border-t-2 border-t-pink-500/62 dark:border-t-pink-400/52",
+    ),
+    headerHover:
+      "hover:bg-pink-500/14 dark:hover:bg-pink-500/12 focus-visible:ring-pink-400/40",
+    title: "text-pink-950 dark:text-pink-50",
+    muted: "text-pink-900/78 dark:text-pink-100/72",
+    chevron: "text-pink-900/50 dark:text-pink-200/50",
+    emptyInner: cn(
+      "border border-pink-500/40 bg-pink-500/[0.08] dark:border-pink-400/35 dark:bg-pink-500/[0.08]",
+    ),
+    icon: "text-pink-600 dark:text-pink-300",
+    cardBorder: "border-l-pink-500/75 dark:border-l-pink-400/70",
+  },
+  completed: {
+    chipLink: cn(
+      "inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm shadow-sm transition-colors",
+      "border-brand-lime/50 bg-brand-lime/[0.14] hover:border-brand-lime/70 hover:bg-brand-lime/22",
+      "dark:border-brand-lime/45 dark:bg-brand-lime/[0.12] dark:hover:bg-brand-lime/20",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    ),
+    sectionSurface: cn(
+      "border border-brand-lime/50 bg-brand-lime/[0.14] dark:border-brand-lime/45 dark:bg-brand-lime/[0.12]",
+      "border-t-2 border-t-brand-lime/68 dark:border-t-brand-lime/56",
+    ),
+    headerHover:
+      "hover:bg-brand-lime/16 dark:hover:bg-brand-lime/14 focus-visible:ring-brand-lime/40",
+    title: "text-lime-950 dark:text-lime-50",
+    muted: "text-lime-900/78 dark:text-lime-100/72",
+    chevron: "text-lime-900/50 dark:text-lime-200/50",
+    emptyInner: cn(
+      "border border-brand-lime/45 bg-brand-lime/[0.10] dark:border-brand-lime/35 dark:bg-brand-lime/[0.08]",
+    ),
+    icon: "text-brand-lime",
+    cardBorder: "border-l-brand-lime/75",
+  },
+};
+
 function CertificationBucketSection({
   title,
   description,
   icon: Icon,
   rows,
-  iconClassName,
-  cardBorderClassName,
-  sectionFrameClassName,
+  bucketKey,
   emptyMessage,
   extraCardFooter,
   sectionId,
+  defaultExpanded = true,
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   rows: BucketRow[];
-  iconClassName: string;
-  cardBorderClassName: string;
-  /** Top accent + any extra frame styles for this bucket. */
-  sectionFrameClassName: string;
+  bucketKey: DashboardCertBucketKey;
   emptyMessage: string;
   extraCardFooter?: (row: BucketRow) => ReactNode;
   /** When set, enables same-page links from the summary chips. */
   sectionId?: string;
+  /** When false, section body starts collapsed. */
+  defaultExpanded?: boolean;
 }) {
+  const s = DASHBOARD_CERT_BUCKET_STYLES[bucketKey];
+  const [open, setOpen] = useState(defaultExpanded);
+  const bodyId = sectionId ? `${sectionId}-panel` : "cert-bucket-panel";
+
   return (
     <section
       id={sectionId}
       className={cn(
-        "scroll-mt-6 space-y-3 rounded-xl border border-border/90 bg-card/40 p-4 shadow-sm sm:p-5 sm:scroll-mt-8",
-        sectionFrameClassName,
+        "scroll-mt-6 space-y-4 rounded-xl p-4 shadow-sm sm:p-5 sm:scroll-mt-8",
+        s.sectionSurface,
       )}
     >
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Icon className={cn("h-5 w-5", iconClassName)} aria-hidden />
-          {title}
-        </h2>
-        {rows.length > 0 ? (
-          <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
-        ) : null}
-      </div>
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground border rounded-lg px-4 py-6 text-center bg-muted/20">
-          {emptyMessage}
-        </p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+      <button
+        type="button"
+        className={cn(
+          "flex w-full items-start justify-between gap-2 rounded-lg p-1 -m-1 text-left outline-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          s.headerHover,
+        )}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div className="min-w-0 flex-1 space-y-0.5 pr-1">
+          <h2
+            className={cn(
+              "flex items-center gap-2 text-lg font-semibold",
+              s.title,
+            )}
+          >
+            <Icon className={cn("h-5 w-5 shrink-0", s.icon)} aria-hidden />
+            <span className="min-w-0">{title}</span>
+          </h2>
+          {open && rows.length > 0 ? (
+            <p className={cn("text-sm", s.muted)}>{description}</p>
+          ) : null}
+          {!open && rows.length > 0 ? (
+            <p className={cn("text-sm", s.muted)}>
+              {rows.length}{" "}
+              {rows.length === 1 ? "certification" : "certifications"} — expand
+              to view.
+            </p>
+          ) : null}
+          {!open && rows.length === 0 ? (
+            <p className={cn("text-sm line-clamp-3", s.muted)}>{emptyMessage}</p>
+          ) : null}
+        </div>
+        <ChevronDown
+          className={cn(
+            "mt-0.5 h-5 w-5 shrink-0 transition-transform duration-200",
+            s.chevron,
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      <div id={bodyId} hidden={!open} className="space-y-4">
+        {rows.length === 0 ? (
+          <p
+            className={cn(
+              "text-sm border rounded-lg px-4 py-6 text-center",
+              s.muted,
+              s.emptyInner,
+            )}
+          >
+            {emptyMessage}
+          </p>
+        ) : (
+          <div className="grid gap-4 pt-6 sm:pt-8 md:grid-cols-2">
           {rows.map(
             ({
               level,
@@ -124,7 +275,7 @@ function CertificationBucketSection({
             return (
               <Card
                 key={level._id}
-                className={cn("border-l-4", cardBorderClassName)}
+                className={cn("border-l-4", s.cardBorder)}
               >
                 <div className="relative -mt-4 aspect-[2/1] w-full shrink-0 overflow-hidden bg-muted sm:aspect-[16/9]">
                   {thumb ? (
@@ -219,8 +370,9 @@ function CertificationBucketSection({
               </Card>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -264,58 +416,54 @@ export default function DashboardClient() {
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border/80 bg-muted/25 px-3 py-2 text-sm">
         <nav
-          className="flex flex-wrap items-center gap-2 border-l-2 border-l-brand-gold/75 pl-2.5 min-w-0"
+          className="flex flex-wrap items-center gap-2 border-l-2 border-l-border/60 pl-2.5 min-w-0"
           aria-label="Certification sections"
         >
           <a
             href={`#${DASHBOARD_CERT_SECTION_IDS.current}`}
-            className={cn(
-              "inline-flex items-baseline gap-1.5 rounded-full border border-border/90 bg-background/80 px-3 py-1.5 text-sm shadow-sm transition-colors",
-              "hover:border-brand-gold/55 hover:bg-brand-gold/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            )}
+            className={DASHBOARD_CERT_BUCKET_STYLES.current.chipLink}
             aria-label={`Current certifications, ${certSummary.current}`}
           >
-            <span className="text-muted-foreground">Current</span>
-            <span className="text-base font-semibold tabular-nums text-foreground">
+            <span className="font-medium text-amber-900/90 dark:text-amber-100/95">
+              Current
+            </span>
+            <span className="text-base font-semibold tabular-nums text-amber-950 dark:text-amber-50">
               {certSummary.current}
             </span>
           </a>
           <a
             href={`#${DASHBOARD_CERT_SECTION_IDS.roadmap}`}
-            className={cn(
-              "inline-flex items-baseline gap-1.5 rounded-full border border-border/90 bg-background/80 px-3 py-1.5 text-sm shadow-sm transition-colors",
-              "hover:border-brand-sky/50 hover:bg-brand-sky/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            )}
+            className={DASHBOARD_CERT_BUCKET_STYLES.roadmap.chipLink}
             aria-label={`Certification roadmap, ${certSummary.roadmap}`}
           >
-            <span className="text-muted-foreground">Roadmap</span>
-            <span className="text-base font-semibold tabular-nums text-foreground">
+            <span className="font-medium text-sky-900/90 dark:text-sky-100/95">
+              Roadmap
+            </span>
+            <span className="text-base font-semibold tabular-nums text-sky-950 dark:text-sky-50">
               {certSummary.roadmap}
             </span>
           </a>
           <a
             href={`#${DASHBOARD_CERT_SECTION_IDS.available}`}
-            className={cn(
-              "inline-flex items-baseline gap-1.5 rounded-full border border-border/90 bg-background/80 px-3 py-1.5 text-sm shadow-sm transition-colors",
-              "hover:border-brand-sky/55 hover:bg-brand-sky/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            )}
+            className={DASHBOARD_CERT_BUCKET_STYLES.available.chipLink}
             aria-label={`Available certifications, ${certSummary.available}`}
           >
-            <span className="text-muted-foreground">Available</span>
-            <span className="text-base font-semibold tabular-nums text-foreground">
+            <span className="font-medium text-pink-900/90 dark:text-pink-100/95">
+              Available
+            </span>
+            <span className="text-base font-semibold tabular-nums text-pink-950 dark:text-pink-50">
               {certSummary.available}
             </span>
           </a>
           <a
             href={`#${DASHBOARD_CERT_SECTION_IDS.completed}`}
-            className={cn(
-              "inline-flex items-baseline gap-1.5 rounded-full border border-border/90 bg-background/80 px-3 py-1.5 text-sm shadow-sm transition-colors",
-              "hover:border-brand-lime/55 hover:bg-brand-lime/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            )}
+            className={DASHBOARD_CERT_BUCKET_STYLES.completed.chipLink}
             aria-label={`Completed certifications, ${certSummary.completed}`}
           >
-            <span className="text-muted-foreground">Completed</span>
-            <span className="text-base font-semibold tabular-nums text-foreground">
+            <span className="font-medium text-lime-900/90 dark:text-lime-100/95">
+              Completed
+            </span>
+            <span className="text-base font-semibold tabular-nums text-lime-950 dark:text-lime-50">
               {certSummary.completed}
             </span>
           </a>
@@ -334,27 +482,24 @@ export default function DashboardClient() {
       </div>
       </div>
 
+      <div className="space-y-8">
       <CertificationBucketSection
+        bucketKey="current"
         sectionId={DASHBOARD_CERT_SECTION_IDS.current}
         title="Current certifications"
         description="You’ve started these — pick up where you left off."
         icon={CircleDot}
         rows={buckets.current}
-        iconClassName="text-brand-gold"
-        cardBorderClassName="border-l-brand-gold/75"
-        sectionFrameClassName="border-t-2 border-t-brand-gold/65 dark:border-t-brand-gold/55"
         emptyMessage="No certifications in progress. Open one from the available certifications below to get started."
       />
 
       <CertificationBucketSection
+        bucketKey="roadmap"
         sectionId={DASHBOARD_CERT_SECTION_IDS.roadmap}
         title="Certification roadmap"
         description="Certifications you marked from Available certifications — still not started."
         icon={Bookmark}
         rows={buckets.planned ?? []}
-        iconClassName="text-brand-sky"
-        cardBorderClassName="border-l-brand-sky/75"
-        sectionFrameClassName="border-t-2 border-t-brand-gold/60 dark:border-t-brand-gold/50"
         emptyMessage="Nothing on your roadmap yet. Use “Add to roadmap” on a certification in the available certifications below."
         extraCardFooter={(row) => (
           <Button
@@ -372,14 +517,12 @@ export default function DashboardClient() {
       />
 
       <CertificationBucketSection
+        bucketKey="available"
         sectionId={DASHBOARD_CERT_SECTION_IDS.available}
         title="Available certifications"
         description="Available to you — not started yet."
         icon={Sparkles}
         rows={buckets.future}
-        iconClassName="text-brand-sky"
-        cardBorderClassName="border-l-brand-sky/75"
-        sectionFrameClassName="border-t-2 border-t-brand-sky/65 dark:border-t-brand-sky/55"
         emptyMessage="No upcoming certifications, or you’ve already engaged with everything available."
         extraCardFooter={(row) => (
           <Button
@@ -397,16 +540,15 @@ export default function DashboardClient() {
       />
 
       <CertificationBucketSection
+        bucketKey="completed"
         sectionId={DASHBOARD_CERT_SECTION_IDS.completed}
         title="Completed certifications"
         description="Every unit in these certifications is marked complete."
         icon={CheckCircle2}
         rows={buckets.completed}
-        iconClassName="text-brand-lime"
-        cardBorderClassName="border-l-brand-lime/75"
-        sectionFrameClassName="border-t-2 border-t-brand-lime/65 dark:border-t-brand-lime/55"
         emptyMessage="None completed yet. Finish all units in a certification to see it here."
       />
+      </div>
     </div>
   );
 }
