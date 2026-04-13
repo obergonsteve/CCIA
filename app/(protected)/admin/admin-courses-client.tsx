@@ -82,6 +82,7 @@ import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-edi
 import {
   adminUnitDeliveryLREdgeColors,
   adminUnitDeliveryLREdgeColorsMuted,
+  ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
   ContentLibraryDragRow,
   DraggableUnitPaletteItem,
   LevelRowDroppable,
@@ -2219,7 +2220,8 @@ export default function AdminCoursesClient() {
         <div className="grid min-h-0 grid-cols-1 gap-2 md:h-[min(calc((100dvh-14rem)*1.5),1200px)] md:grid-cols-[repeat(3,minmax(0,1fr))]">
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 px-2 pb-4 pt-0 shadow-lg",
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border px-2 pb-4 pt-0 shadow-lg",
+              ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
               trainingLeftTab === "workshops"
                 ? "border-purple-500/40 border-l-purple-500 border-r-purple-500 bg-purple-500/[0.11] dark:border-purple-400/35 dark:border-l-purple-400 dark:border-r-purple-400 dark:bg-purple-400/[0.12]"
                 : "border-brand-lime/40 border-l-brand-lime border-r-brand-lime bg-brand-lime/[0.11] dark:border-brand-lime/35 dark:border-l-brand-lime dark:border-r-brand-lime dark:bg-brand-lime/[0.14]",
@@ -2433,7 +2435,8 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-gold/[0.14] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border bg-brand-gold/[0.14] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-gold/[0.12]",
+              ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
               trainingLeftTab === "workshops" && workshopPlannerDay != null
                 ? "border-purple-500/40 border-l-purple-500 border-r-purple-500 dark:border-purple-400/35 dark:border-l-purple-400 dark:border-r-purple-400"
                 : filterCertId
@@ -2509,7 +2512,8 @@ export default function AdminCoursesClient() {
                 variant="outline"
                 disabled={trainingLeftTab === "workshops"}
                 className={cn(
-                  "h-8 min-w-0 gap-1 border border-border border-l-4 border-r-4 px-2 text-xs leading-tight shadow-none",
+                  "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
+                  ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
                   unitDeliveryFilter === "self_paced"
                     ? cn(
                         adminUnitDeliveryLREdgeColors("self_paced"),
@@ -2538,7 +2542,8 @@ export default function AdminCoursesClient() {
                 size="sm"
                 variant="outline"
                 className={cn(
-                  "h-8 min-w-0 gap-1 border border-border border-l-4 border-r-4 px-2 text-xs leading-tight shadow-none",
+                  "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
+                  ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
                   unitDeliveryFilter === "live_workshop"
                     ? cn(
                         adminUnitDeliveryLREdgeColors("live_workshop"),
@@ -2852,7 +2857,8 @@ export default function AdminCoursesClient() {
 
           <div
             className={cn(
-              "flex min-h-0 min-w-0 flex-col rounded-2xl border border-l-4 border-r-4 bg-brand-sky/[0.10] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-sky/[0.12]",
+              "flex min-h-0 min-w-0 flex-col rounded-2xl border bg-brand-sky/[0.10] px-2 pb-4 pt-0 shadow-lg dark:bg-brand-sky/[0.12]",
+              ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
               selectedDetailUnitId
                 ? "border-brand-gold/40 border-l-brand-gold border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold"
                 : "border-brand-sky/40 border-l-brand-sky border-r-brand-sky dark:border-brand-sky/35 dark:border-l-brand-sky dark:border-r-brand-sky",

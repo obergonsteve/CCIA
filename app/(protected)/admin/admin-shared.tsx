@@ -52,6 +52,10 @@ export type UnitAdminListRow = Doc<"units"> & {
 export const ADMIN_CERT_PANEL_ROW_HIGHLIGHT =
   "border-brand-lime/40 bg-brand-lime/[0.11] dark:border-brand-lime/35 dark:bg-brand-lime/[0.14]";
 
+/** Thick L/R accent for certification list rows (left / lime column). */
+export const ADMIN_CERT_LIST_LR_EDGE =
+  "border-l-brand-lime border-r-brand-lime dark:border-l-brand-lime dark:border-r-brand-lime";
+
 /**
  * Units column (brand gold) — library “all content” + unit selected: items already on that unit.
  * Mirrors {@link ADMIN_CERT_PANEL_ROW_HIGHLIGHT} for cert + all-units.
@@ -59,9 +63,20 @@ export const ADMIN_CERT_PANEL_ROW_HIGHLIGHT =
 export const ADMIN_UNIT_PANEL_CONTENT_IN_UNIT_HIGHLIGHT =
   "border-brand-gold/45 bg-brand-gold/[0.16] dark:border-brand-gold/38 dark:bg-brand-gold/[0.13]";
 
+/** Thick L/R accent for unit drop targets (centre / gold column). */
+export const ADMIN_UNIT_DROP_TARGET_LR_EDGE =
+  "border-l-brand-gold border-r-brand-gold dark:border-l-brand-gold dark:border-r-brand-gold";
+
 /** Strong outline for the active row in admin cert / unit / content lists (three columns). */
 export const ADMIN_LIST_ROW_SELECTED =
   "border-2 border-primary z-[1] ring-2 ring-inset ring-primary/45";
+
+/**
+ * Left/right accent width on admin training list rows (slightly under Tailwind
+ * `border-4` / 4px — about 30% thinner for a lighter frame).
+ */
+export const ADMIN_LIST_ITEM_LR_BORDER_WIDTH =
+  "border-l-[2.8px] border-r-[2.8px]";
 
 /** One-line secondary line for cert-scoped and all-units lists (same field, same rules). */
 function unitRowDescription(unit: { description?: string }): {
@@ -235,7 +250,8 @@ export function DraggableUnitPaletteItem({
     <div
       ref={setNodeRef}
       className={cn(
-        "group flex min-w-0 items-stretch overflow-hidden border border-l-4 border-r-4 text-sm shadow-sm",
+        "group flex min-w-0 items-stretch overflow-hidden border text-sm shadow-sm",
+        ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
         expandDrawerOpen ? "rounded-t-lg rounded-b-none border-b-0" : "rounded-lg",
         !inSelectedCert && "bg-card border-border",
         inSelectedCert && ADMIN_CERT_PANEL_ROW_HIGHLIGHT,
@@ -458,13 +474,21 @@ export function ContentLibraryDragRow({
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
   const hasActions = onEdit != null || onDelete != null;
+  const libraryContentLREdge =
+    item.type === "workshop_session"
+      ? adminUnitDeliveryLREdgeColors("live_workshop")
+      : adminUnitDeliveryLREdgeColors("self_paced");
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "group flex min-w-0 items-stretch overflow-hidden rounded-lg border text-sm shadow-sm",
+        "group flex min-w-0 items-stretch overflow-hidden border rounded-lg text-sm shadow-sm",
+        ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
         inSelectedUnit && ADMIN_UNIT_PANEL_CONTENT_IN_UNIT_HIGHLIGHT,
+        inSelectedUnit &&
+          "border-l-brand-gold border-r-brand-gold dark:border-l-brand-gold dark:border-r-brand-gold",
         !inSelectedUnit && "border-border bg-card",
+        !inSelectedUnit && libraryContentLREdge,
         !inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
         inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
         isDragging && "opacity-40",
@@ -592,12 +616,18 @@ export function SortableUnitContentRow({
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
   const hasActions = onEdit != null || onDelete != null;
+  const unitAttachedContentLREdge =
+    item.type === "workshop_session"
+      ? adminUnitDeliveryLREdgeColors("live_workshop")
+      : adminUnitDeliveryLREdgeColors("self_paced");
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         "group flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
+        ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+        unitAttachedContentLREdge,
         selected && ADMIN_LIST_ROW_SELECTED,
       )}
     >
@@ -734,9 +764,11 @@ export function LevelRowDroppable({
     <div
       ref={setNodeRef}
       className={cn(
-        "rounded-lg p-0.5 transition-[box-shadow,background-color] duration-150",
+        "overflow-hidden rounded-lg border border-border bg-muted/15 text-sm shadow-sm transition-[box-shadow,background-color] duration-150 dark:bg-muted/10",
+        ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+        ADMIN_CERT_LIST_LR_EDGE,
         showTarget &&
-          "relative z-[1] bg-brand-lime/55 shadow-xl shadow-brand-lime/30 ring-[3px] ring-brand-lime ring-offset-[4px] ring-offset-background dark:bg-brand-lime/45 dark:shadow-brand-lime/25",
+          "relative z-[1] bg-brand-lime/55 p-0.5 shadow-xl shadow-brand-lime/30 ring-[3px] ring-brand-lime ring-offset-[4px] ring-offset-background dark:bg-brand-lime/45 dark:shadow-brand-lime/25",
       )}
     >
       {children}
@@ -752,20 +784,38 @@ export function ContentOnUnitAdminList({ unitId }: { unitId: Id<"units"> }) {
   );
   if (!rows) {
     return (
-      <p className="text-sm text-muted-foreground py-4 text-center border rounded-md">
+      <p
+        className={cn(
+          "rounded-md border border-border py-4 text-center text-sm text-muted-foreground dark:border-border",
+          ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+          ADMIN_UNIT_DROP_TARGET_LR_EDGE,
+        )}
+      >
         Loading…
       </p>
     );
   }
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-4 text-center border rounded-md mt-2">
+      <p
+        className={cn(
+          "mt-2 rounded-md border border-border py-4 text-center text-sm text-muted-foreground dark:border-border",
+          ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+          ADMIN_UNIT_DROP_TARGET_LR_EDGE,
+        )}
+      >
         Nothing attached yet.
       </p>
     );
   }
   return (
-    <ul className="border rounded-md divide-y mt-2 max-h-48 overflow-y-auto text-sm">
+    <ul
+      className={cn(
+        "mt-2 max-h-48 divide-y overflow-y-auto rounded-md border border-border text-sm shadow-sm dark:border-border",
+        ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+        ADMIN_UNIT_DROP_TARGET_LR_EDGE,
+      )}
+    >
       {rows.map((item) => (
         <li
           key={item.unitContentId ?? `legacy-${item._id}`}
@@ -867,10 +917,10 @@ export function SortableLevelRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex items-stretch overflow-hidden rounded-lg border shadow-sm",
+        "group flex items-stretch overflow-hidden rounded-none border-0 text-sm shadow-none",
         selected
           ? cn(ADMIN_CERT_PANEL_ROW_HIGHLIGHT, ADMIN_LIST_ROW_SELECTED)
-          : "border-border bg-card",
+          : "bg-card",
       )}
     >
       {disableDrag ? (
@@ -1035,12 +1085,19 @@ export function SortableUnitRow({
     />
   ) : null;
 
+  const unitListLREdge = adminUnitDeliveryLREdgeColors(
+    (unit.deliveryMode ?? "self_paced") === "live_workshop"
+      ? "live_workshop"
+      : "self_paced",
+  );
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         "group flex items-stretch overflow-hidden border border-border bg-card text-sm shadow-sm",
+        ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+        unitListLREdge,
         expandDrawerOpen ? "rounded-t-lg rounded-b-none border-b-0" : "rounded-lg",
         selected && cn("bg-muted/40", ADMIN_LIST_ROW_SELECTED),
       )}
