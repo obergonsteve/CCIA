@@ -168,7 +168,7 @@ function CertificationBucketSection({
   emptyMessage,
   extraCardFooter,
   sectionId,
-  defaultExpanded = true,
+  defaultExpanded = false,
 }: {
   title: string;
   description: string;
@@ -179,7 +179,7 @@ function CertificationBucketSection({
   extraCardFooter?: (row: BucketRow) => ReactNode;
   /** When set, enables same-page links from the summary chips. */
   sectionId?: string;
-  /** When false, section body starts collapsed. */
+  /** When true, section body starts expanded (default is collapsed). */
   defaultExpanded?: boolean;
 }) {
   const s = DASHBOARD_CERT_BUCKET_STYLES[bucketKey];
