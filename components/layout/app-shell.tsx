@@ -177,10 +177,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           variant="ghost"
           className={cn(
             "w-full justify-start gap-2 text-[15px]",
-            /* Explicit purple — not `primary`/ring (hue ~232 reads blue) or ghost hover → foreground (white). */
-            "text-purple-400 hover:bg-purple-500/20 hover:text-purple-200",
-            "dark:text-purple-300 dark:hover:bg-purple-500/22 dark:hover:text-purple-100",
-            "focus-visible:border-purple-400/55 focus-visible:ring-purple-400/40 focus-visible:ring-offset-0",
+            "text-fuchsia-500 hover:bg-fuchsia-500/20 hover:text-fuchsia-100",
+            "dark:text-fuchsia-400 dark:hover:bg-fuchsia-500/22 dark:hover:text-fuchsia-50",
+            "focus-visible:border-fuchsia-400/55 focus-visible:ring-fuchsia-400/40 focus-visible:ring-offset-0",
           )}
           onClick={() => void logout()}
         >
