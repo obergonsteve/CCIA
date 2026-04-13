@@ -380,10 +380,17 @@ export default function CertificationLevelClient({
                           "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         )}
                         aria-label={workshopOpenAria}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           setWorkshopPickerUnitId(u.unitId);
                           setWorkshopPickerTitle(u.title);
-                          setWorkshopPickerOpen(true);
+                          // Defer open until after this click completes so the new backdrop
+                          // does not treat the same pointer sequence as an outside dismiss
+                          // (avoids a second open / empty-then-filled flash).
+                          window.setTimeout(() => {
+                            setWorkshopPickerOpen(true);
+                          }, 0);
                         }}
                       >
                         {cardBody}

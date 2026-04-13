@@ -95,18 +95,20 @@ export default function WorkshopsClient() {
               variant="outline"
               size="sm"
               className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
-              asChild
+              nativeButton={false}
+              render={<Link href="/workshops" />}
             >
-              <Link href="/workshops">All workshops</Link>
+              All workshops
             </Button>
             {filterLevelId ? (
               <Button
                 variant="secondary"
                 size="sm"
                 className="border border-purple-500/30 bg-purple-500/15 text-purple-950 hover:bg-purple-500/22 dark:border-purple-400/25 dark:bg-purple-500/20 dark:text-purple-50 dark:hover:bg-purple-500/28"
-                asChild
+                nativeButton={false}
+                render={<Link href={certPathHref} />}
               >
-                <Link href={certPathHref}>Certification path</Link>
+                Certification path
               </Button>
             ) : null}
           </div>
