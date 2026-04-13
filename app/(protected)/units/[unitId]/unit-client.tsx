@@ -1,6 +1,7 @@
 "use client";
 
 import { ContentItemView } from "@/components/content-item-view";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -346,10 +347,27 @@ export default function UnitClient({
     }
   }
 
+  const isLiveWorkshopUnit = unit.deliveryMode === "live_workshop";
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{unit.title}</h1>
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <h1 className="min-w-0 flex-1 text-2xl font-bold leading-snug tracking-tight">
+            {unit.title}
+          </h1>
+          <Badge
+            variant="outline"
+            className={cn(
+              "h-auto min-h-7 shrink-0 px-2.5 py-1 text-xs font-bold uppercase leading-tight tracking-wide",
+              isLiveWorkshopUnit
+                ? "border-2 border-purple-600/85 bg-purple-500/[0.14] text-purple-900 shadow-sm shadow-purple-500/10 dark:border-purple-400/80 dark:bg-purple-400/[0.12] dark:text-purple-100"
+                : "border border-brand-gold/55 bg-brand-gold/[0.18] text-foreground shadow-sm shadow-brand-gold/10 dark:border-brand-gold/45 dark:bg-brand-gold/[0.14] dark:text-foreground",
+            )}
+          >
+            {isLiveWorkshopUnit ? "Live workshop" : "Self-paced"}
+          </Badge>
+        </div>
         <p className="text-muted-foreground">{unit.description}</p>
         <div className="mt-3 flex items-center gap-3">
           <Progress value={roadmap.fraction} className="h-2 flex-1 max-w-md" />
