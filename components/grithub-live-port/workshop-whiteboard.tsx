@@ -27,7 +27,6 @@ import {
   Trash2,
   Type,
   Undo2,
-  UserMinus,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -41,6 +40,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -49,7 +49,7 @@ const TOOLBAR_COLOR = "#7c3aed";
 
 /** Same as the 16:9 stage; chip row aligns with the board. */
 const WHITEBOARD_STAGE_MAX_W =
-  "min(100%, 800px, calc(min(36vh, 380px) * 16 / 9))";
+  "min(100%, 1100px, calc(min(50vh, 560px) * 16 / 9))";
 
 /**
  * Convex often completes in one frame; React can batch +1/-1 so the chip never
@@ -57,10 +57,20 @@ const WHITEBOARD_STAGE_MAX_W =
  */
 const MIN_WHITEBOARD_SAVE_CHIP_MS = 320;
 
-/** Segmented toolbar chrome: clip fills, clean dividers, amber ring when `active`. */
-function toolbarPillClass(active: boolean, blackboard: boolean) {
+/**
+ * Segmented toolbar chrome: clip fills, clean dividers, amber ring when `active`.
+ * `clipOverflow={false}` for controls that anchor a portaled dropdown (otherwise
+ * `overflow-hidden` clips menus; `overflow-x-auto` on the toolbar row also forces
+ * vertical clipping per CSS overflow rules).
+ */
+function toolbarPillClass(
+  active: boolean,
+  blackboard: boolean,
+  clipOverflow = true,
+) {
   return cn(
-    "flex h-8 shrink-0 items-stretch overflow-hidden rounded-md border shadow-sm",
+    "flex h-8 shrink-0 items-stretch rounded-md border shadow-sm",
+    clipOverflow ? "overflow-hidden" : "overflow-visible",
     blackboard
       ? "border-neutral-600 bg-neutral-900"
       : "border-neutral-300/90 bg-white",
@@ -78,7 +88,8 @@ function toolbarDivideClass(blackboard: boolean) {
   );
 }
 
-const PALETTE_WHITEBOARD = [
+/** 12 pen / text colours (picker + default identity tint). */
+const PEN_COLORS = [
   "#2563eb",
   "#dc2626",
   "#16a34a",
@@ -89,7 +100,9 @@ const PALETTE_WHITEBOARD = [
   "#4f46e5",
   "#0d9488",
   "#be123c",
-];
+  "#0f172a",
+  "#78716c",
+] as const;
 
 type LineThickness = "thin" | "med" | "thick";
 const STROKE_WIDTH_BY_THICKNESS: Record<LineThickness, number> = {
@@ -262,13 +275,18 @@ function drawLineSegment(
   ctx.stroke();
 }
 
+/** Matches canvas `fillText` sizing for `TextMsg.fz` (must stay in sync with `drawText`). */
+function textRenderPx(fz: number, logicalH: number): number {
+  return Math.max(10, Math.min(48, (fz / 480) * logicalH));
+}
+
 function drawText(
   ctx: CanvasRenderingContext2D,
   t: TextMsg,
   w: number,
   h: number,
 ) {
-  const px = Math.max(10, Math.min(48, (t.fz / 480) * h));
+  const px = textRenderPx(t.fz, h);
   ctx.font = `${px}px ui-sans-serif, system-ui, sans-serif`;
   ctx.fillStyle = t.c;
   const lines = t.text.split(/\r?\n/);
@@ -408,9 +426,6 @@ export function WorkshopWhiteboard({
   const undoStrokeMut = useMutation(
     api.workshopWhiteboard.undoMyLastWorkshopWhiteboardStroke,
   );
-  const clearMyStrokesMut = useMutation(
-    api.workshopWhiteboard.clearMyWorkshopWhiteboardStrokes,
-  );
   const me = useQuery(api.users.me, {});
 
   const elements = useMemo(() => {
@@ -459,6 +474,18 @@ export function WorkshopWhiteboard({
   >("freehand");
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
   const shapePickerRef = useRef<HTMLDivElement>(null);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const colorMenuPortalRef = useRef<HTMLDivElement>(null);
+  const [colorMenuFixed, setColorMenuFixed] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const shapeMenuPortalRef = useRef<HTMLDivElement>(null);
+  const [shapeMenuFixed, setShapeMenuFixed] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [polyDraftPts, setPolyDraftPts] = useState<{ x: number; y: number }[]>(
     [],
   );
@@ -475,14 +502,19 @@ export function WorkshopWhiteboard({
     normY: number;
   } | null>(null);
   const [textDraft, setTextDraft] = useState("");
+  /** CSS pixel size of the canvas (for inline text composer placement). */
+  const [canvasCssSize, setCanvasCssSize] = useState({ w: 0, h: 0 });
+  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   /** Convex ink mutations in flight (batch + single strokes). */
   const [convexSaveDepth, setConvexSaveDepth] = useState(0);
 
-  const myColor = useMemo(() => {
+  const defaultPenColor = useMemo(() => {
     const id = me?._id != null ? String(me._id) : "anon";
-    return PALETTE_WHITEBOARD[hashIdentity(id) % PALETTE_WHITEBOARD.length]!;
+    return PEN_COLORS[hashIdentity(id) % PEN_COLORS.length]!;
   }, [me?._id]);
+  const [penColorOverride, setPenColorOverride] = useState<string | null>(null);
+  const penColor = penColorOverride ?? defaultPenColor;
 
   const persistStroke = useCallback(
     async (strokeData: WbElement) => {
@@ -601,7 +633,7 @@ export function WorkshopWhiteboard({
           w,
           h,
           strokeWidthNorm,
-          myColor,
+          penColor,
         );
       } else if (
         (drawingTool === "polyline" || drawingTool === "polygon") &&
@@ -614,7 +646,7 @@ export function WorkshopWhiteboard({
           x: polyDraftPts[0]!.x,
           y: polyDraftPts[0]!.y,
           w: strokeWidthNorm,
-          c: myColor,
+          c: penColor,
           pts: polyDraftPts,
         };
       }
@@ -630,8 +662,15 @@ export function WorkshopWhiteboard({
     drawingTool,
     polyDraftPts,
     strokeWidthNorm,
-    myColor,
+    penColor,
   ]);
+
+  useLayoutEffect(() => {
+    if (!textInputAt) return;
+    const el = composerTextareaRef.current;
+    if (!el) return;
+    el.focus();
+  }, [textInputAt]);
 
   const syncCanvasSize = useCallback(() => {
     const viewport = viewportRef.current;
@@ -642,6 +681,7 @@ export function WorkshopWhiteboard({
     const cssW = Math.max(120, Math.floor(rect.width));
     const cssH = Math.max(120, Math.floor(rect.height));
     logicalSizeRef.current = { w: cssW, h: cssH };
+    setCanvasCssSize({ w: cssW, h: cssH });
     canvas.style.width = `${cssW}px`;
     canvas.style.height = `${cssH}px`;
     canvas.width = Math.floor(cssW * dpr);
@@ -656,15 +696,69 @@ export function WorkshopWhiteboard({
     return () => ro.disconnect();
   }, [syncCanvasSize]);
 
+  useLayoutEffect(() => {
+    if (!shapePickerOpen) {
+      setShapeMenuFixed(null);
+      return;
+    }
+    const el = shapePickerRef.current;
+    if (!el) return;
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      setShapeMenuFixed({ top: r.bottom + 4, left: r.left });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [shapePickerOpen]);
+
+  useLayoutEffect(() => {
+    if (!colorPickerOpen) {
+      setColorMenuFixed(null);
+      return;
+    }
+    const el = colorPickerRef.current;
+    if (!el) return;
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      setColorMenuFixed({ top: r.bottom + 4, left: r.left });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [colorPickerOpen]);
+
   useEffect(() => {
     if (!shapePickerOpen) return;
     const onDown = (e: MouseEvent) => {
-      const el = shapePickerRef.current;
-      if (el && !el.contains(e.target as Node)) setShapePickerOpen(false);
+      const t = e.target as Node;
+      if (shapePickerRef.current?.contains(t)) return;
+      if (shapeMenuPortalRef.current?.contains(t)) return;
+      setShapePickerOpen(false);
     };
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
   }, [shapePickerOpen]);
+
+  useEffect(() => {
+    if (!colorPickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (colorPickerRef.current?.contains(t)) return;
+      if (colorMenuPortalRef.current?.contains(t)) return;
+      setColorPickerOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [colorPickerOpen]);
 
   useEffect(() => {
     if (inkKind === "erase") setDrawingTool("freehand");
@@ -729,13 +823,13 @@ export function WorkshopWhiteboard({
         x1,
         y1,
         w: strokeWidthNorm,
-        c: myColor,
+        c: penColor,
         ...(inkKind === "erase" ? ({ er: true as const } as const) : {}),
       };
       lineBufferRef.current.push(line);
       schedulePaint();
     },
-    [inkKind, myColor, strokeWidthNorm, schedulePaint],
+    [inkKind, penColor, strokeWidthNorm, schedulePaint],
   );
 
   const fontPxForTextSize = useCallback((size: TextSize, h: number) => {
@@ -758,11 +852,11 @@ export function WorkshopWhiteboard({
         y: normY,
         text: trimmed,
         fz,
-        c: myColor,
+        c: penColor,
       };
       void persistStroke(msg);
     },
-    [persistStroke, textSize, fontPxForTextSize, myColor],
+    [persistStroke, textSize, fontPxForTextSize, penColor],
   );
 
   const finalizeShapeDrag = useCallback(() => {
@@ -780,10 +874,10 @@ export function WorkshopWhiteboard({
       w,
       h,
       strokeWidthNorm,
-      myColor,
+      penColor,
     );
     if (msg) void persistStroke(msg);
-  }, [persistStroke, strokeWidthNorm, myColor, schedulePaint]);
+  }, [persistStroke, strokeWidthNorm, penColor, schedulePaint]);
 
   const cancelShapeDrag = useCallback(() => {
     activeShapeDragRef.current = null;
@@ -800,12 +894,12 @@ export function WorkshopWhiteboard({
       x: polyDraftPts[0]!.x,
       y: polyDraftPts[0]!.y,
       w: strokeWidthNorm,
-      c: myColor,
+      c: penColor,
       pts: [...polyDraftPts],
     };
     void persistStroke(msg);
     setPolyDraftPts([]);
-  }, [drawingTool, polyDraftPts, persistStroke, strokeWidthNorm, myColor]);
+  }, [drawingTool, polyDraftPts, persistStroke, strokeWidthNorm, penColor]);
 
   const undoOne = useCallback(async () => {
     try {
@@ -816,28 +910,6 @@ export function WorkshopWhiteboard({
       );
     }
   }, [undoStrokeMut, workshopSessionId]);
-
-  const clearMyInk = useCallback(async () => {
-    if (
-      !confirm(
-        "Remove all of your strokes from this whiteboard? Other participants keep theirs.",
-      )
-    ) {
-      return;
-    }
-    try {
-      const r = await clearMyStrokesMut({ workshopSessionId });
-      toast.success(
-        r.deleted === 0
-          ? "You had no strokes to remove."
-          : `Removed ${r.deleted} of your stroke(s).`,
-      );
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Could not clear your strokes.",
-      );
-    }
-  }, [clearMyStrokesMut, workshopSessionId]);
 
   useEffect(() => {
     if (drawingTool !== "polyline" && drawingTool !== "polygon") return;
@@ -866,6 +938,9 @@ export function WorkshopWhiteboard({
       if (!p) return;
       if (mode === "write") {
         e.preventDefault();
+        if (textInputAt && textDraft.trim()) {
+          void commitTextAt(textInputAt.normX, textInputAt.normY, textDraft);
+        }
         setTextInputAt({ normX: p.x, normY: p.y });
         setTextDraft("");
         return;
@@ -914,6 +989,9 @@ export function WorkshopWhiteboard({
       drawingTool,
       schedulePaint,
       flushLineBuffer,
+      textInputAt,
+      textDraft,
+      commitTextAt,
     ],
   );
 
@@ -983,11 +1061,27 @@ export function WorkshopWhiteboard({
     height: "100%",
   };
 
+  const inlineTextLayout = useMemo(() => {
+    if (!textInputAt || canvasCssSize.h <= 0) return null;
+    const { w: cw, h: ch } = canvasCssSize;
+    const fzStored = fontPxForTextSize(textSize, ch);
+    const px = textRenderPx(fzStored, ch);
+    const leftPx = textInputAt.normX * cw;
+    const baselineY = textInputAt.normY * ch + px * 0.85;
+    const topPx = baselineY - px * 0.78;
+    return {
+      leftPx,
+      topPx,
+      widthPx: Math.max(140, cw - leftPx - 6),
+      fontPx: px,
+    };
+  }, [textInputAt, canvasCssSize, textSize, fontPxForTextSize]);
+
   return (
     <div className="flex min-h-0 shrink-0 flex-col min-w-0">
       {/* GritHub-style: horizontal scroll so the full toolbar stays reachable on narrow layouts */}
       <div className="w-full min-w-0 shrink-0 overflow-x-auto overflow-y-visible">
-        <div className="relative z-20 flex min-h-[2.75rem] w-max min-w-full flex-wrap items-center justify-center gap-1 border-b border-amber-400 bg-gradient-to-b from-[#cfd5cc] via-[#f6f7f5] to-[#cfd5cc] px-2 py-1.5">
+        <div className="relative z-20 flex min-h-[2.75rem] w-max min-w-full flex-wrap items-center justify-center gap-1 border-b border-slate-400/55 bg-gradient-to-b from-slate-200/95 via-sky-50/70 to-slate-200/95 px-2 py-1.5 dark:border-slate-600/70 dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-900">
         <div className={toolbarPillClass(false, false)}>
           <div
             className={cn(
@@ -1047,6 +1141,40 @@ export function WorkshopWhiteboard({
               <ZoomIn className="h-4 w-4" />
             </button>
           </div>
+        </div>
+
+        <div
+          ref={colorPickerRef}
+          className={cn(
+            "relative",
+            toolbarPillClass(colorPickerOpen, false, false),
+          )}
+        >
+          <button
+            type="button"
+            title="Pen and text colour"
+            aria-expanded={colorPickerOpen}
+            aria-haspopup="listbox"
+            onClick={() => {
+              setShapePickerOpen(false);
+              setColorPickerOpen((o) => !o);
+            }}
+            className={cn(
+              toolbarSegBtn,
+              "gap-1 px-2",
+              colorPickerOpen
+                ? "bg-violet-600 text-white"
+                : "text-neutral-700 hover:bg-neutral-100",
+            )}
+            style={colorPickerOpen ? undefined : { color: toolbarColor }}
+          >
+            <span
+              className="h-4 w-4 shrink-0 rounded-full border border-black/20 shadow-sm ring-1 ring-black/10 dark:border-white/25 dark:ring-white/15"
+              style={{ backgroundColor: penColor }}
+              aria-hidden
+            />
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+          </button>
         </div>
 
         <div
@@ -1220,6 +1348,7 @@ export function WorkshopWhiteboard({
                     drawingTool !== "freehand"),
               ),
               false,
+              false,
             ),
           )}
         >
@@ -1228,7 +1357,10 @@ export function WorkshopWhiteboard({
               type="button"
               title="Shapes and lines"
               aria-expanded={shapePickerOpen}
-              onClick={() => setShapePickerOpen((o) => !o)}
+              onClick={() => {
+                setColorPickerOpen(false);
+                setShapePickerOpen((o) => !o);
+              }}
               className={cn(
                 toolbarSegBtn,
                 "gap-0.5 px-2 text-xs",
@@ -1254,37 +1386,6 @@ export function WorkshopWhiteboard({
               <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-80" />
             </button>
           </div>
-          {shapePickerOpen ? (
-            <div className="absolute left-0 top-full z-40 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-amber-200 bg-white py-1 shadow-lg dark:border-amber-900 dark:bg-neutral-900">
-              <button
-                type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800"
-                onClick={() => {
-                  setDrawingTool("freehand");
-                  setMode("draw");
-                  setInkKind("draw");
-                  setShapePickerOpen(false);
-                }}
-              >
-                Freehand pen
-              </button>
-              {WORKSHOP_SHAPES.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={`block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800 ${drawingTool === s.id ? "bg-amber-100/80 font-medium dark:bg-neutral-800" : ""}`}
-                  onClick={() => {
-                    setDrawingTool(s.id);
-                    setMode("draw");
-                    setInkKind("draw");
-                    setShapePickerOpen(false);
-                  }}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         {(drawingTool === "polyline" || drawingTool === "polygon") && (
@@ -1466,22 +1567,6 @@ export function WorkshopWhiteboard({
             >
               <Redo2 className="h-4 w-4 shrink-0" />
             </button>
-            <button
-              type="button"
-              title="Remove all of your strokes (others are unchanged)"
-              onClick={() => void clearMyInk()}
-              className={cn(
-                toolbarSegBtn,
-                "px-2",
-                false
-                  ? "text-neutral-200 hover:bg-neutral-800"
-                  : "text-neutral-700 hover:bg-neutral-100",
-              )}
-              style={{ color: toolbarColor }}
-              aria-label="Clear my strokes"
-            >
-              <UserMinus className="h-4 w-4 shrink-0" />
-            </button>
           </div>
         </div>
         </div>
@@ -1493,10 +1578,10 @@ export function WorkshopWhiteboard({
           className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-md border border-slate-600/55 bg-slate-100 shadow-inner dark:border-slate-600 dark:bg-slate-950"
           style={{ maxWidth: WHITEBOARD_STAGE_MAX_W }}
         >
-          <div style={transformStyle}>
+          <div style={transformStyle} className="relative h-full w-full">
             <canvas
               ref={canvasRef}
-              className="block h-full w-full touch-none select-none"
+              className="absolute inset-0 block h-full w-full touch-none select-none"
               style={{
                 cursor:
                   mode === "pan"
@@ -1523,6 +1608,48 @@ export function WorkshopWhiteboard({
                 if (drawingRef.current) endStroke();
               }}
             />
+            {inlineTextLayout && textInputAt ? (
+              <textarea
+                ref={composerTextareaRef}
+                aria-label="Whiteboard text"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                className="pointer-events-auto absolute z-20 m-0 min-h-[2.25em] touch-auto resize-none overflow-visible border-0 bg-transparent p-0 shadow-none outline-none ring-0 placeholder:text-slate-400/50"
+                style={{
+                  left: inlineTextLayout.leftPx,
+                  top: inlineTextLayout.topPx,
+                  width: inlineTextLayout.widthPx,
+                  fontSize: inlineTextLayout.fontPx,
+                  lineHeight: 1.2,
+                  fontFamily:
+                    'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+                  color: penColor,
+                  caretColor: penColor,
+                }}
+                value={textDraft}
+                placeholder="Type…"
+                onChange={(e) => setTextDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    commitTextAt(
+                      textInputAt.normX,
+                      textInputAt.normY,
+                      textDraft,
+                    );
+                    setTextInputAt(null);
+                    setTextDraft("");
+                    setMode("draw");
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setTextInputAt(null);
+                    setTextDraft("");
+                  }
+                }}
+              />
+            ) : null}
           </div>
           {convexSaveDepth > 0 ? (
             <div className="pointer-events-none absolute bottom-px right-px z-10">
@@ -1546,69 +1673,86 @@ export function WorkshopWhiteboard({
         </div>
       </div>
 
-      {textInputAt ? (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              setTextInputAt(null);
-              setTextDraft("");
-            }
-          }}
-        >
-          <div
-            className="w-full max-w-md rounded-lg border bg-background p-4 shadow-lg"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <p className="mb-2 text-sm text-muted-foreground">Add text</p>
-            <textarea
-              autoFocus
-              className="min-h-[100px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={textDraft}
-              onChange={(e) => setTextDraft(e.target.value)}
-              placeholder="Type text… (Enter to commit, Shift+Enter newline)"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  commitTextAt(textInputAt.normX, textInputAt.normY, textDraft);
-                  setTextInputAt(null);
-                  setTextDraft("");
-                  setMode("draw");
-                }
-                if (e.key === "Escape") {
-                  setTextInputAt(null);
-                  setTextDraft("");
-                }
+      {typeof document !== "undefined" &&
+      colorPickerOpen &&
+      colorMenuFixed
+        ? createPortal(
+            <div
+              ref={colorMenuPortalRef}
+              className="fixed z-[10000] flex max-w-[14.5rem] flex-wrap gap-2 rounded-lg border border-border bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+              role="listbox"
+              aria-label="Ink colours"
+              style={{
+                top: colorMenuFixed.top,
+                left: colorMenuFixed.left,
               }}
-            />
-            <div className="mt-3 flex justify-end gap-2">
+            >
+              {PEN_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="option"
+                  aria-selected={c === penColor}
+                  title={c}
+                  onClick={() => {
+                    setPenColorOverride(c);
+                    setColorPickerOpen(false);
+                  }}
+                  className={cn(
+                    "h-7 w-7 shrink-0 rounded-full border-2 border-white/90 shadow-sm ring-1 ring-black/20 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-neutral-800 dark:ring-white/10",
+                    c === penColor &&
+                      "ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900",
+                  )}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
+      {typeof document !== "undefined" &&
+      shapePickerOpen &&
+      shapeMenuFixed
+        ? createPortal(
+            <div
+              ref={shapeMenuPortalRef}
+              className="fixed z-[10000] max-h-64 w-56 overflow-y-auto rounded-lg border border-amber-200 bg-white py-1 shadow-lg dark:border-amber-900 dark:bg-neutral-900"
+              style={{
+                top: shapeMenuFixed.top,
+                left: shapeMenuFixed.left,
+              }}
+            >
               <button
                 type="button"
-                className="rounded-md border px-3 py-1.5 text-sm"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800"
                 onClick={() => {
-                  setTextInputAt(null);
-                  setTextDraft("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
-                onClick={() => {
-                  commitTextAt(textInputAt.normX, textInputAt.normY, textDraft);
-                  setTextInputAt(null);
-                  setTextDraft("");
+                  setDrawingTool("freehand");
                   setMode("draw");
+                  setInkKind("draw");
+                  setShapePickerOpen(false);
                 }}
               >
-                Place
+                Freehand pen
               </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+              {WORKSHOP_SHAPES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800 ${drawingTool === s.id ? "bg-amber-100/80 font-medium dark:bg-neutral-800" : ""}`}
+                  onClick={() => {
+                    setDrawingTool(s.id);
+                    setMode("draw");
+                    setInkKind("draw");
+                    setShapePickerOpen(false);
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
