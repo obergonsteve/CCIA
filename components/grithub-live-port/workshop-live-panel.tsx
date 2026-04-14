@@ -276,7 +276,7 @@ export function WorkshopLivePanel({
 
       <div
         className={cn(
-          "flex min-w-0 flex-col rounded-lg border border-border bg-muted/25 ring-1 ring-border/30 dark:bg-muted/35",
+          "flex min-w-0 flex-col rounded-lg border border-sky-200/85 bg-muted/25 ring-1 ring-sky-200/45 dark:border-sky-800/50 dark:bg-muted/35 dark:ring-sky-800/35",
           liveKitCredentials ? "p-2" : "p-4",
           !liveKitCredentials && !joining && "items-center justify-center gap-4 text-center",
         )}
@@ -383,7 +383,7 @@ export function WorkshopLivePanel({
       {!chatSectionExpanded ? (
         <button
           type="button"
-          className="flex w-full items-center justify-between gap-2 rounded-lg border border-sky-200/80 bg-sky-100/90 px-3 py-2.5 text-left shadow-sm ring-1 ring-sky-200/35 transition-colors hover:bg-sky-100 dark:border-sky-800/55 dark:bg-sky-950/45 dark:ring-sky-800/40 dark:hover:bg-sky-950/55"
+          className="flex w-full items-center justify-between gap-2 rounded-lg border border-sky-300/75 bg-sky-200/80 px-3 py-2.5 text-left shadow-sm ring-1 ring-sky-300/40 transition-colors hover:bg-sky-300/55 dark:border-sky-700/50 dark:bg-sky-950/60 dark:ring-sky-800/45 dark:hover:bg-sky-900/55"
           aria-expanded={false}
           onClick={() => setChatSectionExpanded(true)}
         >
@@ -409,13 +409,13 @@ export function WorkshopLivePanel({
             "max-h-[min(832px,85vh)] sm:max-h-[min(884px,88vh)]",
         )}
       >
-        <div className="flex min-h-0 items-center justify-between gap-2 border-b border-sky-200/80 bg-sky-100/90 px-2 py-1.5 sm:px-3 dark:border-sky-800/55 dark:bg-sky-950/45">
+        <div className="flex min-h-0 items-center justify-between gap-2 border-b border-sky-300/75 bg-sky-200/80 px-2 py-1.5 sm:px-3 dark:border-sky-700/50 dark:bg-sky-950/60">
           <span className="px-1 text-xs font-semibold uppercase tracking-wide text-sky-950/85 dark:text-sky-100/90">
             Session chat
           </span>
           <button
             type="button"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sky-800/75 transition-colors hover:bg-sky-200/60 hover:text-sky-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-sky-200/85 dark:hover:bg-sky-900/70 dark:hover:text-sky-50"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sky-900/80 transition-colors hover:bg-sky-300/50 hover:text-sky-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-sky-100/90 dark:hover:bg-sky-900/80 dark:hover:text-sky-50"
             aria-expanded={true}
             aria-controls={chatSectionId}
             aria-label="Collapse session chat"
@@ -424,7 +424,7 @@ export function WorkshopLivePanel({
             <ChevronUp className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 space-y-1 overflow-y-auto bg-sky-50/90 px-3 py-1.5 dark:bg-sky-950/25">
+        <div className="min-h-0 space-y-1 overflow-y-auto bg-sky-200/45 px-3 py-1.5 dark:bg-sky-900/35">
           {messages === undefined ? (
             <p className="text-xs text-muted-foreground">Loading messages…</p>
           ) : messages.length === 0 ? (
@@ -459,7 +459,7 @@ export function WorkshopLivePanel({
             ))
           )}
         </div>
-        <div className="flex min-h-0 flex-col gap-2 border-t border-sky-200/90 bg-sky-100/95 p-2 dark:border-sky-800/50 dark:bg-sky-950/45">
+        <div className="flex min-h-0 flex-col gap-2 border-t border-sky-300/80 bg-sky-200/85 p-2 dark:border-sky-700/45 dark:bg-sky-950/60">
           {!sessionEnded ? (
             <div className="flex min-h-0 flex-col gap-1">
               {chatEmojiStripOpen ? (
