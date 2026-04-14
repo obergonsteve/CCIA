@@ -436,6 +436,46 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
 });
 
 /**
+ * Reactive live-room flags for anyone who may join the call (host or registered).
+ * Drives whiteboard show/hide for all participants; reads the same `workshopSessions`
+ * row as `setWorkshopWhiteboardVisible` / LiveKit gate.
+ */
+export const workshopSessionLiveFlags = query({
+  args: { workshopSessionId: v.id("workshopSessions") },
+  handler: async (ctx, { workshopSessionId }) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+    const session = await ctx.db.get(workshopSessionId);
+    if (!session || session.status !== "scheduled") {
+      return null;
+    }
+    const canAccess = await userCanAccessWorkshopSession(
+      ctx,
+      session.workshopUnitId,
+    );
+    if (!canAccess) {
+      return null;
+    }
+    const isLiveHost =
+      user != null &&
+      (user.role === "admin" || user.role === "content_creator");
+    const reg = await ctx.db
+      .query("workshopRegistrations")
+      .withIndex("by_session_and_user", (q) =>
+        q.eq("sessionId", workshopSessionId).eq("userId", userId),
+      )
+      .unique();
+    if (!isLiveHost && !reg) {
+      return null;
+    }
+    return {
+      liveRoomOpenedAt: session.liveRoomOpenedAt,
+      whiteboardVisible: session.whiteboardVisible,
+    };
+  },
+});
+
+/**
  * Admin / content creator: marks the LiveKit room as open so registered learners
  * can join. Idempotent if already opened.
  */

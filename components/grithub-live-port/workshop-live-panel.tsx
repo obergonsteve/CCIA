@@ -67,6 +67,10 @@ export function WorkshopLivePanel({
   const setWhiteboardVisible = useMutation(
     api.workshops.setWorkshopWhiteboardVisible,
   );
+  const liveFlags = useQuery(
+    api.workshops.workshopSessionLiveFlags,
+    session?._id != null ? { workshopSessionId: session._id } : "skip",
+  );
   const me = useQuery(api.users.me, {});
 
   /**
@@ -109,9 +113,17 @@ export function WorkshopLivePanel({
 
   const isLiveHost =
     me?.role === "admin" || me?.role === "content_creator";
-  const liveRoomStarted = Boolean(session?.liveRoomOpenedAt);
+  /** Prefer dedicated query so Convex invalidates on `whiteboardVisible` / `liveRoomOpenedAt` patches for every client in the room. */
+  const liveRoomStarted = Boolean(
+    liveFlags != null
+      ? liveFlags.liveRoomOpenedAt != null
+      : session?.liveRoomOpenedAt != null,
+  );
   /** Show unless host explicitly hid it (`false`). Matches GritHub: board is part of the live session by default. */
-  const whiteboardLive = session?.whiteboardVisible !== false;
+  const whiteboardLive =
+    liveFlags != null
+      ? liveFlags.whiteboardVisible !== false
+      : session?.whiteboardVisible !== false;
 
   const onHostEndCallForEveryone = useCallback(async () => {
     if (!session) {
@@ -276,7 +288,7 @@ export function WorkshopLivePanel({
 
       <div
         className={cn(
-          "flex min-w-0 flex-col rounded-lg border border-sky-200/85 bg-muted/25 ring-1 ring-sky-200/45 dark:border-sky-800/50 dark:bg-muted/35 dark:ring-sky-800/35",
+          "flex min-w-0 flex-col rounded-lg border border-blue-500/40 bg-blue-950/[0.07] ring-1 ring-blue-600/25 dark:border-blue-800/65 dark:bg-blue-950/55 dark:ring-blue-800/45",
           liveKitCredentials ? "p-2" : "p-4",
           !liveKitCredentials && !joining && "items-center justify-center gap-4 text-center",
         )}
@@ -303,6 +315,10 @@ export function WorkshopLivePanel({
                   )}
                 />
               </div>
+            ) : liveRoomStarted && !whiteboardLive ? (
+              <p className="mb-2 shrink-0 rounded-md border border-slate-300/80 bg-slate-100/90 px-3 py-2 text-center text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">
+                Whiteboard is off for everyone in this room.
+              </p>
             ) : null}
             <LiveKitRoom
               room={persistedLkRoom}

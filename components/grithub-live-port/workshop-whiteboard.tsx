@@ -9,6 +9,7 @@ import {
   drawShapeMsg,
   type ShapeMsg,
 } from "@/components/grithub-live-port/workshop-whiteboard-shape-draw";
+import { WorkshopShapeMenuIcon } from "@/components/grithub-live-port/workshop-whiteboard-shape-menu-icon";
 import {
   type WorkshopShapeKind,
   WORKSHOP_SHAPES,
@@ -47,9 +48,9 @@ import { toast } from "sonner";
 /** Toolbar accent — matches GritHub brainstorm constants. */
 const TOOLBAR_COLOR = "#7c3aed";
 
-/** Same as the 16:9 stage; chip row aligns with the board. */
+/** 16:9 stage max width — larger cap so the canvas uses more of the live panel. */
 const WHITEBOARD_STAGE_MAX_W =
-  "min(100%, 1100px, calc(min(50vh, 560px) * 16 / 9))";
+  "min(100%, 1320px, calc(min(62vh, 780px) * 16 / 9))";
 
 /**
  * Convex often completes in one frame; React can batch +1/-1 so the chip never
@@ -1572,7 +1573,7 @@ export function WorkshopWhiteboard({
         </div>
       </div>
 
-      <div className="flex w-full min-w-0 flex-col items-center bg-[#96a4b4] px-2 py-2 dark:bg-slate-900/90">
+      <div className="flex w-full min-w-0 flex-col items-center bg-[#96a4b4] px-1 py-2 sm:px-2 dark:bg-slate-900/90">
         <div
           ref={viewportRef}
           className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-md border border-slate-600/55 bg-slate-100 shadow-inner dark:border-slate-600 dark:bg-slate-950"
@@ -1716,7 +1717,7 @@ export function WorkshopWhiteboard({
         ? createPortal(
             <div
               ref={shapeMenuPortalRef}
-              className="fixed z-[10000] max-h-64 w-56 overflow-y-auto rounded-lg border border-amber-200 bg-white py-1 shadow-lg dark:border-amber-900 dark:bg-neutral-900"
+              className="fixed z-[10000] max-h-[min(24rem,70vh)] w-[min(100vw-1rem,17rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-neutral-900"
               style={{
                 top: shapeMenuFixed.top,
                 left: shapeMenuFixed.left,
@@ -1724,7 +1725,7 @@ export function WorkshopWhiteboard({
             >
               <button
                 type="button"
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800"
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-neutral-800 hover:bg-slate-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
                 onClick={() => {
                   setDrawingTool("freehand");
                   setMode("draw");
@@ -1732,13 +1733,20 @@ export function WorkshopWhiteboard({
                   setShapePickerOpen(false);
                 }}
               >
-                Freehand pen
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center text-neutral-700 dark:text-neutral-200">
+                  <WorkshopShapeMenuIcon kind="freehand" className="h-8 w-8" />
+                </span>
+                <span className="min-w-0 flex-1 leading-tight">Freehand pen</span>
               </button>
               {WORKSHOP_SHAPES.map((s) => (
                 <button
                   key={s.id}
                   type="button"
-                  className={`block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800 ${drawingTool === s.id ? "bg-amber-100/80 font-medium dark:bg-neutral-800" : ""}`}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-neutral-800 hover:bg-slate-100 dark:text-neutral-100 dark:hover:bg-neutral-800",
+                    drawingTool === s.id &&
+                      "bg-slate-100 font-medium dark:bg-neutral-800",
+                  )}
                   onClick={() => {
                     setDrawingTool(s.id);
                     setMode("draw");
@@ -1746,7 +1754,10 @@ export function WorkshopWhiteboard({
                     setShapePickerOpen(false);
                   }}
                 >
-                  {s.label}
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center text-neutral-700 dark:text-neutral-200">
+                    <WorkshopShapeMenuIcon kind={s.id} className="h-8 w-8" />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">{s.label}</span>
                 </button>
               ))}
             </div>,
