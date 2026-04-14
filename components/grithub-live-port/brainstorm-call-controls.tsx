@@ -237,7 +237,7 @@ export function BrainstormCallControls({
 
   return (
     <Tooltip.Provider delayDuration={400}>
-      <div className="shrink-0 flex flex-col border-t border-slate-500 bg-slate-500 rounded-b-lg">
+      <div className="flex shrink-0 flex-col rounded-b-lg border-t border-slate-500/35 bg-[#96a4b4] dark:border-slate-600/45 dark:bg-slate-900/90">
         <div className="flex items-center justify-center gap-2 py-1 px-3 flex-wrap">
           <Tooltip.Root>
             <Tooltip.Trigger asChild>

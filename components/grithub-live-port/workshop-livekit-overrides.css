@@ -16,4 +16,38 @@
  */
 .livekit-workshop-room[data-lk-theme] {
   --lk-control-bar-height: 0px !important;
+  /* Blue-gray stage matting (replaces default #000 video + pale sky). */
+  --lk-bg2: #8899aa;
+  --lk-bg3: #788998;
+}
+
+.livekit-workshop-room[data-lk-theme] .lk-grid-layout-wrapper,
+.livekit-workshop-room[data-lk-theme] .lk-grid-layout,
+.livekit-workshop-room[data-lk-theme] .lk-focus-layout-wrapper,
+.livekit-workshop-room[data-lk-theme] .lk-video-conference-inner {
+  background-color: #96a4b4;
+}
+
+.livekit-workshop-room[data-lk-theme] .lk-participant-media-video {
+  background-color: #96a4b4 !important;
+}
+
+.livekit-workshop-room[data-lk-theme]
+  .lk-participant-media-video[data-lk-source="screen_share"] {
+  background-color: #8696a5 !important;
+}
+
+.livekit-workshop-room[data-lk-theme] .lk-carousel {
+  background-color: transparent;
+}
+
+/*
+ * Participant speaking ring: thinner than default (2.5px) and softer slate (not accent blue).
+ */
+.livekit-workshop-room[data-lk-theme] .lk-participant-tile {
+  --lk-speaking-indicator-width: 1.25px;
+}
+
+.livekit-workshop-room[data-lk-theme] .lk-participant-tile::after {
+  border-color: rgb(71 85 105 / 0.55) !important;
 }
