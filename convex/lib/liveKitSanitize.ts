@@ -46,3 +46,18 @@ export function normalizeLiveKitServerUrl(raw: string): string {
   }
   return trimmed;
 }
+
+/** `RoomServiceClient` expects https/http, not wss/ws. */
+export function liveKitRoomServiceHttpUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  if (trimmed.startsWith("wss://")) {
+    return `https://${trimmed.slice("wss://".length)}`;
+  }
+  if (trimmed.startsWith("ws://")) {
+    return `http://${trimmed.slice("ws://".length)}`;
+  }
+  if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}

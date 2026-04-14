@@ -5,17 +5,18 @@ import {
   useDisconnectButton,
   useLocalParticipant,
   useRemoteParticipants,
-  useRoomContext,
   useTrackToggle,
   useTracks,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import {
   Loader2,
+  LogOut,
   Mic,
   MicOff,
   Monitor,
   PhoneOff,
+  Power,
   StopCircle,
   Video,
   VideoOff,
@@ -73,9 +74,15 @@ const CALL_CONTROL_TOOLTIP_CLASS =
 export function BrainstormCallControls({
   onScreenShareActiveEnsureVideoVisible,
   onScreenShareEnd,
+  /**
+   * When set (workshop host), shows a second control: end the LiveKit room for everyone.
+   * Return `{ error }` to stay connected and let the parent show a toast.
+   */
+  onHostEndCallForEveryone,
 }: {
   onScreenShareActiveEnsureVideoVisible?: () => void;
   onScreenShareEnd?: () => void;
+  onHostEndCallForEveryone?: () => Promise<void | { error: string }>;
 } = {}) {
   const mic = useTrackToggle({ source: Track.Source.Microphone });
   const camera = useTrackToggle({ source: Track.Source.Camera });
@@ -85,7 +92,6 @@ export function BrainstormCallControls({
       stopTracks?: boolean;
     };
   void _omitDisconnectStopTracks;
-  const room = useRoomContext();
   const remoteParticipants = useRemoteParticipants();
   const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
   const screenShareTracksAll = useTracks([Track.Source.ScreenShare]);
@@ -118,6 +124,7 @@ export function BrainstormCallControls({
   }, [firstScreenShareTrack, onScreenShareEnd]);
 
   const [screenSharePending, setScreenSharePending] = useState(false);
+  const [endEveryonePending, setEndEveryonePending] = useState(false);
   const [screenShareError, setScreenShareError] = useState<string | null>(null);
   const envScreenShareUnsupported = useSyncExternalStore(
     noopSubscribe,
@@ -129,7 +136,7 @@ export function BrainstormCallControls({
   const screenShareUnsupported =
     runtimeScreenShareUnsupported ?? envScreenShareUnsupported;
 
-  const handleLeave = useCallback(async () => {
+  const stopLocalScreenShareIfNeeded = useCallback(async () => {
     try {
       if (isScreenShareEnabled) {
         await localParticipant.setScreenShareEnabled(false);
@@ -137,8 +144,33 @@ export function BrainstormCallControls({
     } catch {
       // ignore
     }
+  }, [isScreenShareEnabled, localParticipant]);
+
+  const handleLeaveOnly = useCallback(async () => {
+    await stopLocalScreenShareIfNeeded();
     leave.buttonProps.onClick?.();
-  }, [leave.buttonProps, isScreenShareEnabled, localParticipant]);
+  }, [leave.buttonProps, stopLocalScreenShareIfNeeded]);
+
+  const handleEndCallForEveryone = useCallback(async () => {
+    if (!onHostEndCallForEveryone) return;
+    await stopLocalScreenShareIfNeeded();
+    setEndEveryonePending(true);
+    try {
+      const result = await onHostEndCallForEveryone();
+      if (result && typeof result === "object" && "error" in result) {
+        return;
+      }
+      leave.buttonProps.onClick?.();
+    } catch {
+      // parent may toast
+    } finally {
+      setEndEveryonePending(false);
+    }
+  }, [
+    leave.buttonProps,
+    onHostEndCallForEveryone,
+    stopLocalScreenShareIfNeeded,
+  ]);
 
   const someoneElseSharing = useMemo(() => {
     for (const p of remoteParticipants) {
@@ -298,27 +330,83 @@ export function BrainstormCallControls({
               </Tooltip.Content>
             </Tooltip.Portal>
           </Tooltip.Root>
-          <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-              <button
-                type="button"
-                {...leaveDomButtonProps}
-                onClick={() => void handleLeave()}
-                className="py-1.5 px-3 rounded-lg border border-red-300 bg-red-50 text-red-800 font-medium text-xs hover:bg-red-100 inline-flex items-center justify-center disabled:opacity-50"
-              >
-                <PhoneOff className="w-4 h-4" />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Portal>
-              <Tooltip.Content
-                className={CALL_CONTROL_TOOLTIP_CLASS}
-                sideOffset={6}
-                side="top"
-              >
-                Leave call
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          </Tooltip.Root>
+          {onHostEndCallForEveryone ? (
+            <>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    {...leaveDomButtonProps}
+                    aria-label="Leave — you can rejoin"
+                    onClick={() => void handleLeaveOnly()}
+                    className="py-1.5 px-3 rounded-lg border border-cyan-400 bg-white text-cyan-800 font-medium text-xs hover:bg-cyan-50 inline-flex items-center justify-center disabled:opacity-50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    className={CALL_CONTROL_TOOLTIP_CLASS}
+                    sideOffset={6}
+                    side="top"
+                  >
+                    Leave — disconnect only; you can rejoin while the host keeps
+                    the session open.
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label="End session for everyone"
+                    disabled={endEveryonePending}
+                    onClick={() => void handleEndCallForEveryone()}
+                    className="py-1.5 px-3 rounded-lg border border-red-300 bg-red-50 text-red-800 font-medium text-xs hover:bg-red-100 inline-flex items-center justify-center disabled:opacity-50"
+                  >
+                    {endEveryonePending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Power className="w-4 h-4" />
+                    )}
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    className={CALL_CONTROL_TOOLTIP_CLASS}
+                    sideOffset={6}
+                    side="top"
+                  >
+                    End for everyone — closes the live room and disconnects all
+                    participants.
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </>
+          ) : (
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button
+                  type="button"
+                  {...leaveDomButtonProps}
+                  aria-label="Leave session"
+                  onClick={() => void handleLeaveOnly()}
+                  className="py-1.5 px-3 rounded-lg border border-red-300 bg-red-50 text-red-800 font-medium text-xs hover:bg-red-100 inline-flex items-center justify-center disabled:opacity-50"
+                >
+                  <PhoneOff className="w-4 h-4" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  className={CALL_CONTROL_TOOLTIP_CLASS}
+                  sideOffset={6}
+                  side="top"
+                >
+                  Leave session
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          )}
         </div>
         {screenShareError ? (
           <p

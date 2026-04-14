@@ -81,3 +81,61 @@ export const verifyLiveKitAccessInternal = internalQuery({
     };
   },
 });
+
+/**
+ * Only admin / content_creator with unit access may tear down the LiveKit room.
+ * Used by `endWorkshopLiveKitRoomForEveryone` (not for learner leave).
+ */
+export const verifyWorkshopLiveKitHostEndRoomInternal = internalQuery({
+  args: {
+    workshopSessionId: v.id("workshopSessions"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { workshopSessionId, userId }) => {
+    const user = await ctx.db.get(userId);
+    const isLiveHost =
+      user != null &&
+      (user.role === "admin" || user.role === "content_creator");
+    if (!isLiveHost) {
+      return {
+        ok: false as const,
+        reason: "Only a host can end the live room for everyone.",
+      };
+    }
+    const session = await ctx.db.get(workshopSessionId);
+    if (!session || session.status !== "scheduled") {
+      return {
+        ok: false as const,
+        reason: "This session is not available.",
+      };
+    }
+    const unit = await ctx.db.get(session.workshopUnitId);
+    if (!unit || !isLive(unit) || unit.deliveryMode !== "live_workshop") {
+      return { ok: false as const, reason: "Invalid workshop unit." };
+    }
+    const canAccess = await userCanAccessWorkshopSession(
+      ctx,
+      session.workshopUnitId,
+    );
+    if (!canAccess) {
+      return {
+        ok: false as const,
+        reason: "You do not have access to this workshop.",
+      };
+    }
+    if (session.endsAt < Date.now()) {
+      return {
+        ok: false as const,
+        reason: "This workshop session has ended.",
+      };
+    }
+    if (session.liveRoomOpenedAt == null) {
+      return {
+        ok: false as const,
+        reason: "The live session is not open.",
+      };
+    }
+    const roomName = liveKitRoomNameForWorkshopSession(String(workshopSessionId));
+    return { ok: true as const, roomName };
+  },
+});

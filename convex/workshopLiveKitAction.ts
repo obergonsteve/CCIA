@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
+  liveKitRoomServiceHttpUrl,
   normalizeLiveKitServerUrl,
   trimEnvValue,
 } from "./lib/liveKitSanitize";
@@ -72,5 +73,63 @@ export const getWorkshopLiveKitToken = action({
     });
     const token = await at.toJwt();
     return { token, serverUrl, roomName: gate.roomName };
+  },
+});
+
+/**
+ * Host (admin / content creator): deletes the LiveKit room (disconnects everyone),
+ * then clears `liveRoomOpenedAt` so learners see “waiting for host” until start again.
+ */
+export const endWorkshopLiveKitRoomForEveryone = action({
+  args: { workshopSessionId: v.id("workshopSessions") },
+  handler: async (
+    ctx,
+    { workshopSessionId },
+  ): Promise<{ ok: true } | { error: string }> => {
+    const userId = await ctx.runQuery(
+      internal.users.resolveDeploymentUserIdInternal,
+      {},
+    );
+    const gate = await ctx.runQuery(
+      internal.workshopLiveKit.verifyWorkshopLiveKitHostEndRoomInternal,
+      { workshopSessionId, userId },
+    );
+    if (!gate.ok) {
+      return { error: gate.reason };
+    }
+
+    const apiKey = trimEnvValue(process.env.LIVEKIT_API_KEY);
+    const apiSecret = trimEnvValue(process.env.LIVEKIT_API_SECRET);
+    const rawUrlTrimmed = trimEnvValue(process.env.LIVEKIT_URL);
+    if (!apiKey || !apiSecret) {
+      return {
+        error:
+          "LIVEKIT_API_KEY and LIVEKIT_API_SECRET must be set in Convex environment variables.",
+      };
+    }
+    if (!rawUrlTrimmed) {
+      return {
+        error:
+          "Set LIVEKIT_URL in Convex to your project WebSocket URL (same LiveKit project as the API key).",
+      };
+    }
+
+    const { RoomServiceClient } = await import("livekit-server-sdk");
+    const httpHost = liveKitRoomServiceHttpUrl(rawUrlTrimmed);
+    const roomService = new RoomServiceClient(httpHost, apiKey, apiSecret);
+    try {
+      await roomService.deleteRoom(gate.roomName);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[endWorkshopLiveKitRoomForEveryone] deleteRoom:", msg);
+      return {
+        error: `Could not end the call on the server: ${msg}`,
+      };
+    }
+
+    await ctx.runMutation(internal.workshops.closeWorkshopLiveRoomInternal, {
+      workshopSessionId,
+    });
+    return { ok: true };
   },
 });

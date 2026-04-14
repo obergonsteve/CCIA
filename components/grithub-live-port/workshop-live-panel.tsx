@@ -78,6 +78,9 @@ export function WorkshopLivePanel({
   );
   const sendChat = useMutation(api.workshopSessionChat.sendWorkshopSessionChatMessage);
   const getToken = useAction(api.workshopLiveKitAction.getWorkshopLiveKitToken);
+  const endLiveRoomForEveryone = useAction(
+    api.workshopLiveKitAction.endWorkshopLiveKitRoomForEveryone,
+  );
   const openLiveRoom = useMutation(api.workshops.openWorkshopLiveRoom);
   const me = useQuery(api.users.me, {});
 
@@ -120,6 +123,20 @@ export function WorkshopLivePanel({
   const isLiveHost =
     me?.role === "admin" || me?.role === "content_creator";
   const liveRoomStarted = Boolean(session?.liveRoomOpenedAt);
+
+  const onHostEndCallForEveryone = useCallback(async () => {
+    if (!session) {
+      return { error: "No active session." };
+    }
+    const result = await endLiveRoomForEveryone({
+      workshopSessionId: session._id,
+    });
+    if ("error" in result) {
+      toast.error(result.error);
+      return { error: result.error };
+    }
+    return;
+  }, [endLiveRoomForEveryone, session]);
 
   const startLiveRoomAndJoin = useCallback(async () => {
     if (!session) return;
@@ -261,7 +278,13 @@ export function WorkshopLivePanel({
                 <WorkshopVideoConference />
               </div>
               <StartMediaButton className="shrink-0 mx-auto my-1" />
-              <BrainstormCallControls />
+              <BrainstormCallControls
+                onHostEndCallForEveryone={
+                  isLiveHost && liveRoomStarted && !sessionEnded
+                    ? onHostEndCallForEveryone
+                    : undefined
+                }
+              />
             </LiveKitRoom>
           </div>
         ) : sessionEnded ? (

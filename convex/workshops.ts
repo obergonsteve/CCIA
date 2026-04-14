@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { requireAdminOrCreator, requireUserId, userCanAccessLevel } from "./lib/auth";
 import { effectiveCertificationTier } from "./lib/certTier";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
@@ -466,6 +466,14 @@ export const openWorkshopLiveRoom = mutation({
     }
     await ctx.db.patch(workshopSessionId, { liveRoomOpenedAt: Date.now() });
     return { ok: true as const, alreadyOpen: false as const };
+  },
+});
+
+/** Clears “live room open” after host ends the LiveKit room (internal only). */
+export const closeWorkshopLiveRoomInternal = internalMutation({
+  args: { workshopSessionId: v.id("workshopSessions") },
+  handler: async (ctx, { workshopSessionId }) => {
+    await ctx.db.patch(workshopSessionId, { liveRoomOpenedAt: undefined });
   },
 });
 
