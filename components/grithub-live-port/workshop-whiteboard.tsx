@@ -1657,14 +1657,10 @@ export function WorkshopWhiteboard({
               <span
                 role="status"
                 aria-live="polite"
-                className={`inline-flex items-center gap-px rounded-sm border px-0.5 py-0 text-[9px] font-medium leading-tight tabular-nums shadow-sm ring-1 ring-black/10 dark:ring-white/10 ${
-                  false
-                    ? "border-neutral-700 bg-neutral-900/95 text-neutral-200"
-                    : "border-slate-400/70 bg-white/95 text-slate-700"
-                }`}
+                className="inline-flex items-center gap-px rounded-sm border border-slate-300/40 bg-white/45 px-0.5 py-0 text-[9px] font-medium leading-tight text-slate-500/75 tabular-nums shadow-sm ring-1 ring-black/[0.06] dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-400/80 dark:ring-white/[0.06]"
               >
                 <Loader2
-                  className="h-2 w-2 shrink-0 animate-spin opacity-90"
+                  className="h-2 w-2 shrink-0 animate-spin text-slate-500/70 dark:text-neutral-400/75"
                   aria-hidden
                 />
                 Syncing…

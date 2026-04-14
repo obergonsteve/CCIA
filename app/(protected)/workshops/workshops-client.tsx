@@ -6,6 +6,11 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  liveWorkshopSessionStatus,
+  liveWorkshopStatusBadgeClass,
+  type LiveWorkshopSessionTimes,
+} from "@/lib/workshopSessionLiveStatus";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -38,61 +43,6 @@ function workshopClosedReplayHref(
     q.set("level", levelId);
   }
   return `/units/${unitId}?${q.toString()}`;
-}
-
-type LiveWorkshopSessionTimes = Pick<
-  Doc<"workshopSessions">,
-  "startsAt" | "endsAt" | "status" | "liveRoomOpenedAt"
->;
-
-function liveWorkshopSessionStatus(
-  session: LiveWorkshopSessionTimes,
-  now: number,
-): {
-  label: string;
-  detail?: string;
-  tone: "neutral" | "waiting" | "live" | "ended";
-} {
-  if (session.status === "cancelled") {
-    return { label: "Cancelled", tone: "ended" };
-  }
-  if (now >= session.endsAt) {
-    return { label: "Closed", tone: "ended" };
-  }
-  if (now < session.startsAt) {
-    return { label: "Not started", tone: "neutral" };
-  }
-  if (session.liveRoomOpenedAt != null) {
-    return {
-      label: "In progress",
-      detail: `Started ${format(new Date(session.liveRoomOpenedAt), "dd/MM/yyyy, HH:mm")}`,
-      tone: "live",
-    };
-  }
-  return {
-    label: "In progress",
-    detail: "Live room not open yet",
-    tone: "waiting",
-  };
-}
-
-function liveWorkshopStatusBadgeClass(
-  tone: "neutral" | "waiting" | "live" | "ended",
-  neutralAccent: "purple" | "sky" = "purple",
-) {
-  switch (tone) {
-    case "live":
-      return "border-emerald-600/45 bg-emerald-600/12 text-emerald-950 dark:border-emerald-400/50 dark:bg-emerald-500/15 dark:text-emerald-50";
-    case "waiting":
-      return "border-amber-600/40 bg-amber-500/12 text-amber-950 dark:border-amber-400/45 dark:bg-amber-500/14 dark:text-amber-50";
-    case "ended":
-      return "border-border/70 bg-muted/90 text-muted-foreground dark:bg-muted/50";
-    default:
-      if (neutralAccent === "sky") {
-        return "border-sky-500/45 bg-sky-500/12 text-sky-950 dark:border-sky-400/50 dark:bg-sky-500/16 dark:text-sky-50";
-      }
-      return "border-purple-500/40 bg-purple-500/10 text-purple-900 dark:border-purple-400/45 dark:bg-purple-500/15 dark:text-purple-100";
-  }
 }
 
 function WorkshopSessionStatusRow({

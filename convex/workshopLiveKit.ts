@@ -54,6 +54,7 @@ export const verifyLiveKitAccessInternal = internalQuery({
         reason: "Register for a session on this unit to join the live room.",
       };
     }
+    const now = Date.now();
     if (session.liveRoomOpenedAt == null) {
       return {
         ok: false as const,
@@ -62,7 +63,6 @@ export const verifyLiveKitAccessInternal = internalQuery({
           : "Waiting for the host to start this live session.",
       };
     }
-    const now = Date.now();
     if (session.endsAt < now) {
       return {
         ok: false as const,

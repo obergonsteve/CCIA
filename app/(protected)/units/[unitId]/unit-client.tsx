@@ -24,6 +24,10 @@ import Link from "next/link";
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  liveWorkshopSessionStatus,
+  liveWorkshopStatusBadgeClass,
+} from "@/lib/workshopSessionLiveStatus";
 import { cn } from "@/lib/utils";
 import { WorkshopLivePanel } from "@/components/grithub-live-port/workshop-live-panel";
 
@@ -243,28 +247,61 @@ function LiveWorkshopRoomPanel({
   const [open, setOpen] = useState(defaultOpen ?? false);
   const bodyId = "unit-live-workshop-room-panel";
 
+  const sessionRow = useQuery(api.workshops.myRegisteredSessionForLiveWorkshopUnit, {
+    workshopUnitId: unitId,
+    ...(workshopSessionId != null ? { workshopSessionId } : {}),
+  });
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const session = sessionRow?.session;
+  const headerStatus =
+    session != null ? liveWorkshopSessionStatus(session, now) : null;
+
   return (
     <section
       className={cn(
         "rounded-xl border border-purple-500/35 bg-purple-500/[0.13] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/30 dark:bg-purple-500/[0.16]",
       )}
-      aria-label="Live workshop room"
+      aria-label="Workshop room"
     >
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-2 rounded-xl bg-purple-500/[0.11] px-4 py-3 text-left outline-none transition-colors hover:bg-purple-500/[0.17] focus-visible:ring-2 focus-visible:ring-purple-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-purple-500/[0.14] dark:hover:bg-purple-500/[0.22]"
+        className="flex w-full items-center gap-2 rounded-xl bg-purple-500/[0.11] px-4 py-3 text-left outline-none transition-colors hover:bg-purple-500/[0.17] focus-visible:ring-2 focus-visible:ring-purple-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-purple-500/[0.14] dark:hover:bg-purple-500/[0.22]"
         aria-expanded={open}
         aria-controls={bodyId}
+        aria-label={
+          headerStatus != null
+            ? `Workshop — ${headerStatus.label}`
+            : "Workshop"
+        }
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="flex min-w-0 shrink-0 items-center gap-2">
           <MonitorPlay
             className="h-5 w-5 shrink-0 text-purple-600 dark:text-purple-400"
             aria-hidden
           />
           <span className="font-heading font-semibold text-foreground">
-            Live workshop
+            Workshop
           </span>
+        </span>
+        <span className="flex min-w-0 flex-1 justify-end">
+          {headerStatus != null ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                "shrink-0 px-2 py-0 text-[10px] font-bold uppercase tracking-wide",
+                liveWorkshopStatusBadgeClass(headerStatus.tone, "purple"),
+              )}
+            >
+              {headerStatus.label}
+            </Badge>
+          ) : sessionRow === null ? (
+            <span className="text-xs text-muted-foreground">No session</span>
+          ) : null}
         </span>
         <ChevronDown
           className={cn(
@@ -431,7 +468,7 @@ export default function UnitClient({
                 : "border border-brand-gold/55 bg-brand-gold/[0.18] text-foreground shadow-sm shadow-brand-gold/10 dark:border-brand-gold/45 dark:bg-brand-gold/[0.14] dark:text-foreground",
             )}
           >
-            {isLiveWorkshopUnit ? "Live workshop" : "Self-paced"}
+            {isLiveWorkshopUnit ? "Workshop" : "Self-paced"}
           </Badge>
         </div>
         <p className="text-muted-foreground">{unit.description}</p>

@@ -76,6 +76,12 @@ export function WorkshopLivePanel({
   );
   const me = useQuery(api.users.me, {});
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   /**
    * One `Room` per panel instance, passed into `LiveKitRoom` as `room`. Without
    * this, `@livekit/components-react` creates a new `Room` inside an effect;
@@ -102,8 +108,8 @@ export function WorkshopLivePanel({
 
   const sessionEnded = useMemo(() => {
     if (!session) return true;
-    return session.endsAt < Date.now();
-  }, [session]);
+    return session.endsAt < now;
+  }, [session, now]);
 
   const handleRoomDisconnected = useCallback(() => {
     setLiveKitCredentials(null);
