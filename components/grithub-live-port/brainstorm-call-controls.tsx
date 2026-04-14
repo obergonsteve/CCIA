@@ -4,6 +4,7 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import {
   useDisconnectButton,
   useLocalParticipant,
+  useRemoteParticipants,
   useRoomContext,
   useTrackToggle,
   useTracks,
@@ -23,6 +24,7 @@ import type { ButtonHTMLAttributes } from "react";
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -84,6 +86,7 @@ export function BrainstormCallControls({
     };
   void _omitDisconnectStopTracks;
   const room = useRoomContext();
+  const remoteParticipants = useRemoteParticipants();
   const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
   const screenShareTracksAll = useTracks([Track.Source.ScreenShare]);
   const firstScreenShareTrack = screenShareTracksAll[0];
@@ -137,12 +140,12 @@ export function BrainstormCallControls({
     leave.buttonProps.onClick?.();
   }, [leave.buttonProps, isScreenShareEnabled, localParticipant]);
 
-  const someoneElseSharing = (() => {
-    for (const [, p] of room.remoteParticipants) {
+  const someoneElseSharing = useMemo(() => {
+    for (const p of remoteParticipants) {
       if (p.getTrackPublication(Track.Source.ScreenShare)) return true;
     }
     return false;
-  })();
+  }, [remoteParticipants]);
 
   const screenShareDisabled =
     someoneElseSharing || screenSharePending || !!screenShareUnsupported;
@@ -159,7 +162,10 @@ export function BrainstormCallControls({
       if (someoneElseSharing) return;
       setScreenSharePending(true);
       localParticipant
-        .setScreenShareEnabled(true)
+        .setScreenShareEnabled(true, {
+          audio: true,
+          selfBrowserSurface: "include",
+        })
         .then(() => setScreenShareError(null))
         .catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);

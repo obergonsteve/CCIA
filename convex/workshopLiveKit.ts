@@ -37,16 +37,28 @@ export const verifyLiveKitAccessInternal = internalQuery({
         reason: "You do not have access to this workshop.",
       };
     }
+    const user = await ctx.db.get(userId);
+    const isLiveHost =
+      user != null &&
+      (user.role === "admin" || user.role === "content_creator");
     const reg = await ctx.db
       .query("workshopRegistrations")
       .withIndex("by_session_and_user", (q) =>
         q.eq("sessionId", workshopSessionId).eq("userId", userId),
       )
       .unique();
-    if (!reg) {
+    if (!isLiveHost && !reg) {
       return {
         ok: false as const,
         reason: "Register for a session on this unit to join the live room.",
+      };
+    }
+    if (session.liveRoomOpenedAt == null) {
+      return {
+        ok: false as const,
+        reason: isLiveHost
+          ? "Start the live session before joining the room."
+          : "Waiting for the host to start this live session.",
       };
     }
     const now = Date.now();
@@ -56,7 +68,6 @@ export const verifyLiveKitAccessInternal = internalQuery({
         reason: "This workshop session has ended.",
       };
     }
-    const user = await ctx.db.get(userId);
     const participantName = (user?.name ?? "Guest").trim() || "Guest";
     const roomName = liveKitRoomNameForWorkshopSession(String(workshopSessionId));
     const participantIdentity = liveKitParticipantIdentityFromUserId(

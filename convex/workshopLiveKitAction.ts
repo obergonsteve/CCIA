@@ -50,7 +50,10 @@ export const getWorkshopLiveKitToken = action({
     }
     const serverUrl = normalizeLiveKitServerUrl(rawUrlTrimmed);
 
-    const { AccessToken } = await import("livekit-server-sdk");
+    const [{ AccessToken }, { TrackSource }] = await Promise.all([
+      import("livekit-server-sdk"),
+      import("@livekit/protocol"),
+    ]);
     const at = new AccessToken(apiKey, apiSecret, {
       identity: gate.participantIdentity,
       name: gate.participantName,
@@ -60,6 +63,12 @@ export const getWorkshopLiveKitToken = action({
       room: gate.roomName,
       canPublish: true,
       canSubscribe: true,
+      canPublishSources: [
+        TrackSource.CAMERA,
+        TrackSource.MICROPHONE,
+        TrackSource.SCREEN_SHARE,
+        TrackSource.SCREEN_SHARE_AUDIO,
+      ],
     });
     const token = await at.toJwt();
     return { token, serverUrl, roomName: gate.roomName };

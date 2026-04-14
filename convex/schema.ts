@@ -212,6 +212,8 @@ export default defineSchema({
     status: v.union(v.literal("scheduled"), v.literal("cancelled")),
     /** Until LiveKit: optional link opened in a new tab. */
     externalJoinUrl: v.optional(v.string()),
+    /** Set when an admin/content host opens the live room; learners need this before LiveKit. */
+    liveRoomOpenedAt: v.optional(v.number()),
   })
     .index("by_workshop_unit", ["workshopUnitId"])
     .index("by_starts_at", ["startsAt"]),

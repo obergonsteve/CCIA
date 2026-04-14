@@ -2,6 +2,7 @@
 
 import { BrainstormCallControls } from "@/components/grithub-live-port/brainstorm-call-controls";
 import { BrainstormScreenShareBlock } from "@/components/grithub-live-port/brainstorm-screen-share-block";
+import { WorkshopRoomParticipants } from "@/components/grithub-live-port/workshop-room-participants";
 import { EmojiStrip } from "@/components/grithub-live-port/emoji-strip";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
@@ -78,6 +79,8 @@ export function WorkshopLivePanel({
   );
   const sendChat = useMutation(api.workshopSessionChat.sendWorkshopSessionChatMessage);
   const getToken = useAction(api.workshopLiveKitAction.getWorkshopLiveKitToken);
+  const openLiveRoom = useMutation(api.workshops.openWorkshopLiveRoom);
+  const me = useQuery(api.users.me, {});
 
   /**
    * One `Room` per panel instance, passed into `LiveKitRoom` as `room`. Without
@@ -115,10 +118,17 @@ export function WorkshopLivePanel({
     setLiveKitCredentials(null);
   }, []);
 
-  const joinLive = useCallback(async () => {
+  const isLiveHost =
+    me?.role === "admin" || me?.role === "content_creator";
+  const liveRoomStarted = Boolean(session?.liveRoomOpenedAt);
+
+  const startLiveRoomAndJoin = useCallback(async () => {
     if (!session) return;
     setJoining(true);
     try {
+      if (isLiveHost && session.liveRoomOpenedAt == null) {
+        await openLiveRoom({ workshopSessionId: session._id });
+      }
       const result = await getToken({ workshopSessionId: session._id });
       if ("error" in result) {
         toast.error(result.error);
@@ -129,11 +139,13 @@ export function WorkshopLivePanel({
         serverUrl: result.serverUrl,
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not join the live room.");
+      toast.error(
+        e instanceof Error ? e.message : "Could not start or join the live room.",
+      );
     } finally {
       setJoining(false);
     }
-  }, [getToken, session]);
+  }, [getToken, isLiveHost, openLiveRoom, session]);
 
   const onSendChat = useCallback(async () => {
     if (!session || !draft.trim()) return;
@@ -247,6 +259,7 @@ export function WorkshopLivePanel({
               style={liveKitRoomFrameStyle}
             >
               <BrainstormScreenShareBlock />
+              <WorkshopRoomParticipants />
               <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
                 <VideoConference />
               </div>
@@ -270,26 +283,42 @@ export function WorkshopLivePanel({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-4 px-2">
-            <Button
-              type="button"
-              onClick={() => void joinLive()}
-              disabled={joining}
-              className="inline-flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
-            >
-              {joining ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Video className="h-4 w-4" />
-              )}
-              Join live session
-            </Button>
+            {me === undefined ? (
+              <Button type="button" disabled variant="secondary" size="sm">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Loading…
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => void startLiveRoomAndJoin()}
+                disabled={joining || (!isLiveHost && !liveRoomStarted)}
+                className={
+                  !isLiveHost && !liveRoomStarted
+                    ? undefined
+                    : "bg-cyan-600 hover:bg-cyan-700 text-white"
+                }
+                variant={!isLiveHost && !liveRoomStarted ? "secondary" : "default"}
+              >
+                {joining ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : !isLiveHost && !liveRoomStarted ? null : (
+                  <Video className="h-4 w-4" aria-hidden />
+                )}
+                {!isLiveHost && !liveRoomStarted
+                  ? "Waiting for host to start"
+                  : isLiveHost && !liveRoomStarted
+                    ? "Start live session"
+                    : "Join live session"}
+              </Button>
+            )}
           </div>
         )}
       </div>
 
       <div
         className={cn(
-          "grid min-h-[200px] grid-rows-[auto_minmax(7rem,1fr)_auto] overflow-hidden rounded-lg border border-border bg-card/50",
+          "grid min-h-[200px] grid-rows-[auto_minmax(7rem,1fr)_auto] overflow-hidden rounded-lg border border-amber-400/70 bg-amber-50/55 ring-1 ring-amber-400/20 dark:border-amber-500/45 dark:bg-muted/45 dark:ring-amber-500/15",
           !chatEmojiStripOpen && "max-h-[min(320px,50vh)]",
           chatEmojiStripOpen &&
             !chatEmojiStripExpanded &&
@@ -299,31 +328,34 @@ export function WorkshopLivePanel({
             "max-h-[min(520px,72vh)] sm:max-h-[min(560px,78vh)]",
         )}
       >
-        <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="border-b border-amber-200/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:border-amber-800/45">
           Session chat
         </div>
-        <div className="min-h-0 overflow-y-auto px-3 py-2 space-y-2">
+        <div className="min-h-0 space-y-1 overflow-y-auto px-3 py-1.5">
           {messages === undefined ? (
             <p className="text-xs text-muted-foreground">Loading messages…</p>
           ) : messages.length === 0 ? (
             <p className="text-xs text-muted-foreground">No messages yet.</p>
           ) : (
             messages.map((m) => (
-              <div key={m._id} className="text-sm">
+              <div
+                key={m._id}
+                className="rounded-md bg-muted/35 px-2 py-1 text-xs leading-tight ring-1 ring-border/40 dark:bg-muted/25 dark:ring-border/30"
+              >
                 <span className="font-medium" style={{ color: m.color }}>
                   {m.name}
                 </span>
-                <span className="text-muted-foreground text-xs ml-2">
+                <span className="ml-1.5 text-[11px] text-muted-foreground tabular-nums">
                   {format(new Date(m.createdAt), "p")}
                 </span>
-                <p className="text-foreground whitespace-pre-wrap break-words [font-family:ui-sans-serif,system-ui,sans-serif,'Apple_Color_Emoji','Segoe_UI_Emoji','Segoe_UI_Symbol','Noto_Color_Emoji']">
+                <p className="mt-px text-foreground whitespace-pre-wrap break-words [font-family:ui-sans-serif,system-ui,sans-serif,'Apple_Color_Emoji','Segoe_UI_Emoji','Segoe_UI_Symbol','Noto_Color_Emoji']">
                   {m.text}
                 </p>
               </div>
             ))
           )}
         </div>
-        <div className="flex min-h-0 flex-col gap-2 border-t border-border p-2">
+        <div className="flex min-h-0 flex-col gap-2 border-t border-amber-200/80 p-2 dark:border-amber-800/45">
           {!sessionEnded ? (
             <div className="flex min-h-0 flex-col gap-1">
               {chatEmojiStripOpen ? (

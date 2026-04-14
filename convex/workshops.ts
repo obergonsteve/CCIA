@@ -435,6 +435,40 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
   },
 });
 
+/**
+ * Admin / content creator: marks the LiveKit room as open so registered learners
+ * can join. Idempotent if already opened.
+ */
+export const openWorkshopLiveRoom = mutation({
+  args: { workshopSessionId: v.id("workshopSessions") },
+  handler: async (ctx, { workshopSessionId }) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    if (user.role !== "admin" && user.role !== "content_creator") {
+      throw new Error("Only a host can start the live session.");
+    }
+    const session = await ctx.db.get(workshopSessionId);
+    if (!session || session.status !== "scheduled") {
+      throw new Error("Session is not available.");
+    }
+    const ok = await userCanAccessWorkshopSession(ctx, session.workshopUnitId);
+    if (!ok) {
+      throw new Error("Forbidden");
+    }
+    if (session.endsAt < Date.now()) {
+      throw new Error("This session has ended.");
+    }
+    if (session.liveRoomOpenedAt != null) {
+      return { ok: true as const, alreadyOpen: true as const };
+    }
+    await ctx.db.patch(workshopSessionId, { liveRoomOpenedAt: Date.now() });
+    return { ok: true as const, alreadyOpen: false as const };
+  },
+});
+
 export const registerForSession = mutation({
   args: { sessionId: v.id("workshopSessions") },
   handler: async (ctx, { sessionId }) => {
