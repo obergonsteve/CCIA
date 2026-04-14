@@ -319,6 +319,7 @@ function LiveWorkshopRoomPanel({
         <WorkshopLivePanel
           workshopUnitId={unitId}
           workshopSessionId={workshopSessionId}
+          panelExpanded={open}
         />
       </div>
     </section>

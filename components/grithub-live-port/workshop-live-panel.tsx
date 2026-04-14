@@ -13,6 +13,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
   LiveKitRoom,
   StartMediaButton,
+  useLocalParticipant,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import "./workshop-livekit-overrides.css";
@@ -28,13 +29,57 @@ type LiveKitCreds = { token: string; serverUrl: string };
 
 const liveKitRoomFrameStyle: CSSProperties = { height: "100%" };
 
+/**
+ * When the parent workshop accordion is collapsed, turn off mic and camera so
+ * the user is not still hot-miked / on-camera with the panel hidden. Restores
+ * prior mic/camera toggles when expanded again (only after a prior expand→collapse).
+ */
+function WorkshopPanelMediaPolicy({
+  panelExpanded,
+}: {
+  panelExpanded: boolean;
+}) {
+  const { localParticipant } = useLocalParticipant();
+  const prevExpandedRef = useRef<boolean | undefined>(undefined);
+  const savedMicRef = useRef<boolean | null>(null);
+  const savedCamRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    if (!localParticipant) return;
+    const prev = prevExpandedRef.current;
+
+    if (!panelExpanded) {
+      if (prev === true) {
+        savedMicRef.current = localParticipant.isMicrophoneEnabled;
+        savedCamRef.current = localParticipant.isCameraEnabled;
+      }
+      void localParticipant.setMicrophoneEnabled(false);
+      void localParticipant.setCameraEnabled(false);
+    } else if (prev === false) {
+      const m = savedMicRef.current;
+      const c = savedCamRef.current;
+      savedMicRef.current = null;
+      savedCamRef.current = null;
+      void localParticipant.setMicrophoneEnabled(m ?? false);
+      void localParticipant.setCameraEnabled(c ?? false);
+    }
+
+    prevExpandedRef.current = panelExpanded;
+  }, [panelExpanded, localParticipant]);
+
+  return null;
+}
+
 export function WorkshopLivePanel({
   workshopUnitId,
   workshopSessionId,
+  panelExpanded = true,
 }: {
   workshopUnitId: Id<"units">;
   /** When set, load this registered session (e.g. `?session=` from Workshops → closed run). */
   workshopSessionId?: Id<"workshopSessions">;
+  /** False when the unit page workshop section is collapsed — local mic/camera are muted/disabled. */
+  panelExpanded?: boolean;
 }) {
   const sessionRow = useQuery(api.workshops.myRegisteredSessionForLiveWorkshopUnit, {
     workshopUnitId,
@@ -341,6 +386,7 @@ export function WorkshopLivePanel({
               className="flex flex-col flex-1 min-h-0 min-w-0"
               style={liveKitRoomFrameStyle}
             >
+              <WorkshopPanelMediaPolicy panelExpanded={panelExpanded} />
               <WorkshopRoomParticipants />
               <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
                 <WorkshopVideoConference />
