@@ -24,7 +24,6 @@ import {
   Pencil,
   Redo2,
   RotateCcw,
-  Shapes,
   Trash2,
   Type,
   Undo2,
@@ -59,7 +58,8 @@ const WHITEBOARD_STAGE_MAX_W =
 const MIN_WHITEBOARD_SAVE_CHIP_MS = 320;
 
 /**
- * Segmented toolbar chrome: clip fills, clean dividers, amber ring when `active`.
+ * Segmented toolbar chrome: clip fills, clean dividers. `active` raises stacking
+ * for portaled dropdowns without a coloured ring.
  * `clipOverflow={false}` for controls that anchor a portaled dropdown (otherwise
  * `overflow-hidden` clips menus; `overflow-x-auto` on the toolbar row also forces
  * vertical clipping per CSS overflow rules).
@@ -70,17 +70,17 @@ function toolbarPillClass(
   clipOverflow = true,
 ) {
   return cn(
-    "flex h-8 shrink-0 items-stretch rounded-md border shadow-sm",
+    "flex h-8 shrink-0 items-stretch rounded-md border shadow-sm ring-0",
     clipOverflow ? "overflow-hidden" : "overflow-visible",
     blackboard
       ? "border-neutral-600 bg-neutral-900"
       : "border-neutral-300/90 bg-white",
-    active && "z-[1] ring-2 ring-amber-500 ring-offset-0",
+    active && "z-[1]",
   );
 }
 
 const toolbarSegBtn =
-  "relative inline-flex h-full min-h-0 shrink-0 items-center justify-center border-0 px-0 text-sm font-medium outline-none transition-colors focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-amber-500/80 focus-visible:ring-offset-1";
+  "relative inline-flex h-full min-h-0 shrink-0 items-center justify-center border-0 px-0 text-sm font-medium outline-none transition-colors focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1";
 
 function toolbarDivideClass(blackboard: boolean) {
   return cn(
@@ -323,6 +323,8 @@ function redraw(
   logicalH: number,
   overlay?: {
     pendingLines?: LineMsg[];
+    /** Single stroke (shape / text / emoji) saved to Convex but not yet in `strokes` — avoids flicker. */
+    pendingElement?: WbElement | null;
     preview?: WbElement | null;
   },
 ) {
@@ -337,6 +339,13 @@ function redraw(
     else if (el.t === "TXT") drawText(ctx, el, logicalW, logicalH);
     else if (el.t === "E") drawEmoji(ctx, el, logicalW, logicalH);
     else if (el.t === "S") drawShapeMsg(ctx, el, logicalW, logicalH);
+  }
+  const pendingEl = overlay?.pendingElement;
+  if (pendingEl) {
+    if (pendingEl.t === "L") drawLineSegment(ctx, pendingEl, logicalW, logicalH, bg);
+    else if (pendingEl.t === "TXT") drawText(ctx, pendingEl, logicalW, logicalH);
+    else if (pendingEl.t === "E") drawEmoji(ctx, pendingEl, logicalW, logicalH);
+    else if (pendingEl.t === "S") drawShapeMsg(ctx, pendingEl, logicalW, logicalH);
   }
   const pending = overlay?.pendingLines;
   if (pending) {
@@ -449,6 +458,8 @@ export function WorkshopWhiteboard({
   const flushOverlayRef = useRef<LineMsg[]>([]);
   /** Row-count target: clear overlay when `strokes.length >= base + n`. */
   const flushAwaitRef = useRef<{ base: number; n: number } | null>(null);
+  /** Shape / text / emoji committed locally while `addWorkshopWhiteboardStroke` round-trips (avoids flicker). */
+  const pendingElementOverlayRef = useRef<WbElement | null>(null);
   const paintRafRef = useRef<number | null>(null);
   const paintRef = useRef<() => void>(() => {});
   /** False until after mount; avoids rAF/toast updates before the client tree is committed. */
@@ -517,13 +528,28 @@ export function WorkshopWhiteboard({
   const [penColorOverride, setPenColorOverride] = useState<string | null>(null);
   const penColor = penColorOverride ?? defaultPenColor;
 
+  const strokeWidthNorm = STROKE_WIDTH_BY_THICKNESS[lineThickness];
+
+  const schedulePaint = useCallback(() => {
+    if (paintRafRef.current != null) return;
+    paintRafRef.current = requestAnimationFrame(() => {
+      paintRafRef.current = null;
+      if (!mountedRef.current) return;
+      paintRef.current();
+    });
+  }, []);
+
   const persistStroke = useCallback(
     async (strokeData: WbElement) => {
+      pendingElementOverlayRef.current = strokeData;
+      schedulePaint();
       setConvexSaveDepth((d) => d + 1);
       const t0 = Date.now();
       try {
         await addStrokeMut({ workshopSessionId, strokeData });
       } catch (e) {
+        pendingElementOverlayRef.current = null;
+        schedulePaint();
         toast.error(
           e instanceof Error ? e.message : "Could not save to the whiteboard.",
         );
@@ -537,19 +563,8 @@ export function WorkshopWhiteboard({
         setConvexSaveDepth((d) => Math.max(0, d - 1));
       }
     },
-    [addStrokeMut, workshopSessionId],
+    [addStrokeMut, workshopSessionId, schedulePaint],
   );
-
-  const strokeWidthNorm = STROKE_WIDTH_BY_THICKNESS[lineThickness];
-
-  const schedulePaint = useCallback(() => {
-    if (paintRafRef.current != null) return;
-    paintRafRef.current = requestAnimationFrame(() => {
-      paintRafRef.current = null;
-      if (!mountedRef.current) return;
-      paintRef.current();
-    });
-  }, []);
 
   const flushLineBuffer = useCallback(async () => {
     const buf = lineBufferRef.current;
@@ -593,6 +608,7 @@ export function WorkshopWhiteboard({
       }
       flushOverlayRef.current = [];
       flushAwaitRef.current = null;
+      pendingElementOverlayRef.current = null;
       mountedRef.current = false;
     };
   }, []);
@@ -613,6 +629,17 @@ export function WorkshopWhiteboard({
       ) {
         flushOverlayRef.current = [];
         flushAwaitRef.current = null;
+      }
+      const peOverlay = pendingElementOverlayRef.current;
+      if (peOverlay != null && strokes !== undefined) {
+        const needle = JSON.stringify(peOverlay);
+        for (let i = strokes.length - 1; i >= 0; i--) {
+          const row = strokes[i]!.strokeData;
+          if (isWbElement(row) && JSON.stringify(row) === needle) {
+            pendingElementOverlayRef.current = null;
+            break;
+          }
+        }
       }
       const foNow = flushOverlayRef.current;
       const live = lineBufferRef.current;
@@ -653,6 +680,7 @@ export function WorkshopWhiteboard({
       }
       redraw(canvas, elements, bg, w, h, {
         pendingLines: pendingForDraw,
+        pendingElement: pendingElementOverlayRef.current,
         preview,
       });
     };
@@ -1356,7 +1384,16 @@ export function WorkshopWhiteboard({
           <div className="flex h-full min-h-0 flex-1">
             <button
               type="button"
-              title="Shapes and lines"
+              title={
+                drawingTool === "freehand"
+                  ? "Shapes and lines — Freehand pen"
+                  : `Shapes and lines — ${WORKSHOP_SHAPES.find((s) => s.id === drawingTool)?.label ?? drawingTool}`
+              }
+              aria-label={
+                drawingTool === "freehand"
+                  ? "Drawing tool: freehand pen. Open shapes menu."
+                  : `Drawing tool: ${WORKSHOP_SHAPES.find((s) => s.id === drawingTool)?.label ?? drawingTool}. Open shapes menu.`
+              }
               aria-expanded={shapePickerOpen}
               onClick={() => {
                 setColorPickerOpen(false);
@@ -1364,7 +1401,7 @@ export function WorkshopWhiteboard({
               }}
               className={cn(
                 toolbarSegBtn,
-                "gap-0.5 px-2 text-xs",
+                "min-w-[4.25rem] gap-1 px-3.5 text-xs rounded-md",
                 shapePickerOpen ||
                   (mode === "draw" &&
                     inkKind === "draw" &&
@@ -1383,8 +1420,11 @@ export function WorkshopWhiteboard({
                   : { color: toolbarColor }
               }
             >
-              <Shapes className="h-4 w-4 shrink-0" />
-              <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-80" />
+              <WorkshopShapeMenuIcon
+                kind={drawingTool}
+                className="h-[22px] w-[22px] shrink-0"
+              />
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-80" />
             </button>
           </div>
         </div>
@@ -1399,7 +1439,7 @@ export function WorkshopWhiteboard({
             )}
           >
             <span
-              className={`max-w-[140px] truncate px-1 text-[10px] font-medium leading-tight sm:max-w-none sm:text-xs ${false ? "text-neutral-300" : "text-amber-900/90"}`}
+              className={`max-w-[140px] truncate px-1 text-[10px] font-medium leading-tight sm:max-w-none sm:text-xs ${false ? "text-neutral-300" : "text-neutral-700 dark:text-neutral-200"}`}
             >
               Click to add points (Esc clears)
             </span>
@@ -1417,7 +1457,7 @@ export function WorkshopWhiteboard({
               title="Remove last point"
               disabled={polyDraftPts.length === 0}
               onClick={() => setPolyDraftPts((p) => p.slice(0, -1))}
-              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${false ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${false ? "text-neutral-200 hover:bg-neutral-700" : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"}`}
             >
               Undo pt
             </button>
@@ -1426,7 +1466,7 @@ export function WorkshopWhiteboard({
               title="Clear all points"
               disabled={polyDraftPts.length === 0}
               onClick={() => setPolyDraftPts([])}
-              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${false ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${false ? "text-neutral-200 hover:bg-neutral-700" : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"}`}
             >
               Clear
             </button>
@@ -1696,9 +1736,9 @@ export function WorkshopWhiteboard({
                     setColorPickerOpen(false);
                   }}
                   className={cn(
-                    "h-7 w-7 shrink-0 rounded-full border-2 border-white/90 shadow-sm ring-1 ring-black/20 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-neutral-800 dark:ring-white/10",
+                    "h-7 w-7 shrink-0 rounded-full border-2 border-white/90 shadow-sm ring-1 ring-black/20 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-neutral-800 dark:ring-white/10",
                     c === penColor &&
-                      "ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900",
+                      "ring-2 ring-ring ring-offset-2 ring-offset-white dark:ring-offset-neutral-900",
                   )}
                   style={{ backgroundColor: c }}
                 />
@@ -1713,7 +1753,7 @@ export function WorkshopWhiteboard({
         ? createPortal(
             <div
               ref={shapeMenuPortalRef}
-              className="fixed z-[10000] max-h-[min(24rem,70vh)] w-[min(100vw-1rem,17rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-neutral-900"
+              className="fixed z-[10000] w-[min(100vw-1rem,13rem)] overflow-visible rounded-lg border border-slate-200 bg-white py-0 shadow-lg dark:border-slate-700 dark:bg-neutral-900"
               style={{
                 top: shapeMenuFixed.top,
                 left: shapeMenuFixed.left,
@@ -1721,7 +1761,7 @@ export function WorkshopWhiteboard({
             >
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-neutral-800 hover:bg-slate-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                className="flex w-full items-center gap-1 px-1.5 py-0 text-left text-xs leading-none text-neutral-800 hover:bg-slate-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
                 onClick={() => {
                   setDrawingTool("freehand");
                   setMode("draw");
@@ -1729,17 +1769,17 @@ export function WorkshopWhiteboard({
                   setShapePickerOpen(false);
                 }}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center text-neutral-700 dark:text-neutral-200">
-                  <WorkshopShapeMenuIcon kind="freehand" className="h-8 w-8" />
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center text-neutral-700 dark:text-neutral-200">
+                  <WorkshopShapeMenuIcon kind="freehand" className="h-5 w-5" />
                 </span>
-                <span className="min-w-0 flex-1 leading-tight">Freehand pen</span>
+                <span className="min-w-0 flex-1">Freehand pen</span>
               </button>
               {WORKSHOP_SHAPES.map((s) => (
                 <button
                   key={s.id}
                   type="button"
                   className={cn(
-                    "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm text-neutral-800 hover:bg-slate-100 dark:text-neutral-100 dark:hover:bg-neutral-800",
+                    "flex w-full items-center gap-1 px-1.5 py-0 text-left text-xs leading-none text-neutral-800 hover:bg-slate-100 dark:text-neutral-100 dark:hover:bg-neutral-800",
                     drawingTool === s.id &&
                       "bg-slate-100 font-medium dark:bg-neutral-800",
                   )}
@@ -1750,10 +1790,10 @@ export function WorkshopWhiteboard({
                     setShapePickerOpen(false);
                   }}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center text-neutral-700 dark:text-neutral-200">
-                    <WorkshopShapeMenuIcon kind={s.id} className="h-8 w-8" />
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center text-neutral-700 dark:text-neutral-200">
+                    <WorkshopShapeMenuIcon kind={s.id} className="h-5 w-5" />
                   </span>
-                  <span className="min-w-0 flex-1 leading-tight">{s.label}</span>
+                  <span className="min-w-0 flex-1">{s.label}</span>
                 </button>
               ))}
             </div>,
