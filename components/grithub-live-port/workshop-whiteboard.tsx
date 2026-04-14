@@ -1,0 +1,1840 @@
+"use client";
+
+/**
+ * Workshop whiteboard — GritHub brainstorm pattern: strokes in Convex only
+ * (`useQuery` + mutations). Renders outside `LiveKitRoom`; AV stays in LiveKit.
+ */
+
+import { EmojiStrip } from "@/components/grithub-live-port/emoji-strip";
+import {
+  drawShapeMsg,
+  type ShapeMsg,
+} from "@/components/grithub-live-port/workshop-whiteboard-shape-draw";
+import {
+  type WorkshopShapeKind,
+  WORKSHOP_SHAPES,
+} from "@/components/grithub-live-port/workshop-whiteboard-shape-kinds";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import {
+  ChevronDown,
+  Download,
+  Eraser,
+  Hand,
+  Loader2,
+  Pencil,
+  Redo2,
+  RotateCcw,
+  Shapes,
+  Smile,
+  Trash2,
+  Type,
+  Undo2,
+  UserMinus,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import type { CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+/** Toolbar accent — matches GritHub brainstorm constants. */
+const TOOLBAR_COLOR = "#7c3aed";
+const TOOLBAR_COLOR_BLACKBOARD = "#e879f9";
+
+/** Same as the 16:9 stage; chip row aligns with the board. */
+const WHITEBOARD_STAGE_MAX_W =
+  "min(100%, 800px, calc(min(36vh, 380px) * 16 / 9))";
+
+/**
+ * Convex often completes in one frame; React can batch +1/-1 so the chip never
+ * paints. Hold the “Saving…” state at least this long (GritHub-style feedback).
+ */
+const MIN_WHITEBOARD_SAVE_CHIP_MS = 320;
+
+/** Segmented toolbar chrome: clip fills, clean dividers, amber ring when `active`. */
+function toolbarPillClass(active: boolean, blackboard: boolean) {
+  return cn(
+    "flex h-8 shrink-0 items-stretch overflow-hidden rounded-md border shadow-sm",
+    blackboard
+      ? "border-neutral-600 bg-neutral-900"
+      : "border-neutral-300/90 bg-white",
+    active && "z-[1] ring-2 ring-amber-500 ring-offset-0",
+  );
+}
+
+const toolbarSegBtn =
+  "relative inline-flex h-full min-h-0 shrink-0 items-center justify-center border-0 px-0 text-sm font-medium outline-none transition-colors focus-visible:z-[2] focus-visible:ring-2 focus-visible:ring-amber-500/80 focus-visible:ring-offset-1";
+
+function toolbarDivideClass(blackboard: boolean) {
+  return cn(
+    "divide-x",
+    blackboard ? "divide-neutral-700" : "divide-neutral-200/95",
+  );
+}
+
+const PALETTE_WHITEBOARD = [
+  "#2563eb",
+  "#dc2626",
+  "#16a34a",
+  "#ca8a04",
+  "#9333ea",
+  "#0891b2",
+  "#ea580c",
+  "#4f46e5",
+  "#0d9488",
+  "#be123c",
+];
+const PALETTE_BLACKBOARD = [
+  "#00aaff",
+  "#ff4466",
+  "#39ff14",
+  "#ffdd00",
+  "#dd66ff",
+  "#00ffff",
+  "#ff8800",
+  "#8888ff",
+  "#00ffaa",
+  "#ff1493",
+];
+
+type LineThickness = "thin" | "med" | "thick";
+const STROKE_WIDTH_BY_THICKNESS: Record<LineThickness, number> = {
+  thin: 0.0015,
+  med: 0.0045,
+  thick: 0.008,
+};
+
+type TextSize = "small" | "med" | "large";
+
+type LineMsg = {
+  v: 1;
+  t: "L";
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  w: number;
+  /** Ink colour (ignored when `er` is true — each client uses their own canvas bg). */
+  c: string;
+  /** Eraser segment: render with viewer’s background so light/dark theme stays consistent. */
+  er?: true;
+};
+
+type ClearMsg = { v: 1; t: "C" };
+
+type TextMsg = {
+  v: 1;
+  t: "TXT";
+  x: number;
+  y: number;
+  text: string;
+  fz: number;
+  c: string;
+};
+
+type EmojiMsg = {
+  v: 1;
+  t: "E";
+  x: number;
+  y: number;
+  e: string;
+  c: string;
+};
+
+type WbPayload = LineMsg | ClearMsg | TextMsg | EmojiMsg | ShapeMsg;
+type WbElement = LineMsg | TextMsg | EmojiMsg | ShapeMsg;
+
+function isWbPayload(x: unknown): x is WbPayload {
+  if (!x || typeof x !== "object") return false;
+  const o = x as { v?: unknown; t?: unknown };
+  if (o.v !== 1 || typeof o.t !== "string") return false;
+  if (o.t === "C") return true;
+  if (o.t === "L") {
+    const L = x as LineMsg;
+    return (
+      [L.x0, L.y0, L.x1, L.y1, L.w].every(
+        (n) => typeof n === "number" && Number.isFinite(n),
+      ) &&
+      typeof L.c === "string" &&
+      L.c.length < 40 &&
+      (L.er === true || L.c.length > 0)
+    );
+  }
+  if (o.t === "TXT") {
+    const T = x as TextMsg;
+    return (
+      typeof T.x === "number" &&
+      typeof T.y === "number" &&
+      typeof T.text === "string" &&
+      T.text.length > 0 &&
+      T.text.length < 2000 &&
+      typeof T.fz === "number" &&
+      typeof T.c === "string"
+    );
+  }
+  if (o.t === "E") {
+    const E = x as EmojiMsg;
+    return (
+      typeof E.x === "number" &&
+      typeof E.y === "number" &&
+      typeof E.e === "string" &&
+      E.e.length > 0 &&
+      E.e.length < 16 &&
+      typeof E.c === "string"
+    );
+  }
+  if (o.t === "S") {
+    const S = x as ShapeMsg;
+    if (!WORKSHOP_SHAPES.some((k) => k.id === S.shape)) return false;
+    if (
+      ![S.x, S.y, S.w].every((n) => typeof n === "number" && Number.isFinite(n)) ||
+      S.x < 0 ||
+      S.x > 1 ||
+      S.y < 0 ||
+      S.y > 1 ||
+      S.w <= 0 ||
+      S.w > 0.05 ||
+      typeof S.c !== "string" ||
+      S.c.length === 0 ||
+      S.c.length >= 40
+    ) {
+      return false;
+    }
+    if (S.shape === "line") {
+      return (
+        typeof S.x2 === "number" &&
+        typeof S.y2 === "number" &&
+        Number.isFinite(S.x2) &&
+        Number.isFinite(S.y2) &&
+        S.x2 >= 0 &&
+        S.x2 <= 1 &&
+        S.y2 >= 0 &&
+        S.y2 <= 1
+      );
+    }
+    if (S.shape === "polyline" || S.shape === "polygon") {
+      if (!Array.isArray(S.pts) || S.pts.length < 2 || S.pts.length > 80) {
+        return false;
+      }
+      return S.pts.every(
+        (p) =>
+          p &&
+          typeof p.x === "number" &&
+          typeof p.y === "number" &&
+          p.x >= 0 &&
+          p.x <= 1 &&
+          p.y >= 0 &&
+          p.y <= 1,
+      );
+    }
+    if (S.sc !== undefined) {
+      if (
+        typeof S.sc !== "number" ||
+        !Number.isFinite(S.sc) ||
+        S.sc <= 0 ||
+        S.sc > 24
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+function isWbElement(x: unknown): x is WbElement {
+  return isWbPayload(x) && (x as { t: string }).t !== "C";
+}
+
+function canvasBackground(theme: "whiteboard" | "blackboard"): string {
+  return theme === "blackboard" ? "#171717" : "#f8fafc";
+}
+
+function drawLineSegment(
+  ctx: CanvasRenderingContext2D,
+  line: LineMsg,
+  w: number,
+  h: number,
+  canvasBg: string,
+) {
+  const lw = Math.max(1, line.w * h);
+  ctx.strokeStyle = line.er ? canvasBg : line.c;
+  ctx.lineWidth = lw;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(line.x0 * w, line.y0 * h);
+  ctx.lineTo(line.x1 * w, line.y1 * h);
+  ctx.stroke();
+}
+
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  t: TextMsg,
+  w: number,
+  h: number,
+) {
+  const px = Math.max(10, Math.min(48, (t.fz / 480) * h));
+  ctx.font = `${px}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.fillStyle = t.c;
+  const lines = t.text.split(/\r?\n/);
+  let y = t.y * h + px * 0.85;
+  const lh = px * 1.2;
+  for (const line of lines) {
+    ctx.fillText(line, t.x * w, y);
+    y += lh;
+  }
+}
+
+function drawEmoji(
+  ctx: CanvasRenderingContext2D,
+  e: EmojiMsg,
+  w: number,
+  h: number,
+) {
+  const px = Math.max(18, Math.min(56, h * 0.08));
+  ctx.font = `${px}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = e.c;
+  ctx.fillText(e.e, e.x * w, e.y * h);
+  ctx.textAlign = "start";
+  ctx.textBaseline = "alphabetic";
+}
+
+function redraw(
+  canvas: HTMLCanvasElement,
+  elements: WbElement[],
+  bg: string,
+  logicalW: number,
+  logicalH: number,
+  overlay?: {
+    pendingLines?: LineMsg[];
+    preview?: WbElement | null;
+  },
+) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, logicalW, logicalH);
+  for (const el of elements) {
+    if (el.t === "L") drawLineSegment(ctx, el, logicalW, logicalH, bg);
+    else if (el.t === "TXT") drawText(ctx, el, logicalW, logicalH);
+    else if (el.t === "E") drawEmoji(ctx, el, logicalW, logicalH);
+    else if (el.t === "S") drawShapeMsg(ctx, el, logicalW, logicalH);
+  }
+  const pending = overlay?.pendingLines;
+  if (pending) {
+    for (const line of pending) {
+      drawLineSegment(ctx, line, logicalW, logicalH, bg);
+    }
+  }
+  const preview = overlay?.preview;
+  if (preview) {
+    if (preview.t === "L") drawLineSegment(ctx, preview, logicalW, logicalH, bg);
+    else if (preview.t === "TXT") drawText(ctx, preview, logicalW, logicalH);
+    else if (preview.t === "E") drawEmoji(ctx, preview, logicalW, logicalH);
+    else if (preview.t === "S") drawShapeMsg(ctx, preview, logicalW, logicalH);
+  }
+}
+
+function shapeMsgFromDrag(
+  shape: WorkshopShapeKind,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  cw: number,
+  ch: number,
+  w: number,
+  c: string,
+): ShapeMsg | null {
+  const dx = (x1 - x0) * cw;
+  const dy = (y1 - y0) * ch;
+  const dist = Math.hypot(dx, dy);
+  const base = 0.08 * Math.min(cw, ch);
+  if (shape === "line") {
+    if (dist < 1.5) return null;
+    return { v: 1, t: "S", shape: "line", x: x0, y: y0, x2: x1, y2: y1, w, c };
+  }
+  if (shape === "polyline" || shape === "polygon") return null;
+  const sc = Math.max(0.2, Math.min(18, dist / (2 * base)));
+  return { v: 1, t: "S", shape, x: x0, y: y0, w, c, sc };
+}
+
+function previewShapeDragMsg(
+  shape: WorkshopShapeKind,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  cw: number,
+  ch: number,
+  w: number,
+  c: string,
+): ShapeMsg {
+  const msg = shapeMsgFromDrag(shape, x0, y0, x1, y1, cw, ch, w, c);
+  if (msg) return msg;
+  if (shape === "line") {
+    return { v: 1, t: "S", shape: "line", x: x0, y: y0, x2: x1, y2: y1, w, c };
+  }
+  return { v: 1, t: "S", shape, x: x0, y: y0, w, c, sc: 0.25 };
+}
+
+function hashIdentity(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+export type WorkshopWhiteboardProps = {
+  workshopSessionId: Id<"workshopSessions">;
+  /** GritHub-style: only host can clear the board for everyone. */
+  canClearForEveryone?: boolean;
+};
+
+export function WorkshopWhiteboard({
+  workshopSessionId,
+  canClearForEveryone = false,
+}: WorkshopWhiteboardProps) {
+  const strokes = useQuery(api.workshopWhiteboard.listWorkshopWhiteboardStrokes, {
+    workshopSessionId,
+  });
+  const addStrokeMut = useMutation(
+    api.workshopWhiteboard.addWorkshopWhiteboardStroke,
+  );
+  const addStrokesBatchMut = useMutation(
+    api.workshopWhiteboard.addWorkshopWhiteboardStrokesBatch,
+  );
+  const clearStrokesMut = useMutation(
+    api.workshopWhiteboard.clearWorkshopWhiteboardStrokes,
+  );
+  const undoStrokeMut = useMutation(
+    api.workshopWhiteboard.undoMyLastWorkshopWhiteboardStroke,
+  );
+  const clearMyStrokesMut = useMutation(
+    api.workshopWhiteboard.clearMyWorkshopWhiteboardStrokes,
+  );
+  const me = useQuery(api.users.me, {});
+
+  const elements = useMemo(() => {
+    if (!strokes) return [];
+    const out: WbElement[] = [];
+    for (const row of strokes) {
+      if (isWbElement(row.strokeData)) out.push(row.strokeData);
+    }
+    return out;
+  }, [strokes]);
+
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawingRef = useRef(false);
+  const lastNormRef = useRef<{ x: number; y: number } | null>(null);
+  const logicalSizeRef = useRef({ w: 320, h: 180 });
+  /** Line segments for the current pointer stroke; flushed in one Convex batch on pointer-up. */
+  const lineBufferRef = useRef<LineMsg[]>([]);
+  /** Last flushed segments kept on-canvas until `strokes` includes those rows (avoids save flicker). */
+  const flushOverlayRef = useRef<LineMsg[]>([]);
+  /** Row-count target: clear overlay when `strokes.length >= base + n`. */
+  const flushAwaitRef = useRef<{ base: number; n: number } | null>(null);
+  const paintRafRef = useRef<number | null>(null);
+  const paintRef = useRef<() => void>(() => {});
+  /** False until after mount; avoids rAF/toast updates before the client tree is committed. */
+  const mountedRef = useRef(false);
+
+  const [localViewTheme, setLocalViewTheme] = useState<
+    "whiteboard" | "blackboard"
+  >("whiteboard");
+  const displayTheme = localViewTheme;
+  const toolbarColor =
+    displayTheme === "blackboard" ? TOOLBAR_COLOR_BLACKBOARD : TOOLBAR_COLOR;
+
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panStartRef = useRef<{
+    clientX: number;
+    clientY: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
+  const [mode, setMode] = useState<"draw" | "write" | "pan">("draw");
+  const [inkKind, setInkKind] = useState<"draw" | "erase">("draw");
+  const [lineThickness, setLineThickness] = useState<LineThickness>("med");
+  const [textSize, setTextSize] = useState<TextSize>("med");
+  const [drawingTool, setDrawingTool] = useState<
+    "freehand" | WorkshopShapeKind
+  >("freehand");
+  const [shapePickerOpen, setShapePickerOpen] = useState(false);
+  const shapePickerRef = useRef<HTMLDivElement>(null);
+  const [polyDraftPts, setPolyDraftPts] = useState<{ x: number; y: number }[]>(
+    [],
+  );
+  const activeShapeDragRef = useRef<{
+    shape: WorkshopShapeKind;
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  } | null>(null);
+
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [emojiStripExpanded, setEmojiStripExpanded] = useState(false);
+  const [pendingEmoji, setPendingEmoji] = useState<string | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  const [textInputAt, setTextInputAt] = useState<{
+    normX: number;
+    normY: number;
+  } | null>(null);
+  const [textDraft, setTextDraft] = useState("");
+
+  const [exportBusy, setExportBusy] = useState(false);
+  /** Convex ink mutations in flight (batch + single strokes). */
+  const [convexSaveDepth, setConvexSaveDepth] = useState(0);
+
+  const myColor = useMemo(() => {
+    const id = me?._id != null ? String(me._id) : "anon";
+    const palette =
+      displayTheme === "blackboard" ? PALETTE_BLACKBOARD : PALETTE_WHITEBOARD;
+    return palette[hashIdentity(id) % palette.length]!;
+  }, [me?._id, displayTheme]);
+
+  const persistStroke = useCallback(
+    async (strokeData: WbElement) => {
+      setConvexSaveDepth((d) => d + 1);
+      const t0 = Date.now();
+      try {
+        await addStrokeMut({ workshopSessionId, strokeData });
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "Could not save to the whiteboard.",
+        );
+      } finally {
+        const elapsed = Date.now() - t0;
+        if (elapsed < MIN_WHITEBOARD_SAVE_CHIP_MS) {
+          await new Promise<void>((r) =>
+            setTimeout(r, MIN_WHITEBOARD_SAVE_CHIP_MS - elapsed),
+          );
+        }
+        setConvexSaveDepth((d) => Math.max(0, d - 1));
+      }
+    },
+    [addStrokeMut, workshopSessionId],
+  );
+
+  const strokeWidthNorm = STROKE_WIDTH_BY_THICKNESS[lineThickness];
+
+  const schedulePaint = useCallback(() => {
+    if (paintRafRef.current != null) return;
+    paintRafRef.current = requestAnimationFrame(() => {
+      paintRafRef.current = null;
+      if (!mountedRef.current) return;
+      paintRef.current();
+    });
+  }, []);
+
+  const flushLineBuffer = useCallback(async () => {
+    const buf = lineBufferRef.current;
+    if (buf.length === 0) return;
+    const baseAtFlush = strokes?.length ?? 0;
+    lineBufferRef.current = [];
+    flushOverlayRef.current = buf;
+    flushAwaitRef.current = { base: baseAtFlush, n: buf.length };
+    paintRef.current();
+    setConvexSaveDepth((d) => d + 1);
+    const t0 = Date.now();
+    try {
+      await addStrokesBatchMut({ workshopSessionId, strokes: buf });
+    } catch (e) {
+      flushOverlayRef.current = [];
+      flushAwaitRef.current = null;
+      lineBufferRef.current = [...buf, ...lineBufferRef.current];
+      if (mountedRef.current) {
+        paintRef.current();
+        toast.error(
+          e instanceof Error ? e.message : "Could not save brush strokes.",
+        );
+      }
+    } finally {
+      const elapsed = Date.now() - t0;
+      if (elapsed < MIN_WHITEBOARD_SAVE_CHIP_MS) {
+        await new Promise<void>((r) =>
+          setTimeout(r, MIN_WHITEBOARD_SAVE_CHIP_MS - elapsed),
+        );
+      }
+      setConvexSaveDepth((d) => Math.max(0, d - 1));
+    }
+  }, [addStrokesBatchMut, workshopSessionId, strokes]);
+
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      if (paintRafRef.current != null) {
+        cancelAnimationFrame(paintRafRef.current);
+        paintRafRef.current = null;
+      }
+      flushOverlayRef.current = [];
+      flushAwaitRef.current = null;
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    paintRef.current = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const { w, h } = logicalSizeRef.current;
+      const bg = canvasBackground(localViewTheme);
+      const sync = flushAwaitRef.current;
+      const fo = flushOverlayRef.current;
+      if (
+        sync &&
+        fo.length > 0 &&
+        strokes !== undefined &&
+        strokes.length >= sync.base + sync.n
+      ) {
+        flushOverlayRef.current = [];
+        flushAwaitRef.current = null;
+      }
+      const foNow = flushOverlayRef.current;
+      const live = lineBufferRef.current;
+      const pendingForDraw =
+        foNow.length === 0
+          ? live
+          : live.length === 0
+            ? foNow
+            : [...live, ...foNow];
+      let preview: WbElement | null = null;
+      const drag = activeShapeDragRef.current;
+      if (drag) {
+        preview = previewShapeDragMsg(
+          drag.shape,
+          drag.x0,
+          drag.y0,
+          drag.x1,
+          drag.y1,
+          w,
+          h,
+          strokeWidthNorm,
+          myColor,
+        );
+      } else if (
+        (drawingTool === "polyline" || drawingTool === "polygon") &&
+        polyDraftPts.length >= 2
+      ) {
+        preview = {
+          v: 1,
+          t: "S",
+          shape: drawingTool,
+          x: polyDraftPts[0]!.x,
+          y: polyDraftPts[0]!.y,
+          w: strokeWidthNorm,
+          c: myColor,
+          pts: polyDraftPts,
+        };
+      }
+      redraw(canvas, elements, bg, w, h, {
+        pendingLines: pendingForDraw,
+        preview,
+      });
+    };
+    paintRef.current();
+  }, [
+    elements,
+    strokes,
+    localViewTheme,
+    drawingTool,
+    polyDraftPts,
+    strokeWidthNorm,
+    myColor,
+  ]);
+
+  const syncCanvasSize = useCallback(() => {
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!viewport || !canvas) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const rect = viewport.getBoundingClientRect();
+    const cssW = Math.max(120, Math.floor(rect.width));
+    const cssH = Math.max(120, Math.floor(rect.height));
+    logicalSizeRef.current = { w: cssW, h: cssH };
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    paintRef.current();
+  }, []);
+
+  useLayoutEffect(() => {
+    syncCanvasSize();
+    const ro = new ResizeObserver(() => syncCanvasSize());
+    if (viewportRef.current) ro.observe(viewportRef.current);
+    return () => ro.disconnect();
+  }, [syncCanvasSize]);
+
+  useEffect(() => {
+    if (!emojiPickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = emojiPickerRef.current;
+      if (el && !el.contains(e.target as Node)) setEmojiPickerOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [emojiPickerOpen]);
+
+  useEffect(() => {
+    if (!shapePickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = shapePickerRef.current;
+      if (el && !el.contains(e.target as Node)) setShapePickerOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [shapePickerOpen]);
+
+  useEffect(() => {
+    if (inkKind === "erase") setDrawingTool("freehand");
+  }, [inkKind]);
+
+  useEffect(() => {
+    if (drawingTool !== "polyline" && drawingTool !== "polygon") {
+      setPolyDraftPts([]);
+    }
+  }, [drawingTool]);
+
+  useLayoutEffect(() => {
+    if (mode !== "draw") {
+      activeShapeDragRef.current = null;
+      paintRef.current();
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (zoom <= 1 && mode === "pan") setMode("draw");
+  }, [zoom, mode]);
+
+  useEffect(() => {
+    if (pendingEmoji && mode === "pan") setMode("draw");
+  }, [pendingEmoji, mode]);
+
+  useEffect(() => {
+    if (!isPanning) return;
+    const onMove = (e: PointerEvent) => {
+      const start = panStartRef.current;
+      if (!start) return;
+      setPan({
+        x: start.panX + e.clientX - start.clientX,
+        y: start.panY + e.clientY - start.clientY,
+      });
+    };
+    const onUp = () => {
+      panStartRef.current = null;
+      setIsPanning(false);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [isPanning]);
+
+  const normFromClient = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const r = canvas.getBoundingClientRect();
+    const x = (clientX - r.left) / r.width;
+    const y = (clientY - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return null;
+    return { x, y };
+  }, []);
+
+  const appendLineSegment = useCallback(
+    (x0: number, y0: number, x1: number, y1: number) => {
+      const line: LineMsg = {
+        v: 1,
+        t: "L",
+        x0,
+        y0,
+        x1,
+        y1,
+        w: strokeWidthNorm,
+        c: myColor,
+        ...(inkKind === "erase" ? ({ er: true as const } as const) : {}),
+      };
+      lineBufferRef.current.push(line);
+      schedulePaint();
+    },
+    [inkKind, myColor, strokeWidthNorm, schedulePaint],
+  );
+
+  const fontPxForTextSize = useCallback((size: TextSize, h: number) => {
+    const base = size === "small" ? 14 : size === "med" ? 20 : 28;
+    return Math.round((base / 480) * h);
+  }, []);
+
+  const commitTextAt = useCallback(
+    (normX: number, normY: number, text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const { h } = logicalSizeRef.current;
+      const fz = fontPxForTextSize(textSize, h);
+      const msg: TextMsg = {
+        v: 1,
+        t: "TXT",
+        x: normX,
+        y: normY,
+        text: trimmed,
+        fz,
+        c: myColor,
+      };
+      void persistStroke(msg);
+    },
+    [persistStroke, textSize, fontPxForTextSize, myColor],
+  );
+
+  const placeEmojiAt = useCallback(
+    (normX: number, normY: number, emoji: string) => {
+      const msg: EmojiMsg = {
+        v: 1,
+        t: "E",
+        x: normX,
+        y: normY,
+        e: emoji,
+        c: myColor,
+      };
+      void persistStroke(msg);
+    },
+    [persistStroke, myColor],
+  );
+
+  const finalizeShapeDrag = useCallback(() => {
+    const d = activeShapeDragRef.current;
+    if (!d) return;
+    activeShapeDragRef.current = null;
+    schedulePaint();
+    const { w, h } = logicalSizeRef.current;
+    const msg = shapeMsgFromDrag(
+      d.shape,
+      d.x0,
+      d.y0,
+      d.x1,
+      d.y1,
+      w,
+      h,
+      strokeWidthNorm,
+      myColor,
+    );
+    if (msg) void persistStroke(msg);
+  }, [persistStroke, strokeWidthNorm, myColor, schedulePaint]);
+
+  const cancelShapeDrag = useCallback(() => {
+    activeShapeDragRef.current = null;
+    schedulePaint();
+  }, [schedulePaint]);
+
+  const finishPolyDraft = useCallback(() => {
+    if (drawingTool !== "polyline" && drawingTool !== "polygon") return;
+    if (polyDraftPts.length < 2) return;
+    const msg: ShapeMsg = {
+      v: 1,
+      t: "S",
+      shape: drawingTool,
+      x: polyDraftPts[0]!.x,
+      y: polyDraftPts[0]!.y,
+      w: strokeWidthNorm,
+      c: myColor,
+      pts: [...polyDraftPts],
+    };
+    void persistStroke(msg);
+    setPolyDraftPts([]);
+  }, [drawingTool, polyDraftPts, persistStroke, strokeWidthNorm, myColor]);
+
+  const undoOne = useCallback(async () => {
+    try {
+      await undoStrokeMut({ workshopSessionId });
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not undo the last stroke.",
+      );
+    }
+  }, [undoStrokeMut, workshopSessionId]);
+
+  const clearMyInk = useCallback(async () => {
+    if (
+      !confirm(
+        "Remove all of your strokes from this whiteboard? Other participants keep theirs.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const r = await clearMyStrokesMut({ workshopSessionId });
+      toast.success(
+        r.deleted === 0
+          ? "You had no strokes to remove."
+          : `Removed ${r.deleted} of your stroke(s).`,
+      );
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not clear your strokes.",
+      );
+    }
+  }, [clearMyStrokesMut, workshopSessionId]);
+
+  useEffect(() => {
+    if (drawingTool !== "polyline" && drawingTool !== "polygon") return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setPolyDraftPts([]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawingTool]);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.button !== 0) return;
+      if (mode === "pan") {
+        e.preventDefault();
+        panStartRef.current = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          panX: pan.x,
+          panY: pan.y,
+        };
+        setIsPanning(true);
+        return;
+      }
+      const p = normFromClient(e.clientX, e.clientY);
+      if (!p) return;
+      if (pendingEmoji) {
+        e.preventDefault();
+        placeEmojiAt(p.x, p.y, pendingEmoji);
+        setPendingEmoji(null);
+        setEmojiPickerOpen(false);
+        return;
+      }
+      if (mode === "write") {
+        e.preventDefault();
+        setTextInputAt({ normX: p.x, normY: p.y });
+        setTextDraft("");
+        return;
+      }
+      if (
+        mode === "draw" &&
+        inkKind === "draw" &&
+        (drawingTool === "polyline" || drawingTool === "polygon")
+      ) {
+        e.preventDefault();
+        setPolyDraftPts((prev) => [...prev, p]);
+        return;
+      }
+      if (
+        mode === "draw" &&
+        inkKind === "draw" &&
+        drawingTool !== "freehand" &&
+        drawingTool !== "polyline" &&
+        drawingTool !== "polygon"
+      ) {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        activeShapeDragRef.current = {
+          shape: drawingTool,
+          x0: p.x,
+          y0: p.y,
+          x1: p.x,
+          y1: p.y,
+        };
+        schedulePaint();
+        return;
+      }
+      if (lineBufferRef.current.length > 0) {
+        void flushLineBuffer();
+      }
+      e.currentTarget.setPointerCapture(e.pointerId);
+      drawingRef.current = true;
+      lastNormRef.current = p;
+    },
+    [
+      mode,
+      normFromClient,
+      pendingEmoji,
+      placeEmojiAt,
+      pan.x,
+      pan.y,
+      inkKind,
+      drawingTool,
+      schedulePaint,
+      flushLineBuffer,
+    ],
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      const d = activeShapeDragRef.current;
+      if (d) {
+        const p = normFromClient(e.clientX, e.clientY);
+        if (!p) return;
+        d.x1 = p.x;
+        d.y1 = p.y;
+        schedulePaint();
+        return;
+      }
+      if (mode !== "draw") return;
+      if (!drawingRef.current || !lastNormRef.current) return;
+      const p = normFromClient(e.clientX, e.clientY);
+      if (!p) return;
+      const prev = lastNormRef.current;
+      const dx = p.x - prev.x;
+      const dy = p.y - prev.y;
+      if (dx * dx + dy * dy < 0.000004) return;
+      appendLineSegment(prev.x, prev.y, p.x, p.y);
+      lastNormRef.current = p;
+    },
+    [mode, normFromClient, appendLineSegment, schedulePaint],
+  );
+
+  const endStroke = useCallback(() => {
+    drawingRef.current = false;
+    lastNormRef.current = null;
+  }, []);
+
+  const onPointerUpCanvas = useCallback(() => {
+    finalizeShapeDrag();
+    void flushLineBuffer();
+    endStroke();
+  }, [finalizeShapeDrag, flushLineBuffer, endStroke]);
+
+  const clearAll = useCallback(async () => {
+    if (!canClearForEveryone) return;
+    try {
+      await clearStrokesMut({ workshopSessionId });
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not clear the whiteboard.",
+      );
+    }
+  }, [canClearForEveryone, clearStrokesMut, workshopSessionId]);
+
+  const zoomIn = useCallback(() => {
+    setZoom((z) => Math.min(3, z + 0.25));
+  }, []);
+  const zoomOut = useCallback(() => {
+    setZoom((z) => Math.max(1, z - 0.25));
+  }, []);
+  const zoomReset = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    if (mode === "pan") setMode("draw");
+  }, [mode]);
+
+  const exportPng = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || exportBusy) return;
+    setExportBusy(true);
+    try {
+      const blob = await new Promise<Blob | null>((res) =>
+        canvas.toBlob((b) => res(b), "image/png"),
+      );
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `workshop-whiteboard-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportBusy(false);
+    }
+  }, [exportBusy]);
+
+  const transformStyle: CSSProperties = {
+    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+    transformOrigin: "center center",
+    width: "100%",
+    height: "100%",
+  };
+
+  return (
+    <div className="flex min-h-0 shrink-0 flex-col min-w-0">
+      {/* GritHub-style: horizontal scroll so the full toolbar stays reachable on narrow layouts */}
+      <div className="w-full min-w-0 shrink-0 overflow-x-auto overflow-y-visible">
+        <div className="relative z-20 flex min-h-[2.75rem] w-max min-w-full flex-wrap items-center justify-center gap-1 border-b border-amber-400 bg-gradient-to-b from-[#cfd5cc] via-[#f6f7f5] to-[#cfd5cc] px-2 py-1.5">
+        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-1",
+              toolbarDivideClass(displayTheme === "blackboard"),
+            )}
+          >
+            <button
+              type="button"
+              title="Your view: blackboard (dark, fluorescent pens)"
+              aria-label="Blackboard"
+              className={cn(
+                toolbarSegBtn,
+                "min-w-[2.25rem] px-2",
+                displayTheme === "blackboard"
+                  ? "bg-violet-600 text-white"
+                  : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              onClick={() => setLocalViewTheme("blackboard")}
+            >
+              <span
+                className="block h-4 w-4 shrink-0 rounded-sm bg-neutral-800 ring-1 ring-black/10"
+                aria-hidden
+              />
+            </button>
+            <button
+              type="button"
+              title="Your view: whiteboard (light)"
+              aria-label="Whiteboard"
+              className={cn(
+                toolbarSegBtn,
+                "min-w-[2.25rem] px-2",
+                displayTheme === "whiteboard"
+                  ? "bg-violet-600 text-white"
+                  : displayTheme === "blackboard"
+                    ? "text-neutral-200 hover:bg-neutral-800"
+                    : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              onClick={() => setLocalViewTheme("whiteboard")}
+            >
+              <span
+                className="block h-4 w-4 shrink-0 rounded-sm border border-neutral-300 bg-white"
+                aria-hidden
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-1",
+              toolbarDivideClass(displayTheme === "blackboard"),
+            )}
+          >
+            <button
+              type="button"
+              title="Zoom out (minimum 100%)"
+              aria-label="Zoom out"
+              disabled={zoom <= 1}
+              onClick={zoomOut}
+              className={cn(
+                toolbarSegBtn,
+                "w-8",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-40"
+                  : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-40",
+              )}
+              style={{ color: toolbarColor }}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              title={`Reset zoom to 100% and center (current: ${Math.round(zoom * 100)}%)`}
+              aria-label="Reset zoom"
+              onClick={zoomReset}
+              className={cn(
+                toolbarSegBtn,
+                "min-w-[2.75rem] gap-1 px-2 text-xs font-medium tabular-nums",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800"
+                  : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={{ color: toolbarColor }}
+            >
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              title="Zoom in (maximum 300%)"
+              aria-label="Zoom in"
+              disabled={zoom >= 3}
+              onClick={zoomIn}
+              className={cn(
+                toolbarSegBtn,
+                "w-8",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-40"
+                  : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-40",
+              )}
+              style={{ color: toolbarColor }}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={toolbarPillClass(
+            mode === "pan" && zoom > 1,
+            displayTheme === "blackboard",
+          )}
+          title={
+            zoom <= 1
+              ? "Pan available when zoomed in (above 100%)"
+              : mode === "pan"
+                ? "Pan mode on — drag canvas to move"
+                : "Pan mode off — click to turn on when zoomed in"
+          }
+        >
+          <button
+            type="button"
+            role="switch"
+            aria-checked={mode === "pan"}
+            aria-disabled={zoom <= 1}
+            disabled={zoom <= 1}
+            onClick={() => zoom > 1 && setMode((m) => (m === "pan" ? "draw" : "pan"))}
+            className={cn(
+              toolbarSegBtn,
+              "min-w-[2.25rem] px-2",
+              mode === "pan" && zoom > 1
+                ? "bg-violet-600 text-white"
+                : displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
+                  : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-50",
+            )}
+            style={
+              mode === "pan" && zoom > 1 ? undefined : { color: toolbarColor }
+            }
+            aria-label={zoom <= 1 ? "Pan (zoom in to enable)" : "Pan"}
+          >
+            <Hand className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div
+          className={toolbarPillClass(
+            mode === "draw",
+            displayTheme === "blackboard",
+          )}
+        >
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-1",
+              toolbarDivideClass(displayTheme === "blackboard"),
+            )}
+          >
+            <button
+              type="button"
+              title="Draw ink"
+              aria-pressed={
+                mode === "draw" &&
+                inkKind === "draw" &&
+                drawingTool === "freehand"
+              }
+              onClick={() => {
+                setMode("draw");
+                setInkKind("draw");
+                setDrawingTool("freehand");
+              }}
+              className={cn(
+                toolbarSegBtn,
+                "w-8",
+                mode === "draw" &&
+                  inkKind === "draw" &&
+                  drawingTool === "freehand"
+                  ? "bg-violet-600 text-white"
+                  : displayTheme === "blackboard"
+                    ? "text-neutral-200 hover:bg-neutral-800"
+                    : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={
+                mode === "draw" &&
+                inkKind === "draw" &&
+                drawingTool === "freehand"
+                  ? undefined
+                  : { color: toolbarColor }
+              }
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            {(["thin", "med", "thick"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                title={
+                  t === "thin"
+                    ? "Thin stroke"
+                    : t === "med"
+                      ? "Medium stroke"
+                      : "Thick stroke"
+                }
+                onClick={() => {
+                  setLineThickness(t);
+                  setMode("draw");
+                  setInkKind("draw");
+                  setDrawingTool("freehand");
+                }}
+                className={cn(
+                  toolbarSegBtn,
+                  "w-8",
+                  lineThickness === t &&
+                    mode === "draw" &&
+                    inkKind === "draw" &&
+                    drawingTool === "freehand"
+                    ? "bg-violet-600 text-white"
+                    : displayTheme === "blackboard"
+                      ? "text-neutral-200 hover:bg-neutral-800"
+                      : "text-neutral-700 hover:bg-neutral-100",
+                )}
+                style={
+                  lineThickness === t &&
+                  mode === "draw" &&
+                  inkKind === "draw" &&
+                  drawingTool === "freehand"
+                    ? undefined
+                    : { color: toolbarColor }
+                }
+              >
+                <span
+                  className="shrink-0 border-t border-current"
+                  style={{
+                    width: 20,
+                    borderWidth: t === "thin" ? 1.5 : t === "med" ? 2.5 : 4,
+                  }}
+                />
+              </button>
+            ))}
+            <button
+              type="button"
+              title="Eraser (local background colour)"
+              aria-pressed={mode === "draw" && inkKind === "erase"}
+              onClick={() => {
+                setMode("draw");
+                setInkKind("erase");
+              }}
+              className={cn(
+                toolbarSegBtn,
+                "w-8",
+                mode === "draw" && inkKind === "erase"
+                  ? "bg-violet-600 text-white"
+                  : displayTheme === "blackboard"
+                    ? "text-neutral-200 hover:bg-neutral-800"
+                    : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={
+                mode === "draw" && inkKind === "erase"
+                  ? undefined
+                  : { color: toolbarColor }
+              }
+            >
+              <Eraser className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div
+          ref={shapePickerRef}
+          className={cn(
+            "relative",
+            toolbarPillClass(
+              Boolean(
+                shapePickerOpen ||
+                  (mode === "draw" &&
+                    inkKind === "draw" &&
+                    drawingTool !== "freehand"),
+              ),
+              displayTheme === "blackboard",
+            ),
+          )}
+        >
+          <div className="flex h-full min-h-0 flex-1">
+            <button
+              type="button"
+              title="Shapes and lines"
+              aria-expanded={shapePickerOpen}
+              onClick={() => setShapePickerOpen((o) => !o)}
+              className={cn(
+                toolbarSegBtn,
+                "gap-0.5 px-2 text-xs",
+                shapePickerOpen ||
+                  (mode === "draw" &&
+                    inkKind === "draw" &&
+                    drawingTool !== "freehand")
+                  ? "bg-violet-600 text-white"
+                  : displayTheme === "blackboard"
+                    ? "text-neutral-200 hover:bg-neutral-800"
+                    : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={
+                shapePickerOpen ||
+                (mode === "draw" &&
+                  inkKind === "draw" &&
+                  drawingTool !== "freehand")
+                  ? undefined
+                  : { color: toolbarColor }
+              }
+            >
+              <Shapes className="h-4 w-4 shrink-0" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-80" />
+            </button>
+          </div>
+          {shapePickerOpen ? (
+            <div className="absolute left-0 top-full z-40 mt-1 max-h-64 w-56 overflow-y-auto rounded-lg border border-amber-200 bg-white py-1 shadow-lg dark:border-amber-900 dark:bg-neutral-900">
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800"
+                onClick={() => {
+                  setDrawingTool("freehand");
+                  setMode("draw");
+                  setInkKind("draw");
+                  setShapePickerOpen(false);
+                }}
+              >
+                Freehand pen
+              </button>
+              {WORKSHOP_SHAPES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`block w-full px-3 py-2 text-left text-sm hover:bg-amber-50 dark:hover:bg-neutral-800 ${drawingTool === s.id ? "bg-amber-100/80 font-medium dark:bg-neutral-800" : ""}`}
+                  onClick={() => {
+                    setDrawingTool(s.id);
+                    setMode("draw");
+                    setInkKind("draw");
+                    setShapePickerOpen(false);
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {(drawingTool === "polyline" || drawingTool === "polygon") && (
+          <div
+            className={cn(
+              "flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-md border px-1.5 shadow-sm",
+              displayTheme === "blackboard"
+                ? "border-neutral-600 bg-neutral-900"
+                : "border-neutral-300/90 bg-white",
+            )}
+          >
+            <span
+              className={`max-w-[140px] truncate px-1 text-[10px] font-medium leading-tight sm:max-w-none sm:text-xs ${displayTheme === "blackboard" ? "text-neutral-300" : "text-amber-900/90"}`}
+            >
+              Click to add points (Esc clears)
+            </span>
+            <button
+              type="button"
+              title="Commit shape"
+              disabled={polyDraftPts.length < 2}
+              onClick={() => finishPolyDraft()}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:opacity-40 sm:text-xs ${displayTheme === "blackboard" ? "bg-violet-600 text-white hover:bg-violet-500" : "bg-violet-600 text-white hover:bg-violet-700"}`}
+            >
+              Finish
+            </button>
+            <button
+              type="button"
+              title="Remove last point"
+              disabled={polyDraftPts.length === 0}
+              onClick={() => setPolyDraftPts((p) => p.slice(0, -1))}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${displayTheme === "blackboard" ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
+            >
+              Undo pt
+            </button>
+            <button
+              type="button"
+              title="Clear all points"
+              disabled={polyDraftPts.length === 0}
+              onClick={() => setPolyDraftPts([])}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${displayTheme === "blackboard" ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
+        <div
+          className={toolbarPillClass(
+            mode === "write",
+            displayTheme === "blackboard",
+          )}
+        >
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-1",
+              toolbarDivideClass(displayTheme === "blackboard"),
+            )}
+          >
+            <button
+              type="button"
+              title="Text: click on canvas"
+              onClick={() => setMode("write")}
+              className={cn(
+                toolbarSegBtn,
+                "w-8",
+                mode === "write"
+                  ? "bg-violet-600 text-white"
+                  : displayTheme === "blackboard"
+                    ? "text-neutral-200 hover:bg-neutral-800"
+                    : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={mode === "write" ? undefined : { color: toolbarColor }}
+            >
+              <Type className="h-4 w-4" />
+            </button>
+            {(["small", "med", "large"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  setTextSize(s);
+                  setMode("write");
+                }}
+                className={cn(
+                  toolbarSegBtn,
+                  "w-8",
+                  textSize === s && mode === "write"
+                    ? "bg-violet-600 text-white"
+                    : displayTheme === "blackboard"
+                      ? "text-neutral-200 hover:bg-neutral-800"
+                      : "text-neutral-700 hover:bg-neutral-100",
+                )}
+                style={
+                  textSize === s && mode === "write"
+                    ? undefined
+                    : { color: toolbarColor }
+                }
+                title={
+                  s === "small"
+                    ? "Small text"
+                    : s === "med"
+                      ? "Medium text"
+                      : "Large text"
+                }
+              >
+                <span
+                  className="leading-none"
+                  style={{
+                    fontSize:
+                      s === "small" ? "0.7em" : s === "med" ? "0.85em" : "1em",
+                  }}
+                >
+                  A
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div
+          ref={emojiPickerRef}
+          className={cn(
+            "relative",
+            toolbarPillClass(
+              Boolean(pendingEmoji || emojiPickerOpen),
+              displayTheme === "blackboard",
+            ),
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setEmojiPickerOpen((o) => !o)}
+            className={cn(
+              toolbarSegBtn,
+              "min-w-[2.25rem] px-2",
+              pendingEmoji || emojiPickerOpen
+                ? "bg-violet-600 text-white"
+                : displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800"
+                  : "text-neutral-700 hover:bg-neutral-100",
+            )}
+            style={
+              pendingEmoji || emojiPickerOpen
+                ? undefined
+                : { color: toolbarColor }
+            }
+            title={
+              pendingEmoji
+                ? `Place ${pendingEmoji} (click canvas)`
+                : "Choose emoji"
+            }
+          >
+            {pendingEmoji ? (
+              <span className="text-lg leading-none">{pendingEmoji}</span>
+            ) : (
+              <Smile className="h-4 w-4" />
+            )}
+          </button>
+          {emojiPickerOpen ? (
+            <div className="absolute left-0 top-full z-30 mt-1 min-w-[280px] rounded-lg border border-amber-200 bg-white p-2 shadow-lg">
+              <EmojiStrip
+                onInsert={(emoji) => {
+                  setPendingEmoji(emoji);
+                  setEmojiPickerOpen(false);
+                }}
+                expanded={emojiStripExpanded}
+                onToggleExpand={() => setEmojiStripExpanded((e) => !e)}
+                expandButtonClass="text-amber-700 hover:text-amber-800 hover:underline"
+                buttonFocusRingClass="focus:ring-amber-500"
+              />
+              <p className="mt-1 text-center text-xs text-amber-700">
+                Pick an emoji, then click on the canvas to place it.
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-1",
+              toolbarDivideClass(displayTheme === "blackboard"),
+            )}
+          >
+            <button
+              type="button"
+              title={
+                canClearForEveryone
+                  ? "Clear the whiteboard for everyone"
+                  : "Only the host can clear the board for everyone."
+              }
+              disabled={!canClearForEveryone}
+              onClick={() => void clearAll()}
+              className={cn(
+                toolbarSegBtn,
+                "px-2",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-40"
+                  : "text-neutral-700 hover:bg-neutral-100 disabled:pointer-events-none disabled:opacity-40",
+              )}
+              style={{ color: toolbarColor }}
+            >
+              <Trash2 className="h-4 w-4 shrink-0" />
+            </button>
+            <button
+              type="button"
+              title="Export PNG"
+              disabled={exportBusy}
+              onClick={() => void exportPng()}
+              className={cn(
+                toolbarSegBtn,
+                "px-2",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
+                  : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-50",
+              )}
+              style={{ color: toolbarColor }}
+            >
+              {exportBusy ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 shrink-0" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
+          <div
+            className={cn(
+              "flex h-full min-h-0 flex-1",
+              toolbarDivideClass(displayTheme === "blackboard"),
+            )}
+          >
+            <button
+              type="button"
+              title="Undo your last stroke"
+              onClick={() => void undoOne()}
+              className={cn(
+                toolbarSegBtn,
+                "px-2",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800"
+                  : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={{ color: toolbarColor }}
+              aria-label="Undo"
+            >
+              <Undo2 className="h-4 w-4 shrink-0" />
+            </button>
+            <button
+              type="button"
+              title="Redo is not available on the workshop board (no redo stack yet)."
+              disabled
+              className={cn(
+                toolbarSegBtn,
+                "cursor-not-allowed px-2 opacity-35",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800"
+                  : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={{ color: toolbarColor }}
+              aria-label="Redo unavailable"
+            >
+              <Redo2 className="h-4 w-4 shrink-0" />
+            </button>
+            <button
+              type="button"
+              title="Remove all of your strokes (others are unchanged)"
+              onClick={() => void clearMyInk()}
+              className={cn(
+                toolbarSegBtn,
+                "px-2",
+                displayTheme === "blackboard"
+                  ? "text-neutral-200 hover:bg-neutral-800"
+                  : "text-neutral-700 hover:bg-neutral-100",
+              )}
+              style={{ color: toolbarColor }}
+              aria-label="Clear my strokes"
+            >
+              <UserMinus className="h-4 w-4 shrink-0" />
+            </button>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div className="flex w-full min-w-0 flex-col items-center gap-1.5 bg-[#96a4b4] px-2 pb-2 pt-1.5 dark:bg-slate-900/90">
+        <div
+          className="flex min-h-7 w-full shrink-0 items-center justify-end"
+          style={{ maxWidth: WHITEBOARD_STAGE_MAX_W }}
+        >
+          {convexSaveDepth > 0 ? (
+            <span
+              role="status"
+              aria-live="polite"
+              className={`pointer-events-none z-10 inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium tabular-nums shadow-md ring-1 ring-black/5 dark:ring-white/10 ${
+                displayTheme === "blackboard"
+                  ? "border-neutral-600 bg-neutral-900 text-neutral-100"
+                  : "border-slate-500/60 bg-white text-slate-800"
+              }`}
+            >
+              <Loader2
+                className="h-3.5 w-3.5 shrink-0 animate-spin opacity-90"
+                aria-hidden
+              />
+              Saving…
+            </span>
+          ) : null}
+        </div>
+        <div
+          ref={viewportRef}
+          className="aspect-[16/9] w-full shrink-0 overflow-hidden rounded-md border border-slate-600/55 bg-slate-100 shadow-inner dark:border-slate-600 dark:bg-slate-950"
+          style={{ maxWidth: WHITEBOARD_STAGE_MAX_W }}
+        >
+          <div style={transformStyle}>
+            <canvas
+              ref={canvasRef}
+              className="block h-full w-full touch-none select-none"
+              style={{
+                cursor:
+                  mode === "pan"
+                    ? isPanning
+                      ? "grabbing"
+                      : "grab"
+                    : pendingEmoji
+                      ? "copy"
+                      : mode === "write"
+                        ? "text"
+                        : "crosshair",
+              }}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUpCanvas}
+              onPointerCancel={() => {
+                cancelShapeDrag();
+                lineBufferRef.current = [];
+                flushOverlayRef.current = [];
+                flushAwaitRef.current = null;
+                schedulePaint();
+                endStroke();
+              }}
+              onPointerLeave={() => {
+                if (activeShapeDragRef.current) cancelShapeDrag();
+                if (drawingRef.current) endStroke();
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {textInputAt ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setTextInputAt(null);
+              setTextDraft("");
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border bg-background p-4 shadow-lg"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <p className="mb-2 text-sm text-muted-foreground">Add text</p>
+            <textarea
+              autoFocus
+              className="min-h-[100px] w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={textDraft}
+              onChange={(e) => setTextDraft(e.target.value)}
+              placeholder="Type text… (Enter to commit, Shift+Enter newline)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  commitTextAt(textInputAt.normX, textInputAt.normY, textDraft);
+                  setTextInputAt(null);
+                  setTextDraft("");
+                  setMode("draw");
+                }
+                if (e.key === "Escape") {
+                  setTextInputAt(null);
+                  setTextDraft("");
+                }
+              }}
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-md border px-3 py-1.5 text-sm"
+                onClick={() => {
+                  setTextInputAt(null);
+                  setTextDraft("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+                onClick={() => {
+                  commitTextAt(textInputAt.normX, textInputAt.normY, textDraft);
+                  setTextInputAt(null);
+                  setTextDraft("");
+                  setMode("draw");
+                }}
+              >
+                Place
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

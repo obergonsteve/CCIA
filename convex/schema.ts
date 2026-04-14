@@ -214,6 +214,8 @@ export default defineSchema({
     externalJoinUrl: v.optional(v.string()),
     /** Set when an admin/content host opens the live room; learners need this before LiveKit. */
     liveRoomOpenedAt: v.optional(v.number()),
+    /** Host toggles Convex whiteboard panel visibility for this session. */
+    whiteboardVisible: v.optional(v.boolean()),
   })
     .index("by_workshop_unit", ["workshopUnitId"])
     .index("by_starts_at", ["startsAt"]),
@@ -232,6 +234,17 @@ export default defineSchema({
     workshopSessionId: v.id("workshopSessions"),
     userId: v.id("users"),
     text: v.string(),
+    createdAt: v.number(),
+  }).index("by_workshop_session", ["workshopSessionId"]),
+
+  /**
+   * Whiteboard primitives for embedded workshop (same persistence idea as GritHub
+   * brainstorm strokes — Convex, not LiveKit data).
+   */
+  workshopSessionWhiteboardStrokes: defineTable({
+    workshopSessionId: v.id("workshopSessions"),
+    userId: v.id("users"),
+    strokeData: v.any(),
     createdAt: v.number(),
   }).index("by_workshop_session", ["workshopSessionId"]),
 

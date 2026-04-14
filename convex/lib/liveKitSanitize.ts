@@ -20,6 +20,14 @@ export function liveKitParticipantIdentityFromUserId(userId: string): string {
   return s.length > 0 ? s : "learner";
 }
 
+/** First whitespace-delimited token of `name` for LiveKit display (tiles, strip). */
+export function liveKitParticipantDisplayFirstName(name: string): string {
+  const t = name.trim();
+  if (!t) return "Guest";
+  const first = t.split(/\s+/)[0];
+  return first && first.length > 0 ? first : "Guest";
+}
+
 /** Strip whitespace and optional matching outer quotes from env values. */
 export function trimEnvValue(value: string | undefined): string | undefined {
   if (value === undefined) {

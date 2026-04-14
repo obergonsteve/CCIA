@@ -1,6 +1,7 @@
 "use client";
 
 import { BrainstormCallControls } from "@/components/grithub-live-port/brainstorm-call-controls";
+import { WorkshopWhiteboard } from "@/components/grithub-live-port/workshop-whiteboard";
 import { WorkshopVideoConference } from "@/components/grithub-live-port/workshop-video-conference";
 import { WorkshopRoomParticipants } from "@/components/grithub-live-port/workshop-room-participants";
 import { EmojiStrip } from "@/components/grithub-live-port/emoji-strip";
@@ -17,34 +18,15 @@ import "@livekit/components-styles";
 import "./workshop-livekit-overrides.css";
 import { Room } from "livekit-client";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, Loader2, Pencil, Smile, Video } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Smile, Video } from "lucide-react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-/** Flip on when the shared whiteboard path from Brainstorm is wired. */
-const WORKSHOP_WHITEBOARD_ENABLED = false;
-
 type LiveKitCreds = { token: string; serverUrl: string };
 
 const liveKitRoomFrameStyle: CSSProperties = { height: "100%" };
-
-function WorkshopWhiteboardPlaceholder() {
-  if (WORKSHOP_WHITEBOARD_ENABLED) {
-    return null;
-  }
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-dashed border-muted-foreground/35 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-      <Pencil className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-      <p>
-        Shared whiteboard and drawing tools are included in the reference build
-        but stay <span className="font-medium text-foreground">off</span> until
-        you enable them in code.
-      </p>
-    </div>
-  );
-}
 
 export function WorkshopLivePanel({
   workshopUnitId,
@@ -82,6 +64,9 @@ export function WorkshopLivePanel({
     api.workshopLiveKitAction.endWorkshopLiveKitRoomForEveryone,
   );
   const openLiveRoom = useMutation(api.workshops.openWorkshopLiveRoom);
+  const setWhiteboardVisible = useMutation(
+    api.workshops.setWorkshopWhiteboardVisible,
+  );
   const me = useQuery(api.users.me, {});
 
   /**
@@ -123,6 +108,8 @@ export function WorkshopLivePanel({
   const isLiveHost =
     me?.role === "admin" || me?.role === "content_creator";
   const liveRoomStarted = Boolean(session?.liveRoomOpenedAt);
+  /** Show unless host explicitly hid it (`false`). Matches GritHub: board is part of the live session by default. */
+  const whiteboardLive = session?.whiteboardVisible !== false;
 
   const onHostEndCallForEveryone = useCallback(async () => {
     if (!session) {
@@ -241,24 +228,69 @@ export function WorkshopLivePanel({
         <p className="font-medium text-foreground">Your session</p>
         <p className="text-muted-foreground">{title}</p>
         {sessionEnded ? (
-          <p className="text-amber-800 dark:text-amber-200/90">
+          <p className="text-muted-foreground">
             This session has ended. You can still read chat; the live room is
             closed.
           </p>
         ) : null}
+        {isLiveHost && liveRoomStarted && !sessionEnded ? (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-muted-foreground">Shared whiteboard</span>
+            <Button
+              type="button"
+              size="sm"
+              variant={whiteboardLive ? "default" : "outline"}
+              className={
+                whiteboardLive
+                  ? "h-8 bg-cyan-600 text-white hover:bg-cyan-700"
+                  : "h-8"
+              }
+              onClick={async () => {
+                if (!session) return;
+                try {
+                  await setWhiteboardVisible({
+                    workshopSessionId: session._id,
+                    visible: !whiteboardLive,
+                  });
+                } catch (e) {
+                  toast.error(
+                    e instanceof Error ? e.message : "Could not update whiteboard.",
+                  );
+                }
+              }}
+            >
+              {whiteboardLive ? "Live for everyone" : "Hidden"}
+            </Button>
+          </div>
+        ) : null}
       </div>
-
-      <WorkshopWhiteboardPlaceholder />
 
       <div
         className={cn(
-          "flex min-w-0 flex-col rounded-lg border border-amber-400/70 bg-amber-50/55 ring-1 ring-amber-400/20 dark:border-amber-500/45 dark:bg-muted/45 dark:ring-amber-500/15",
-          liveKitCredentials ? "p-2" : "items-center justify-center gap-4 p-6 text-center",
+          "flex min-w-0 flex-col rounded-lg border border-border bg-muted/25 ring-1 ring-border/30 dark:bg-muted/35",
+          liveKitCredentials ? "p-2" : "p-4",
+          !liveKitCredentials &&
+            !(liveRoomStarted && whiteboardLive && !sessionEnded) &&
+            "items-center justify-center gap-4 text-center",
         )}
       >
+        {/*
+          GritHub-style: Convex whiteboard is the primary surface, outside LiveKit.
+          Show whenever the host has started the live session (no AV token required).
+        */}
+        {liveRoomStarted && !sessionEnded && whiteboardLive ? (
+          <div className="mb-3 min-h-0 w-full shrink-0">
+            <WorkshopWhiteboard
+              workshopSessionId={sessionDoc._id}
+              canClearForEveryone={Boolean(
+                isLiveHost && liveRoomStarted && !sessionEnded,
+              )}
+            />
+          </div>
+        ) : null}
         {liveKitCredentials && !sessionEnded ? (
           <div
-            className="livekit-workshop-room flex min-h-[260px] min-w-0 flex-1 flex-col overflow-hidden rounded-md"
+            className="livekit-workshop-room flex min-h-[220px] min-w-0 flex-1 flex-col overflow-hidden rounded-md"
             data-lk-theme="default"
           >
             <LiveKitRoom
@@ -338,7 +370,7 @@ export function WorkshopLivePanel({
 
       <div
         className={cn(
-          "grid min-h-[200px] grid-rows-[auto_minmax(7rem,1fr)_auto] overflow-hidden rounded-lg border border-amber-400/70 bg-amber-50/55 ring-1 ring-amber-400/20 dark:border-amber-500/45 dark:bg-muted/45 dark:ring-amber-500/15",
+          "grid min-h-[200px] grid-rows-[auto_minmax(7rem,1fr)_auto] overflow-hidden rounded-lg border border-border bg-muted/25 ring-1 ring-border/30 dark:bg-muted/35",
           !chatEmojiStripOpen && "max-h-[min(320px,50vh)]",
           chatEmojiStripOpen &&
             !chatEmojiStripExpanded &&
@@ -348,7 +380,7 @@ export function WorkshopLivePanel({
             "max-h-[min(520px,72vh)] sm:max-h-[min(560px,78vh)]",
         )}
       >
-        <div className="border-b border-amber-200/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:border-amber-800/45">
+        <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Session chat
         </div>
         <div className="min-h-0 space-y-1 overflow-y-auto px-3 py-1.5">
@@ -360,22 +392,33 @@ export function WorkshopLivePanel({
             messages.map((m) => (
               <div
                 key={m._id}
-                className="rounded-md bg-muted/35 px-2 py-1 text-xs leading-tight ring-1 ring-border/40 dark:bg-muted/25 dark:ring-border/30"
+                className="rounded-md border border-border bg-background/90 px-2.5 py-1.5 text-xs shadow-sm dark:bg-muted/50"
               >
-                <span className="font-medium" style={{ color: m.color }}>
-                  {m.name}
-                </span>
-                <span className="ml-1.5 text-[11px] text-muted-foreground tabular-nums">
-                  {format(new Date(m.createdAt), "p")}
-                </span>
-                <p className="mt-px text-foreground whitespace-pre-wrap break-words [font-family:ui-sans-serif,system-ui,sans-serif,'Apple_Color_Emoji','Segoe_UI_Emoji','Segoe_UI_Symbol','Noto_Color_Emoji']">
+                <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                  <span className="font-medium" style={{ color: m.color }}>
+                    {m.name}
+                  </span>
+                  <span
+                    className="select-none text-muted-foreground/70"
+                    aria-hidden
+                  >
+                    ·
+                  </span>
+                  <time
+                    className="text-[11px] text-muted-foreground tabular-nums"
+                    dateTime={new Date(m.createdAt).toISOString()}
+                  >
+                    {format(new Date(m.createdAt), "p")}
+                  </time>
+                </div>
+                <p className="mt-1 text-foreground whitespace-pre-wrap break-words [font-family:ui-sans-serif,system-ui,sans-serif,'Apple_Color_Emoji','Segoe_UI_Emoji','Segoe_UI_Symbol','Noto_Color_Emoji']">
                   {m.text}
                 </p>
               </div>
             ))
           )}
         </div>
-        <div className="flex min-h-0 flex-col gap-2 border-t border-amber-200/80 p-2 dark:border-amber-800/45">
+        <div className="flex min-h-0 flex-col gap-2 border-t border-border p-2">
           {!sessionEnded ? (
             <div className="flex min-h-0 flex-col gap-1">
               {chatEmojiStripOpen ? (

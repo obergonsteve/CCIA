@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import {
+  liveKitParticipantDisplayFirstName,
   liveKitParticipantIdentityFromUserId,
   liveKitRoomNameForWorkshopSession,
 } from "./lib/liveKitSanitize";
@@ -68,7 +69,9 @@ export const verifyLiveKitAccessInternal = internalQuery({
         reason: "This workshop session has ended.",
       };
     }
-    const participantName = (user?.name ?? "Guest").trim() || "Guest";
+    const participantName = liveKitParticipantDisplayFirstName(
+      user?.name ?? "Guest",
+    );
     const roomName = liveKitRoomNameForWorkshopSession(String(workshopSessionId));
     const participantIdentity = liveKitParticipantIdentityFromUserId(
       String(userId),

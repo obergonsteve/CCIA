@@ -39,6 +39,7 @@ import type * as users from "../users.js";
 import type * as workshopLiveKit from "../workshopLiveKit.js";
 import type * as workshopLiveKitAction from "../workshopLiveKitAction.js";
 import type * as workshopSessionChat from "../workshopSessionChat.js";
+import type * as workshopWhiteboard from "../workshopWhiteboard.js";
 import type * as workshops from "../workshops.js";
 
 import type {
@@ -79,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   workshopLiveKit: typeof workshopLiveKit;
   workshopLiveKitAction: typeof workshopLiveKitAction;
   workshopSessionChat: typeof workshopSessionChat;
+  workshopWhiteboard: typeof workshopWhiteboard;
   workshops: typeof workshops;
 }>;
 

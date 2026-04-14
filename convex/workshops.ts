@@ -464,7 +464,10 @@ export const openWorkshopLiveRoom = mutation({
     if (session.liveRoomOpenedAt != null) {
       return { ok: true as const, alreadyOpen: true as const };
     }
-    await ctx.db.patch(workshopSessionId, { liveRoomOpenedAt: Date.now() });
+    await ctx.db.patch(workshopSessionId, {
+      liveRoomOpenedAt: Date.now(),
+      whiteboardVisible: true,
+    });
     return { ok: true as const, alreadyOpen: false as const };
   },
 });
@@ -473,7 +476,48 @@ export const openWorkshopLiveRoom = mutation({
 export const closeWorkshopLiveRoomInternal = internalMutation({
   args: { workshopSessionId: v.id("workshopSessions") },
   handler: async (ctx, { workshopSessionId }) => {
-    await ctx.db.patch(workshopSessionId, { liveRoomOpenedAt: undefined });
+    // Like GritHub brainstorm ink: strokes stay in Convex when the AV room closes;
+    // only session flags are cleared so the next open can show the same board.
+    await ctx.db.patch(workshopSessionId, {
+      liveRoomOpenedAt: undefined,
+      whiteboardVisible: undefined,
+    });
+  },
+});
+
+/** Host: show or hide the embedded workshop whiteboard for all participants. */
+export const setWorkshopWhiteboardVisible = mutation({
+  args: {
+    workshopSessionId: v.id("workshopSessions"),
+    visible: v.boolean(),
+  },
+  handler: async (ctx, { workshopSessionId, visible }) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    if (user.role !== "admin" && user.role !== "content_creator") {
+      throw new Error("Only a host can change the whiteboard.");
+    }
+    const session = await ctx.db.get(workshopSessionId);
+    if (!session || session.status !== "scheduled") {
+      throw new Error("Session is not available.");
+    }
+    const ok = await userCanAccessWorkshopSession(ctx, session.workshopUnitId);
+    if (!ok) {
+      throw new Error("Forbidden");
+    }
+    if (session.endsAt < Date.now()) {
+      throw new Error("This workshop session has ended.");
+    }
+    if (session.liveRoomOpenedAt == null) {
+      throw new Error("Start the live session before changing the whiteboard.");
+    }
+    await ctx.db.patch(workshopSessionId, {
+      whiteboardVisible: visible,
+    });
+    return { ok: true as const };
   },
 });
 

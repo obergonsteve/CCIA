@@ -63,6 +63,7 @@ export const getWorkshopLiveKitToken = action({
       roomJoin: true,
       room: gate.roomName,
       canPublish: true,
+      canPublishData: true,
       canSubscribe: true,
       canPublishSources: [
         TrackSource.CAMERA,
