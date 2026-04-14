@@ -1,23 +1,18 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
+import type { WorkshopBrowseRow } from "@/convex/workshops";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  certificationTierBadgeClass,
-  certificationTierLabel,
-  certificationTierSectionTitle,
-} from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { format, isSameDay } from "date-fns";
-import { ExternalLink } from "lucide-react";
-import { useMemo } from "react";
+import { ExternalLink, Video } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 /** Date + hours:minutes only (no seconds). Same calendar day → one date, two times. */
@@ -30,6 +25,236 @@ function formatWorkshopSessionRange(startMs: number, endMs: number): string {
     return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${endTime}`;
   }
   return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${format(end, "dd/MM/yyyy")}, ${endTime}`;
+}
+
+type LiveWorkshopSessionTimes = Pick<
+  Doc<"workshopSessions">,
+  "startsAt" | "endsAt" | "status" | "liveRoomOpenedAt"
+>;
+
+function liveWorkshopSessionStatus(
+  session: LiveWorkshopSessionTimes,
+  now: number,
+): {
+  label: string;
+  detail?: string;
+  tone: "neutral" | "waiting" | "live" | "ended";
+} {
+  if (session.status === "cancelled") {
+    return { label: "Cancelled", tone: "ended" };
+  }
+  if (now >= session.endsAt) {
+    return { label: "Closed", tone: "ended" };
+  }
+  if (now < session.startsAt) {
+    return { label: "Not started", tone: "neutral" };
+  }
+  if (session.liveRoomOpenedAt != null) {
+    return {
+      label: "In progress",
+      detail: `Started ${format(new Date(session.liveRoomOpenedAt), "dd/MM/yyyy, HH:mm")}`,
+      tone: "live",
+    };
+  }
+  return {
+    label: "In progress",
+    detail: "Live room not open yet",
+    tone: "waiting",
+  };
+}
+
+function liveWorkshopStatusBadgeClass(
+  tone: "neutral" | "waiting" | "live" | "ended",
+  neutralAccent: "purple" | "sky" = "purple",
+) {
+  switch (tone) {
+    case "live":
+      return "border-emerald-600/45 bg-emerald-600/12 text-emerald-950 dark:border-emerald-400/50 dark:bg-emerald-500/15 dark:text-emerald-50";
+    case "waiting":
+      return "border-amber-600/40 bg-amber-500/12 text-amber-950 dark:border-amber-400/45 dark:bg-amber-500/14 dark:text-amber-50";
+    case "ended":
+      return "border-border/70 bg-muted/90 text-muted-foreground dark:bg-muted/50";
+    default:
+      if (neutralAccent === "sky") {
+        return "border-sky-500/45 bg-sky-500/12 text-sky-950 dark:border-sky-400/50 dark:bg-sky-500/16 dark:text-sky-50";
+      }
+      return "border-purple-500/40 bg-purple-500/10 text-purple-900 dark:border-purple-400/45 dark:bg-purple-500/15 dark:text-purple-100";
+  }
+}
+
+function WorkshopSessionStatusRow({
+  session,
+  now,
+  neutralAccent = "purple",
+}: {
+  session: LiveWorkshopSessionTimes;
+  now: number;
+  neutralAccent?: "purple" | "sky";
+}) {
+  const status = liveWorkshopSessionStatus(session, now);
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <Badge
+        variant="outline"
+        className={cn(
+          "px-2 py-0 text-[10px] font-bold uppercase tracking-wide",
+          liveWorkshopStatusBadgeClass(status.tone, neutralAccent),
+        )}
+      >
+        {status.label}
+      </Badge>
+      {status.detail ? (
+        <span className="text-[11px] leading-tight text-muted-foreground">
+          {status.detail}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Open session on cert path — register only (no duplicate “Registered” badge). */
+function OpenCertPathSessionCard({
+  session,
+  now,
+  onRegister,
+}: {
+  session: WorkshopBrowseRow;
+  now: number;
+  onRegister: () => void;
+}) {
+  return (
+    <Card
+      size="sm"
+      className="border border-sky-500/30 bg-sky-500/[0.05] shadow-sm dark:border-sky-400/25 dark:bg-sky-500/[0.09]"
+    >
+      <CardHeader className="py-2">
+        <CardTitle className="text-base font-medium">
+          {session.workshopTitle}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
+        </p>
+        <WorkshopSessionStatusRow
+          session={session}
+          now={now}
+          neutralAccent="sky"
+        />
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2 pb-2">
+        <Button
+          type="button"
+          size="sm"
+          className="bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-sky-600 dark:hover:bg-sky-500"
+          disabled={session.full}
+          onClick={onRegister}
+        >
+          {session.full ? "Full" : "Register"}
+        </Button>
+        {session.externalJoinUrl ? (
+          <Link
+            href={session.externalJoinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "inline-flex gap-1 text-sky-800 hover:bg-sky-500/15 hover:text-sky-950 dark:text-sky-200 dark:hover:bg-sky-500/20 dark:hover:text-sky-50",
+            )}
+          >
+            Join link
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Your registration on a certification-path workshop (single place — no third list). */
+function RegisteredCertPathWorkshopCard({
+  session,
+  workshopTitle,
+  past,
+  now,
+  onUnregister,
+}: {
+  session: Doc<"workshopSessions">;
+  workshopTitle: string;
+  past: boolean;
+  now: number;
+  onUnregister: () => void;
+}) {
+  return (
+    <Card
+      size="sm"
+      className={cn(
+        "border border-purple-200/90 bg-purple-50 shadow-sm dark:border-purple-800/85 dark:bg-purple-950",
+        past && "border-dashed opacity-80",
+      )}
+    >
+      <Link
+        href={`/units/${session.workshopUnitId}`}
+        className={cn(
+          "group block rounded-t-xl outline-none transition-colors",
+          "hover:bg-purple-100/95 focus-visible:bg-purple-100/95 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/75 dark:focus-visible:bg-purple-900/75",
+        )}
+        aria-label={`Open workshop unit: ${workshopTitle}`}
+      >
+        <CardHeader className="py-2">
+          <CardTitle className="text-base font-medium text-foreground underline-offset-4 group-hover:underline">
+            {workshopTitle}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
+            {past ? " · Past" : ""}
+          </p>
+          <WorkshopSessionStatusRow session={session} now={now} />
+        </CardHeader>
+      </Link>
+      <CardContent className="flex flex-wrap gap-2 pb-2">
+        {session.externalJoinUrl && !past ? (
+          <Link
+            href={session.externalJoinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "sm" }),
+              "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
+            )}
+          >
+            Open join link
+            <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
+          </Link>
+        ) : !past ? (
+          <Link
+            href={`/units/${session.workshopUnitId}`}
+            title="Open unit page — Live workshop (video, chat, screen share)"
+            aria-label="Open unit page — Live workshop (video, chat, screen share)"
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "sm" }),
+              "max-w-full rounded-full border-purple-500/35 bg-purple-500/10 px-3 font-medium text-purple-950 shadow-sm hover:bg-purple-500/18 dark:border-purple-400/40 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/24",
+            )}
+          >
+            <Video
+              className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
+              aria-hidden
+            />
+            <span className="truncate">Open unit · Live workshop</span>
+          </Link>
+        ) : null}
+        {!past && session.status === "scheduled" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
+            onClick={onUnregister}
+          >
+            Unregister
+          </Button>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function WorkshopsClient() {
@@ -45,10 +270,12 @@ export default function WorkshopsClient() {
       ? (filterLevelIdRaw as Id<"certificationLevels">)
       : null;
 
-  const upcoming = useQuery(api.workshops.listUpcomingForUser, {
+  const upcomingPath = useQuery(api.workshops.listUpcomingOnMyCertificationPath, {
     certificationTier: "all",
   });
-  const mine = useQuery(api.workshops.myRegistrations);
+  const registeredOnPath = useQuery(
+    api.workshops.myRegistrationsOnCertificationPath,
+  );
   const filterUnit = useQuery(
     api.units.get,
     filterUnitId ? { unitId: filterUnitId } : "skip",
@@ -56,25 +283,41 @@ export default function WorkshopsClient() {
   const register = useMutation(api.workshops.registerForSession);
   const unregister = useMutation(api.workshops.unregisterFromSession);
 
-  const upcomingSessions = useMemo(() => {
-    if (!upcoming) {
-      return undefined;
-    }
-    if (!filterUnitId) {
-      return upcoming;
-    }
-    return upcoming.filter((s) => s.workshopUnitId === filterUnitId);
-  }, [upcoming, filterUnitId]);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
 
-  const mySessionsForUnit = useMemo(() => {
-    if (!mine) {
+  const upcomingFiltered = useMemo(() => {
+    if (!upcomingPath) {
       return undefined;
     }
     if (!filterUnitId) {
-      return mine;
+      return upcomingPath;
     }
-    return mine.filter(({ session }) => session.workshopUnitId === filterUnitId);
-  }, [mine, filterUnitId]);
+    return upcomingPath.filter((s) => s.workshopUnitId === filterUnitId);
+  }, [upcomingPath, filterUnitId]);
+
+  const registeredOnPathFiltered = useMemo(() => {
+    if (!registeredOnPath) {
+      return undefined;
+    }
+    if (!filterUnitId) {
+      return registeredOnPath;
+    }
+    return registeredOnPath.filter(
+      ({ session }) => session.workshopUnitId === filterUnitId,
+    );
+  }, [registeredOnPath, filterUnitId]);
+
+  const openSessionsNeedRegister = useMemo(
+    () => upcomingFiltered?.filter((s) => !s.registered) ?? [],
+    [upcomingFiltered],
+  );
+
+  const pathListsReady =
+    registeredOnPath !== undefined && upcomingPath !== undefined;
 
   const certPathHref =
     filterLevelId != null
@@ -82,7 +325,7 @@ export default function WorkshopsClient() {
       : "/certifications";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 px-3 pb-4 pt-0 sm:px-4 sm:pb-6 sm:pt-1">
+    <div className="mx-auto max-w-4xl space-y-3 px-3 pb-4 pt-0 sm:px-4 sm:pb-6 sm:pt-1">
       {filterUnitId ? (
         <div
           className="flex flex-col gap-3 rounded-xl border border-purple-500/35 bg-purple-500/[0.06] px-4 py-3 dark:border-purple-400/30 dark:bg-purple-500/[0.08] sm:flex-row sm:items-start sm:justify-between"
@@ -98,9 +341,13 @@ export default function WorkshopsClient() {
                   : filterUnit.title}
             </p>
             <p className="text-sm text-muted-foreground">
-              Pick a scheduled session below to register, or unregister under{" "}
-              <span className="font-medium text-foreground">My workshops</span>{" "}
-              to choose a different date.
+              Register in{" "}
+              <span className="font-medium text-foreground">
+                Not registered yet
+              </span>
+              , or unregister from{" "}
+              <span className="font-medium text-foreground">Registered</span> to
+              pick another date.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
@@ -128,219 +375,106 @@ export default function WorkshopsClient() {
         </div>
       ) : null}
 
-      <p className="text-sm text-purple-900/80 dark:text-purple-200/85">
-        Browse upcoming live sessions and add them to{" "}
-        <span className="font-semibold text-purple-950 dark:text-purple-50">
-          My workshops
-        </span>
-        . In-app list only — calendar export may come later.
-      </p>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-purple-950 dark:text-purple-100">
-          {filterUnitId ? "My workshops (this unit)" : "My workshops"}
-        </h2>
-        {mySessionsForUnit === undefined ? (
+      <section
+        id="workshop-upcoming-sessions"
+        className="scroll-mt-24 space-y-3"
+        aria-label="Workshop sessions on your certifications"
+      >
+        {!pathListsReady ? (
           <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
             Loading…
           </p>
-        ) : mySessionsForUnit.length === 0 ? (
-          <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
-            {filterUnitId
-              ? "You have no registration for this workshop yet. Choose a session under Upcoming sessions."
-              : "You have not registered for any sessions yet."}
-          </p>
         ) : (
-          <ul className="space-y-2">
-            {mySessionsForUnit.map(({ session, workshopTitle, past }) => (
-              <li key={session._id}>
-                <Card
-                  className={cn(
-                    "border border-purple-500/25 bg-purple-500/[0.04] shadow-sm dark:border-purple-400/20 dark:bg-purple-500/[0.07]",
-                    past && "opacity-80 border-dashed",
+          <div className="grid gap-4 md:grid-cols-2 md:items-start">
+            <div
+              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-amber-500/45 bg-amber-500/[0.08] p-3 dark:border-amber-400/40 dark:bg-amber-500/[0.11]"
+              aria-labelledby="workshop-list-registered-heading"
+            >
+              <h3
+                id="workshop-list-registered-heading"
+                className="text-base font-semibold text-amber-950 dark:text-amber-50"
+              >
+                Registered
+              </h3>
+              {!registeredOnPathFiltered ||
+              registeredOnPathFiltered.length === 0 ? (
+                <p className="text-sm text-amber-950/80 dark:text-amber-100/85">
+                  No registrations on your certification path
+                  {filterUnitId ? " for this unit" : ""} yet.
+                </p>
+              ) : (
+                <ul className="flex list-none flex-col gap-2 p-0">
+                  {registeredOnPathFiltered.map(
+                    ({ session, workshopTitle, past }) => (
+                      <li key={session._id}>
+                        <RegisteredCertPathWorkshopCard
+                          session={session}
+                          workshopTitle={workshopTitle}
+                          past={past}
+                          now={now}
+                          onUnregister={() => {
+                            void (async () => {
+                              try {
+                                await unregister({ sessionId: session._id });
+                                toast.success("Unregistered");
+                              } catch (e) {
+                                toast.error(
+                                  e instanceof Error ? e.message : "Failed",
+                                );
+                              }
+                            })();
+                          }}
+                        />
+                      </li>
+                    ),
                   )}
-                >
-                  <Link
-                    href={`/units/${session.workshopUnitId}`}
-                    className={cn(
-                      "group block rounded-t-xl outline-none transition-colors",
-                      "hover:bg-purple-500/[0.08] focus-visible:bg-purple-500/[0.08] focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-500/[0.12] dark:focus-visible:bg-purple-500/[0.12]",
-                    )}
-                    aria-label={`Open workshop unit: ${workshopTitle}`}
-                  >
-                    <CardHeader className="py-3">
-                      <CardTitle className="text-base font-medium text-foreground underline-offset-4 group-hover:underline">
-                        {workshopTitle}
-                      </CardTitle>
-                      <p className="text-xs text-muted-foreground">
-                        {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
-                        {past ? " · Past" : ""}
-                      </p>
-                    </CardHeader>
-                  </Link>
-                  <CardContent className="flex flex-wrap gap-2 pb-4">
-                    {session.externalJoinUrl && !past ? (
-                      <Link
-                        href={session.externalJoinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cn(
-                          buttonVariants({ variant: "secondary", size: "sm" }),
-                          "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
-                        )}
-                      >
-                        Open join link
-                        <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
-                      </Link>
-                    ) : !past ? (
-                      <Link
-                        href={`/units/${session.workshopUnitId}`}
-                        className="text-xs font-medium text-purple-800 underline-offset-4 hover:underline dark:text-purple-200/90"
-                      >
-                        Open unit page — Live workshop (video, chat, screen share)
-                      </Link>
-                    ) : null}
-                    {!past && session.status === "scheduled" ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
-                        onClick={async () => {
-                          try {
-                            await unregister({ sessionId: session._id });
-                            toast.success("Removed from My workshops");
-                          } catch (e) {
-                            toast.error(
-                              e instanceof Error ? e.message : "Failed",
-                            );
-                          }
-                        }}
-                      >
-                        Unregister
-                      </Button>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section id="workshop-upcoming-sessions" className="space-y-3 scroll-mt-24">
-        <h2 className="text-lg font-semibold text-purple-950 dark:text-purple-100">
-          {filterUnitId ? "Upcoming sessions for this unit" : "Upcoming sessions"}
-        </h2>
-        {upcomingSessions === undefined ? (
-          <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
-            Loading…
-          </p>
-        ) : upcomingSessions.length === 0 ? (
-          <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
-            {filterUnitId
-              ? "No upcoming sessions are scheduled for this workshop yet. Check back later."
-              : "No upcoming sessions right now."}
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {upcomingSessions.map((s) => (
-              <li key={s._id}>
-                <Card className="border border-purple-500/25 bg-purple-500/[0.04] shadow-sm dark:border-purple-400/20 dark:bg-purple-500/[0.07]">
-                  <CardHeader className="py-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <CardTitle className="text-base font-medium">
-                        {s.workshopTitle}
-                      </CardTitle>
-                      <div className="flex flex-wrap gap-1">
-                        {s.tiers.map((t) => (
-                          <Badge
-                            key={t}
-                            className={cn(
-                              "px-1.5 text-[10px] font-bold uppercase",
-                              certificationTierBadgeClass(t),
-                            )}
-                            aria-label={certificationTierLabel(t)}
-                            title={certificationTierSectionTitle(t)}
-                          >
-                            <CertificationTierMedallion tier={t} />
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatWorkshopSessionRange(s.startsAt, s.endsAt)}
-                    </p>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap gap-2 pb-4">
-                    {s.registered ? (
-                      <>
-                        <Badge
-                          variant="secondary"
-                          className="border border-purple-500/35 bg-purple-500/15 text-purple-950 dark:border-purple-400/40 dark:bg-purple-500/20 dark:text-purple-50"
-                        >
-                          Registered
-                        </Badge>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
-                          onClick={async () => {
+                </ul>
+              )}
+            </div>
+            <div
+              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-dashed border-sky-500/45 bg-sky-500/[0.06] p-3 dark:border-sky-400/40 dark:bg-sky-500/[0.1]"
+              aria-labelledby="workshop-list-open-heading"
+            >
+              <h3
+                id="workshop-list-open-heading"
+                className="text-base font-semibold text-sky-950 dark:text-sky-50"
+              >
+                Not registered yet
+              </h3>
+              {openSessionsNeedRegister.length === 0 ? (
+                <p className="text-sm text-sky-950/80 dark:text-sky-100/85">
+                  No open sessions to join on your path right now, or you are on
+                  every upcoming one.
+                </p>
+              ) : (
+                <ul className="flex list-none flex-col gap-2 p-0">
+                  {openSessionsNeedRegister.map((s) => (
+                    <li key={s._id}>
+                      <OpenCertPathSessionCard
+                        session={s}
+                        now={now}
+                        onRegister={() => {
+                          void (async () => {
                             try {
-                              await unregister({ sessionId: s._id });
-                              toast.success("Unregistered");
+                              await register({ sessionId: s._id });
+                              toast.success("Registered");
                             } catch (e) {
                               toast.error(
                                 e instanceof Error ? e.message : "Failed",
                               );
                             }
-                          }}
-                        >
-                          Unregister
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 dark:bg-purple-600 dark:hover:bg-purple-500"
-                        disabled={s.full}
-                        onClick={async () => {
-                          try {
-                            await register({ sessionId: s._id });
-                            toast.success("Added to My workshops");
-                          } catch (e) {
-                            toast.error(
-                              e instanceof Error ? e.message : "Failed",
-                            );
-                          }
+                          })();
                         }}
-                      >
-                        {s.full ? "Full" : "Register"}
-                      </Button>
-                    )}
-                    {s.externalJoinUrl ? (
-                      <Link
-                        href={s.externalJoinUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cn(
-                          buttonVariants({ variant: "ghost", size: "sm" }),
-                          "inline-flex gap-1 text-purple-700 hover:bg-purple-500/15 hover:text-purple-900 dark:text-purple-300 dark:hover:bg-purple-500/20 dark:hover:text-purple-50",
-                        )}
-                      >
-                        Join link
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
-          </ul>
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </section>
+
     </div>
   );
 }

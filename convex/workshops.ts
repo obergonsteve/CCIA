@@ -12,6 +12,7 @@ import {
   collectLevelIdsForUnit,
   userCanAccessWorkshopSession,
 } from "./lib/workshopUnitLevels";
+import { collectLiveWorkshopUnitIdsOnLearnerCertPaths } from "./certifications";
 
 const sessionStatusValidator = v.union(
   v.literal("scheduled"),
@@ -308,6 +309,86 @@ export const listUpcomingForUser = query({
   },
 });
 
+/**
+ * Upcoming sessions only for `live_workshop` units on certifications the learner
+ * has in progress, pinned on the roadmap, or has not started yet (same buckets
+ * as the certification dashboard — excludes completed certifications only).
+ */
+export const listUpcomingOnMyCertificationPath = query({
+  args: {
+    certificationTier: v.optional(
+      v.union(
+        v.literal("all"),
+        v.literal("bronze"),
+        v.literal("silver"),
+        v.literal("gold"),
+      ),
+    ),
+  },
+  handler: async (ctx, { certificationTier }): Promise<WorkshopBrowseRow[]> => {
+    const userId = await requireUserId(ctx);
+    const pathUnitIds = new Set(
+      await collectLiveWorkshopUnitIdsOnLearnerCertPaths(ctx, userId),
+    );
+    if (pathUnitIds.size === 0) {
+      return [];
+    }
+    const now = Date.now();
+    const allSessions = await ctx.db.query("workshopSessions").collect();
+    const upcoming = allSessions.filter(
+      (s) => s.status === "scheduled" && s.endsAt >= now,
+    );
+    upcoming.sort((a, b) => a.startsAt - b.startsAt);
+    const tierFilter =
+      certificationTier && certificationTier !== "all"
+        ? certificationTier
+        : null;
+
+    const out: WorkshopBrowseRow[] = [];
+    for (const s of upcoming) {
+      if (!pathUnitIds.has(s.workshopUnitId)) {
+        continue;
+      }
+      const ok = await userCanAccessWorkshopSession(ctx, s.workshopUnitId);
+      if (!ok) {
+        continue;
+      }
+      const levelIds = await collectLevelIdsForUnit(ctx, s.workshopUnitId);
+      const tierSet = new Set<"bronze" | "silver" | "gold">();
+      for (const lid of levelIds) {
+        const lev = await ctx.db.get(lid);
+        if (isLive(lev) && (await userCanAccessLevel(ctx, lid))) {
+          tierSet.add(effectiveCertificationTier(lev));
+        }
+      }
+      const tiers = [...tierSet].sort(
+        (a, b) =>
+          ["bronze", "silver", "gold"].indexOf(a) -
+          ["bronze", "silver", "gold"].indexOf(b),
+      );
+      if (tierFilter && !tiers.includes(tierFilter)) {
+        continue;
+      }
+      const u = await ctx.db.get(s.workshopUnitId);
+      const regs = await ctx.db
+        .query("workshopRegistrations")
+        .withIndex("by_session", (q) => q.eq("sessionId", s._id))
+        .collect();
+      const registered = regs.some((r) => r.userId === userId);
+      const full =
+        s.capacity != null && s.capacity > 0 && regs.length >= s.capacity;
+      out.push({
+        ...s,
+        workshopTitle: u && isLive(u) ? u.title : "Workshop",
+        tiers,
+        registered,
+        full,
+      });
+    }
+    return out;
+  },
+});
+
 export const myRegistrations = query({
   args: {},
   handler: async (ctx) => {
@@ -339,6 +420,70 @@ export const myRegistrations = query({
         session,
         workshopTitle: u && isLive(u) ? u.title : "Workshop",
         past: session.endsAt < now,
+      });
+    }
+    out.sort((a, b) => a.session.startsAt - b.session.startsAt);
+    return out;
+  },
+});
+
+/**
+ * Registrations whose workshop unit sits on the learner’s certification path
+ * (current / planned / future — same scope as `listUpcomingOnMyCertificationPath`).
+ * Used for the “Registered” column only so the UI is not duplicated elsewhere.
+ */
+export const myRegistrationsOnCertificationPath = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const pathUnitIds = new Set(
+      await collectLiveWorkshopUnitIdsOnLearnerCertPaths(ctx, userId),
+    );
+    if (pathUnitIds.size === 0) {
+      return [];
+    }
+    const regs = await ctx.db
+      .query("workshopRegistrations")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    regs.sort((a, b) => b.registeredAt - a.registeredAt);
+    const now = Date.now();
+    const out: Array<{
+      registration: Doc<"workshopRegistrations">;
+      session: Doc<"workshopSessions">;
+      workshopTitle: string;
+      past: boolean;
+      tiers: Array<"bronze" | "silver" | "gold">;
+    }> = [];
+    for (const r of regs) {
+      const session = await ctx.db.get(r.sessionId);
+      if (!session || !pathUnitIds.has(session.workshopUnitId)) {
+        continue;
+      }
+      const ok = await userCanAccessWorkshopSession(ctx, session.workshopUnitId);
+      if (!ok) {
+        continue;
+      }
+      const u = await ctx.db.get(session.workshopUnitId);
+      const levelIds = await collectLevelIdsForUnit(ctx, session.workshopUnitId);
+      const tierSet = new Set<"bronze" | "silver" | "gold">();
+      for (const lid of levelIds) {
+        const lev = await ctx.db.get(lid);
+        if (isLive(lev) && (await userCanAccessLevel(ctx, lid))) {
+          tierSet.add(effectiveCertificationTier(lev));
+        }
+      }
+      const tiers = [...tierSet].sort(
+        (a, b) =>
+          ["bronze", "silver", "gold"].indexOf(a) -
+          ["bronze", "silver", "gold"].indexOf(b),
+      );
+      out.push({
+        registration: r,
+        session,
+        workshopTitle: u && isLive(u) ? u.title : "Workshop",
+        past: session.endsAt < now,
+        tiers,
       });
     }
     out.sort((a, b) => a.session.startsAt - b.session.startsAt);

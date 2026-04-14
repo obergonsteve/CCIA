@@ -17,13 +17,20 @@ import { isLive, nowDeletedAt } from "./lib/softDelete";
 import { countUnitStepProgress } from "./contentProgress";
 import { collectUnitsForLevel } from "./units";
 
-type DashboardCertRow = {
+export type DashboardCertRow = {
   level: Doc<"certificationLevels">;
   unitTotal: number;
   completedCount: number;
   touchedCount: number;
   contentStepsTotal: number;
   contentStepsCompleted: number;
+};
+
+export type LearnerCertPathBuckets = {
+  current: DashboardCertRow[];
+  future: DashboardCertRow[];
+  completed: DashboardCertRow[];
+  planned: DashboardCertRow[];
 };
 
 type DashCtx = QueryCtx | MutationCtx;
@@ -99,100 +106,130 @@ export const listForUser = query({
 });
 
 /**
+ * Same bucketing as the learner dashboard (current / planned roadmap / future).
+ * Exported for `workshops` to filter sessions to units on those certification paths.
+ */
+export async function computeLearnerCertPathBuckets(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<LearnerCertPathBuckets> {
+  const user = await ctx.db.get(userId);
+  if (!user) {
+    return { current: [], future: [], completed: [], planned: [] };
+  }
+  const all = (await ctx.db.query("certificationLevels").collect()).filter(
+    (l) => isLive(l),
+  );
+  const levels =
+    user.role === "admin" || user.role === "content_creator"
+      ? all
+      : all.filter(
+          (l) => l.companyId == null || l.companyId === user.companyId,
+        );
+  const sorted = levels.sort((a, b) => a.order - b.order);
+
+  const allProgress = await ctx.db
+    .query("userProgress")
+    .filter((q) => q.eq(q.field("userId"), userId))
+    .collect();
+  const progressByUnit = new Map<
+    Id<"units">,
+    (typeof allProgress)[number]
+  >();
+  for (const p of allProgress) {
+    progressByUnit.set(p.unitId, p);
+  }
+
+  const rows: DashboardCertRow[] = [];
+  for (const level of sorted) {
+    const row = await buildDashboardCertRow(
+      ctx,
+      userId,
+      level,
+      progressByUnit,
+    );
+    if (row) {
+      rows.push(row);
+    }
+  }
+
+  const plannedIdSet = new Set(user.plannedCertificationLevelIds ?? []);
+
+  const current: DashboardCertRow[] = [];
+  const future: DashboardCertRow[] = [];
+  const completed: DashboardCertRow[] = [];
+  for (const row of rows) {
+    const { unitTotal, completedCount, touchedCount, level } = row;
+    if (unitTotal === 0) {
+      if (!plannedIdSet.has(level._id)) {
+        future.push(row);
+      }
+      continue;
+    }
+    if (completedCount === unitTotal) {
+      completed.push(row);
+    } else if (touchedCount > 0) {
+      current.push(row);
+    } else if (!plannedIdSet.has(level._id)) {
+      future.push(row);
+    }
+  }
+
+  const rowByLevelId = new Map(rows.map((r) => [r.level._id, r]));
+  const planned: DashboardCertRow[] = [];
+  for (const id of user.plannedCertificationLevelIds ?? []) {
+    const row = rowByLevelId.get(id);
+    if (!row) {
+      continue;
+    }
+    if (row.unitTotal === 0) {
+      continue;
+    }
+    if (row.completedCount === row.unitTotal) {
+      continue;
+    }
+    if (row.touchedCount > 0) {
+      continue;
+    }
+    planned.push(row);
+  }
+
+  return { current, future, completed, planned };
+}
+
+/** `live_workshop` units on certifications that are in progress, on the roadmap, or not yet started (future). */
+export async function collectLiveWorkshopUnitIdsOnLearnerCertPaths(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<Id<"units">[]> {
+  const { current, planned, future } = await computeLearnerCertPathBuckets(
+    ctx,
+    userId,
+  );
+  const levelIds = new Set<Id<"certificationLevels">>();
+  for (const row of [...current, ...planned, ...future]) {
+    levelIds.add(row.level._id);
+  }
+  const unitIdSet = new Set<Id<"units">>();
+  for (const levelId of levelIds) {
+    const units = await collectUnitsForLevel(ctx, levelId);
+    for (const u of units) {
+      if (isLive(u) && u.deliveryMode === "live_workshop") {
+        unitIdSet.add(u._id);
+      }
+    }
+  }
+  return [...unitIdSet];
+}
+
+/**
  * Certifications grouped for the learner dashboard: in progress, not started, fully complete.
  */
 export const listDashboardBucketsForUser = query({
   args: {},
   handler: async (ctx) => {
-    type Row = DashboardCertRow;
     const userId = await requireUserId(ctx);
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      return {
-        current: [] as Row[],
-        future: [] as Row[],
-        completed: [] as Row[],
-        planned: [] as Row[],
-      };
-    }
-    const all = (await ctx.db.query("certificationLevels").collect()).filter(
-      (l) => isLive(l),
-    );
-    const levels =
-      user.role === "admin" || user.role === "content_creator"
-        ? all
-        : all.filter(
-            (l) => l.companyId == null || l.companyId === user.companyId,
-          );
-    const sorted = levels.sort((a, b) => a.order - b.order);
-
-    const allProgress = await ctx.db
-      .query("userProgress")
-      .filter((q) => q.eq(q.field("userId"), userId))
-      .collect();
-    const progressByUnit = new Map<
-      Id<"units">,
-      (typeof allProgress)[number]
-    >();
-    for (const p of allProgress) {
-      progressByUnit.set(p.unitId, p);
-    }
-
-    const rows: Row[] = [];
-    for (const level of sorted) {
-      const row = await buildDashboardCertRow(
-        ctx,
-        userId,
-        level,
-        progressByUnit,
-      );
-      if (row) {
-        rows.push(row);
-      }
-    }
-
-    const plannedIdSet = new Set(user.plannedCertificationLevelIds ?? []);
-
-    const current: Row[] = [];
-    const future: Row[] = [];
-    const completed: Row[] = [];
-    for (const row of rows) {
-      const { unitTotal, completedCount, touchedCount, level } = row;
-      if (unitTotal === 0) {
-        if (!plannedIdSet.has(level._id)) {
-          future.push(row);
-        }
-        continue;
-      }
-      if (completedCount === unitTotal) {
-        completed.push(row);
-      } else if (touchedCount > 0) {
-        current.push(row);
-      } else if (!plannedIdSet.has(level._id)) {
-        future.push(row);
-      }
-    }
-
-    const rowByLevelId = new Map(rows.map((r) => [r.level._id, r]));
-    const planned: Row[] = [];
-    for (const id of user.plannedCertificationLevelIds ?? []) {
-      const row = rowByLevelId.get(id);
-      if (!row) {
-        continue;
-      }
-      if (row.unitTotal === 0) {
-        continue;
-      }
-      if (row.completedCount === row.unitTotal) {
-        continue;
-      }
-      if (row.touchedCount > 0) {
-        continue;
-      }
-      planned.push(row);
-    }
-
-    return { current, future, completed, planned };
+    return await computeLearnerCertPathBuckets(ctx, userId);
   },
 });
 

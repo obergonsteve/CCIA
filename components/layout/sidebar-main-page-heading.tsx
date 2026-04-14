@@ -16,18 +16,25 @@ export function SidebarMainPageHeading() {
   }
   const Icon = meta.icon;
   return (
-    <header className="flex items-center gap-3 pb-2">
+    <header className="flex items-start gap-3 pb-2">
       <span
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/30",
+          "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/30",
         )}
         aria-hidden
       >
         <Icon className={cn("h-5 w-5", meta.iconClassName)} />
       </span>
-      <h1 className="text-2xl font-bold tracking-tight text-foreground">
-        {meta.label}
-      </h1>
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          {meta.label}
+        </h1>
+        {meta.subheading ? (
+          <p className="text-sm leading-snug text-muted-foreground">
+            {meta.subheading}
+          </p>
+        ) : null}
+      </div>
     </header>
   );
 }

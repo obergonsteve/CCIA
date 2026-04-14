@@ -69,7 +69,12 @@ export function primaryNavIconClass(
 /** Icon + title for the current route when it matches a direct sidebar destination. */
 export function sidebarMainPageHeading(
   pathname: string,
-): { label: string; icon: LucideIcon; iconClassName: string } | null {
+): {
+  label: string;
+  icon: LucideIcon;
+  iconClassName: string;
+  subheading?: string;
+} | null {
   if (pathname === "/dashboard") {
     return {
       label: "Dashboard",
@@ -89,6 +94,7 @@ export function sidebarMainPageHeading(
       label: "Workshops",
       icon: CalendarDays,
       iconClassName: "text-purple-600 dark:text-purple-400",
+      subheading: "Workshop units in your Certification Roadmap.",
     };
   }
   if (pathname.startsWith("/admin/users")) {

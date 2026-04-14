@@ -250,7 +250,7 @@ export default function CertificationLevelClient({
           className="h-1.5 w-full bg-gradient-to-r from-brand-lime/70 via-brand-gold/75 to-brand-sky/70"
           aria-hidden
         />
-        <div className="p-4 md:p-6">
+        <div className="p-3 md:p-5">
           <h2
             id="certification-path-heading"
             className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground md:text-xl"
@@ -264,7 +264,7 @@ export default function CertificationLevelClient({
               units in Admin → Courses.
             </p>
           ) : (
-            <ol className="mt-6 flex w-full flex-col gap-6 border-t border-border/60 pt-6">
+            <ol className="mt-4 flex w-full flex-col gap-3 border-t border-border/60 pt-4">
             {roadmap.units.map((u) => {
               const pathSteps = u.pathSteps satisfies PathStep[];
               const isWorkshop =
@@ -278,7 +278,7 @@ export default function CertificationLevelClient({
               const certificationNavLocked = u.locked && !isWorkshop;
               const unitCardHref = `/units/${u.unitId}?level=${levelId}`;
               const cardClassName = cn(
-                "block w-full rounded-xl border bg-card px-3 py-3 text-left shadow-sm transition-colors hover:bg-muted/40",
+                "block w-full rounded-xl border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/40",
                 u.completed && "border-2 border-brand-lime/50 bg-brand-lime/[0.06]",
                 certificationNavLocked && "cursor-not-allowed opacity-80",
                 u.locked &&
@@ -296,7 +296,7 @@ export default function CertificationLevelClient({
               const showRegisteredSlot =
                 isWorkshop && reg != null && !u.completed;
               const cardBody = (
-                <div className="flex flex-col gap-2 text-left">
+                <div className="flex flex-col gap-1.5 text-left">
                   <Badge
                     variant="outline"
                     className={cn(
@@ -369,7 +369,7 @@ export default function CertificationLevelClient({
               return (
                 <li
                   key={u.unitId}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-1 md:gap-1.5"
+                  className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1 md:gap-1.5"
                 >
                   <div className="w-full shrink-0 sm:max-w-[min(100%,260px)] sm:w-[216px]">
                     {!u.completed && isWorkshop ? (
