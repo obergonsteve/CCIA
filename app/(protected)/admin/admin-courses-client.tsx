@@ -428,7 +428,7 @@ function TrainingColumnChip({
   /** Extra content between title and count (e.g. units scope + icon). */
   trailing,
 }: {
-  tone: "lime" | "gold" | "sky";
+  tone: "lime" | "gold" | "sky" | "purple";
   /** Omit or leave empty to show only `trailing` + count (all three columns use `trailing` + icon). */
   label?: string;
   count: number | null;
@@ -438,6 +438,8 @@ function TrainingColumnChip({
     lime: "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]",
     gold: "border-brand-gold/55 bg-[color-mix(in_oklab,var(--brand-gold)_32%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-gold)_26%,var(--card))]",
     sky: "border-brand-sky/55 bg-[color-mix(in_oklab,var(--brand-sky)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-sky)_24%,var(--card))]",
+    purple:
+      "border-purple-500/55 bg-[color-mix(in_oklab,purple_22%,var(--card))] text-foreground dark:border-purple-400/50 dark:bg-[color-mix(in_oklab,purple_17%,var(--card))]",
   }[tone];
   return (
     <div className="relative z-10 -mt-3 mb-1 flex w-full shrink-0 justify-center border-b border-border/40 pb-1">
@@ -663,8 +665,8 @@ export default function AdminCoursesClient() {
   }, []);
 
   /** `null` = no day filter — centre column lists all live-workshop units (calendar “All”). */
-  const [workshopPlannerDay, setWorkshopPlannerDay] = useState<Date | null>(() =>
-    startOfDay(new Date()),
+  const [workshopPlannerDay, setWorkshopPlannerDay] = useState<Date | null>(
+    () => null,
   );
   const [workshopCalendarViewMonth, setWorkshopCalendarViewMonth] = useState(
     () => startOfMonth(startOfDay(new Date())),
@@ -2519,7 +2521,7 @@ export default function AdminCoursesClient() {
             )}
           >
             <TrainingColumnChip
-              tone="gold"
+              tone={trainingLeftTab === "workshops" ? "purple" : "gold"}
               count={unitsListCount}
               trailing={
                 <span className="min-w-0 truncate">
