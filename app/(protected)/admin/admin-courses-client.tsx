@@ -112,25 +112,9 @@ function parseScheduleLocalInput(s: string): number {
 }
 
 /** Filter chip second line: only when long text differs from short code (migration often duplicated the legacy label). */
-function categoryChipSubtitle(
-  longDescription: string,
-  shortCode: string,
-): string | undefined {
-  const long = longDescription.trim();
-  const short = shortCode.trim();
-  if (!long) {
-    return undefined;
-  }
-  if (long.localeCompare(short, undefined, { sensitivity: "accent" }) === 0) {
-    return undefined;
-  }
-  return long;
-}
-
-/** Category dropdown row: short code plus long text when they differ. */
-function categorySelectLabel(shortCode: string, longDescription: string): string {
-  const sub = categoryChipSubtitle(longDescription, shortCode);
-  return sub ? `${shortCode.trim()} — ${sub}` : shortCode.trim();
+/** Category dropdown row: short code only (lists stay scannable; long text is in CRUD / tooltips elsewhere). */
+function categorySelectLabel(shortCode: string, _longDescription: string): string {
+  return shortCode.trim();
 }
 
 /** Closed-trigger + `itemToStringLabel`: show category short code (FK stays in `value`). */
@@ -2067,31 +2051,49 @@ export default function AdminCoursesClient() {
     unitMatchesDeliveryChip,
   ]);
 
+  /**
+   * Calendar dots and “sessions on this day” must match what the centre column
+   * can list: same cert scope, delivery / category / search chips, plus the
+   * left-column timetable unit category. Otherwise a session (e.g. for a
+   * self-paced unit, or another cert) still produced a purple dot while
+   * “Workshop (0)” showed an empty day.
+   */
+  const workshopSessionIncludedInTimetableUi = useCallback(
+    (workshopUnitId: Id<"units">) => {
+      const u = allUnits?.find((x) => x._id === workshopUnitId);
+      if (!u) {
+        return false;
+      }
+      if (!unitMatchesWorkshopTimetableCategory(u)) {
+        return false;
+      }
+      const inCentrePalette =
+        filterCertId && !centreUnitsShowAll
+          ? unitsInCertVisibleForUi.some((x) => x._id === workshopUnitId)
+          : allUnitsVisibleForUi.some((x) => x._id === workshopUnitId);
+      return inCentrePalette;
+    },
+    [
+      allUnits,
+      unitMatchesWorkshopTimetableCategory,
+      filterCertId,
+      centreUnitsShowAll,
+      unitsInCertVisibleForUi,
+      allUnitsVisibleForUi,
+    ],
+  );
+
   const workshopSessionMarkers = useMemo(() => {
     if (!workshopSessionsAdmin?.length) {
       return [];
     }
     return workshopSessionsAdmin
-      .filter((s) => {
-        if (workshopTimetableUnitCategoryFilter === "all") {
-          return true;
-        }
-        const u = allUnits?.find((x) => x._id === s.workshopUnitId);
-        if (!u) {
-          return true;
-        }
-        return unitMatchesWorkshopTimetableCategory(u);
-      })
+      .filter((s) => workshopSessionIncludedInTimetableUi(s.workshopUnitId))
       .map((s) => ({
         startsAt: s.startsAt,
         status: s.status,
       }));
-  }, [
-    workshopSessionsAdmin,
-    workshopTimetableUnitCategoryFilter,
-    allUnits,
-    unitMatchesWorkshopTimetableCategory,
-  ]);
+  }, [workshopSessionsAdmin, workshopSessionIncludedInTimetableUi]);
 
   const workshopSessionsInViewMonthCount = useMemo(() => {
     if (!workshopSessionsAdmin) {
@@ -2101,21 +2103,12 @@ export default function AdminCoursesClient() {
       if (!isSameMonth(new Date(s.startsAt), workshopCalendarViewMonth)) {
         return false;
       }
-      if (workshopTimetableUnitCategoryFilter === "all") {
-        return true;
-      }
-      const u = allUnits?.find((x) => x._id === s.workshopUnitId);
-      if (!u) {
-        return true;
-      }
-      return unitMatchesWorkshopTimetableCategory(u);
+      return workshopSessionIncludedInTimetableUi(s.workshopUnitId);
     }).length;
   }, [
     workshopSessionsAdmin,
     workshopCalendarViewMonth,
-    workshopTimetableUnitCategoryFilter,
-    allUnits,
-    unitMatchesWorkshopTimetableCategory,
+    workshopSessionIncludedInTimetableUi,
   ]);
 
   const unitIdsScheduledOnWorkshopPlannerDay = useMemo(() => {
@@ -2130,12 +2123,7 @@ export default function AdminCoursesClient() {
       ) {
         continue;
       }
-      if (workshopTimetableUnitCategoryFilter === "all") {
-        ids.add(s.workshopUnitId);
-        continue;
-      }
-      const u = allUnits?.find((x) => x._id === s.workshopUnitId);
-      if (u && unitMatchesWorkshopTimetableCategory(u)) {
+      if (workshopSessionIncludedInTimetableUi(s.workshopUnitId)) {
         ids.add(s.workshopUnitId);
       }
     }
@@ -2143,9 +2131,7 @@ export default function AdminCoursesClient() {
   }, [
     workshopSessionsAdmin,
     workshopPlannerDay,
-    workshopTimetableUnitCategoryFilter,
-    allUnits,
-    unitMatchesWorkshopTimetableCategory,
+    workshopSessionIncludedInTimetableUi,
   ]);
 
   const workshopCentreSplit = useMemo(() => {
@@ -3680,7 +3666,7 @@ export default function AdminCoursesClient() {
               </Select>
               <p className="text-[11px] text-muted-foreground">
                 Self-paced: on-demand lessons. Workshop: scheduled live sessions
-                (Admin → Timetable).
+                (Training Content → Timetable tab).
               </p>
             </div>
             <div className="space-y-1">
@@ -4012,7 +3998,7 @@ export default function AdminCoursesClient() {
                     <p className="text-sm text-muted-foreground">
                       Create sessions under{" "}
                       <span className="font-medium text-foreground">
-                        Admin → Timetable
+                        Training Content → Timetable tab
                       </span>{" "}
                       first.
                     </p>
@@ -4625,7 +4611,7 @@ export default function AdminCoursesClient() {
                     <p className="text-sm text-muted-foreground">Loading…</p>
                   ) : workshopSessionsAdmin.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      Add sessions under Admin → Timetable.
+                      Add sessions under Training Content → Timetable tab.
                     </p>
                   ) : (
                     <Select
@@ -5057,7 +5043,7 @@ export default function AdminCoursesClient() {
               </Select>
               <p className="text-[11px] text-muted-foreground">
                 Self-paced: on-demand lessons. Workshop: scheduled live sessions
-                (Admin → Timetable).
+                (Training Content → Timetable tab).
               </p>
             </div>
             {editUnitDeliveryMode === "live_workshop" ? (
@@ -5071,8 +5057,8 @@ export default function AdminCoursesClient() {
                   </p>
                 ) : editUnitWorkshopSessions.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    No sessions yet. Schedule from Training → Timetable (drag a
-                    unit onto the calendar).
+                    No sessions yet. Open Training Content → Timetable tab and
+                    drag a workshop unit onto the calendar.
                   </p>
                 ) : (
                   <ul className="max-h-[min(28rem,55vh)] space-y-3 overflow-y-auto pr-0.5 text-xs">

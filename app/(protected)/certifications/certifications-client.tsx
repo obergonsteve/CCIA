@@ -163,7 +163,11 @@ export default function CertificationsClient() {
                           {level.thumbnailUrl ? (
                             <Image
                               src={level.thumbnailUrl}
-                              alt={level.name}
+                              alt={
+                                level.code?.trim()
+                                  ? `${level.name} (${level.code.trim()})`
+                                  : level.name
+                              }
                               fill
                               className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                               sizes="(max-width: 768px) 100vw, 50vw"
@@ -193,6 +197,11 @@ export default function CertificationsClient() {
                             <h2 className="text-xl font-bold tracking-tight text-foreground drop-shadow-sm md:text-2xl">
                               {level.name}
                             </h2>
+                            {level.code?.trim() ? (
+                              <p className="mt-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground drop-shadow-sm md:text-xs">
+                                {level.code.trim()}
+                              </p>
+                            ) : null}
                             {level.tagline ? (
                               <p className="mt-1 text-sm font-medium text-brand-sky">
                                 {level.tagline}

@@ -807,6 +807,8 @@ export const roadmapForCertification = query({
 
     const out: Array<{
       unitId: Id<"units">;
+      /** Short stable label for lists and nav (optional on legacy rows). */
+      code?: string;
       title: string;
       description: string;
       order: number;
@@ -876,6 +878,7 @@ export const roadmapForCertification = query({
       );
       out.push({
         unitId: unit._id,
+        code: unit.code,
         title: unit.title,
         description: unit.description,
         order: i,

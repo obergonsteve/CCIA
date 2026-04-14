@@ -458,7 +458,7 @@ export default function UnitClient({
       <div>
         <div className="flex min-w-0 items-center justify-between gap-2">
           <h1 className="min-w-0 flex-1 text-2xl font-bold leading-snug tracking-tight">
-            Unit: {unit.title}
+            {unit.title}
           </h1>
           <Badge
             variant="outline"
@@ -472,7 +472,19 @@ export default function UnitClient({
             {isLiveWorkshopUnit ? "Workshop" : "Self-paced"}
           </Badge>
         </div>
-        <p className="text-muted-foreground">{unit.description}</p>
+        {unit.code?.trim() ? (
+          <p className="mt-1 font-mono text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            {unit.code.trim()}
+          </p>
+        ) : null}
+        <p
+          className={cn(
+            "text-muted-foreground",
+            unit.code?.trim() ? "mt-2" : undefined,
+          )}
+        >
+          {unit.description}
+        </p>
         <div className="mt-3 flex items-center gap-3">
           <Progress value={roadmap.fraction} className="h-2 flex-1 max-w-md" />
           <span className="text-xs text-muted-foreground whitespace-nowrap">

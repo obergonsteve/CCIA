@@ -543,11 +543,6 @@ export function ContentLibraryDragRow({
       )}
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
-        {item.code?.trim() ? (
-          <div className="mt-0.5 truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
-            {item.code.trim()}
-          </div>
-        ) : null}
         {contentCategoryShortCode?.trim() ? (
           <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
             {contentCategoryShortCode.trim()}
@@ -678,11 +673,6 @@ export function SortableUnitContentRow({
       </button>
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
-        {item.code?.trim() ? (
-          <div className="mt-0.5 truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
-            {item.code.trim()}
-          </div>
-        ) : null}
         {contentCategoryShortCode?.trim() ? (
           <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
             {contentCategoryShortCode.trim()}

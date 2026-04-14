@@ -345,8 +345,232 @@ function certificationTierForCourseName(
   return "silver";
 }
 
+/** Same short demo clip as `curriculumSeedData` (HTML5-friendly). */
+const SEED_WORKSHOP_DEMO_VIDEO_URL =
+  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+
+function maxSeedUnitOrderInCourse(courseName: string): number {
+  const course = LAND_LEASE_CURRICULUM.find((c) => c.name === courseName);
+  if (!course?.units.length) {
+    return -1;
+  }
+  return Math.max(...course.units.map((u) => u.order));
+}
+
+type SeededWorkshopUnitSpec = {
+  courseName: string;
+  title: string;
+  description: string;
+  videoTitle: string;
+  linkTitle: string;
+  linkUrl: string;
+  sessionStepTitle: string;
+  /** ISO 8601 — fixed times so the admin timetable shows predictable dots. */
+  sessionStartIso: string;
+  sessionEndIso: string;
+  assignmentTitle: string;
+};
+
+/**
+ * One live-workshop unit per listed certification: pre-read video + link,
+ * scheduled `workshopSessions` row + `workshop_session` content step, and a
+ * short graded assignment (mirrors learner path expectations).
+ */
+const SEEDED_WORKSHOP_UNIT_SPECS: SeededWorkshopUnitSpec[] = [
+  {
+    courseName: "Land Lease 101",
+    title: "Live community orientation workshop",
+    description:
+      "Facilitated orientation: on-site expectations, resident touchpoints, and Q&A. Watch the short pre-record, review the checklist, register for a session via the workshop step, then submit the reflection.",
+    videoTitle: "Before you attend: how live workshops run",
+    linkTitle: "Workshop participant checklist",
+    linkUrl: "https://www.ccia.com.au/",
+    sessionStepTitle: "Register for a scheduled orientation session",
+    sessionStartIso: "2026-05-20T09:00:00+10:00",
+    sessionEndIso: "2026-05-20T11:30:00+10:00",
+    assignmentTitle: "Reflection — live orientation",
+  },
+  {
+    courseName: "Compliance & the Act",
+    title: "Compliance briefing (live workshop)",
+    description:
+      "Walkthrough of disclosure themes and common enquiries with a facilitator. Complete the pre-read, book a session, then confirm takeaways in the short assignment.",
+    videoTitle: "Pre-read: how compliance workshops are structured",
+    linkTitle: "National Cabinet — disclosure reform (context)",
+    linkUrl: "https://www.nationalcabinet.gov.au/",
+    sessionStepTitle: "Book a scheduled compliance briefing",
+    sessionStartIso: "2026-06-10T13:00:00+10:00",
+    sessionEndIso: "2026-06-10T15:00:00+10:00",
+    assignmentTitle: "Checkpoint — compliance briefing takeaways",
+  },
+  {
+    courseName: "Site Safety & WHS",
+    title: "Site safety roundtable (live workshop)",
+    description:
+      "Interactive session on hazard reporting, contractor controls, and incident escalation. Review the primer link, attend a scheduled roundtable, then complete the knowledge check.",
+    videoTitle: "Safety culture — what we cover in the live roundtable",
+    linkTitle: "Safe Work Australia — WHS duties overview",
+    linkUrl: "https://www.safeworkaustralia.gov.au/",
+    sessionStepTitle: "Register for a site safety roundtable",
+    sessionStartIso: "2026-07-08T09:30:00+10:00",
+    sessionEndIso: "2026-07-08T12:00:00+10:00",
+    assignmentTitle: "Roundtable follow-up — site safety",
+  },
+];
+
+async function insertSeededWorkshopUnits(
+  ctx: MutationCtx,
+  opts: {
+    levelIdByCourseName: Map<string, Id<"certificationLevels">>;
+    unitSort: { n: number };
+    contentSort: { n: number };
+  },
+): Promise<number> {
+  let inserted = 0;
+  for (const spec of SEEDED_WORKSHOP_UNIT_SPECS) {
+    const levelId = opts.levelIdByCourseName.get(spec.courseName);
+    if (!levelId) {
+      throw new Error(`Seed workshop: missing level for ${spec.courseName}`);
+    }
+    const nextOrder = maxSeedUnitOrderInCourse(spec.courseName) + 1;
+    const unitCatLabel = seededUnitCategoryForCourse(spec.courseName);
+    const unitCatId = await getOrInsertUnitCategory(
+      ctx,
+      unitCatLabel,
+      `${unitCatLabel} — units in ${spec.courseName}`,
+      opts.unitSort,
+    );
+    const unitId = await ctx.db.insert("units", {
+      code: await allocateUniqueUnitCode(ctx, spec.title, {
+        maxBaseLen: SEED_CODE_BASE_MAX_LEN,
+      }),
+      title: spec.title,
+      description: spec.description,
+      unitCategoryId: unitCatId,
+      deliveryMode: "live_workshop",
+    });
+    await ctx.db.insert("certificationUnits", {
+      levelId,
+      unitId,
+      order: nextOrder,
+    });
+
+    let stepOrder = 0;
+    const videoCatId = await getOrInsertContentCategory(
+      ctx,
+      seededContentCategoryForLesson("video"),
+      `${seededContentCategoryForLesson("video")} — library content`,
+      opts.contentSort,
+    );
+    const videoId = await ctx.db.insert("contentItems", {
+      code: await allocateUniqueContentCode(ctx, spec.videoTitle),
+      type: "video",
+      title: spec.videoTitle,
+      url: SEED_WORKSHOP_DEMO_VIDEO_URL,
+      contentCategoryId: videoCatId,
+      duration: 150,
+    });
+    await ctx.db.insert("unitContents", {
+      unitId,
+      contentId: videoId,
+      order: stepOrder++,
+    });
+
+    const linkCatId = await getOrInsertContentCategory(
+      ctx,
+      seededContentCategoryForLesson("link"),
+      `${seededContentCategoryForLesson("link")} — library content`,
+      opts.contentSort,
+    );
+    const linkId = await ctx.db.insert("contentItems", {
+      code: await allocateUniqueContentCode(ctx, spec.linkTitle),
+      type: "link",
+      title: spec.linkTitle,
+      url: spec.linkUrl,
+      contentCategoryId: linkCatId,
+    });
+    await ctx.db.insert("unitContents", {
+      unitId,
+      contentId: linkId,
+      order: stepOrder++,
+    });
+
+    const startsAt = new Date(spec.sessionStartIso).getTime();
+    const endsAt = new Date(spec.sessionEndIso).getTime();
+    const sessionId = await ctx.db.insert("workshopSessions", {
+      workshopUnitId: unitId,
+      startsAt,
+      endsAt,
+      status: "scheduled",
+      capacity: 24,
+    });
+    const liveWorkshopCatId = await getOrInsertContentCategory(
+      ctx,
+      "Live workshops",
+      "Live workshops — scheduled sessions & registration",
+      opts.contentSort,
+    );
+    const sessionContentId = await ctx.db.insert("contentItems", {
+      code: await allocateUniqueContentCode(ctx, spec.sessionStepTitle),
+      type: "workshop_session",
+      title: spec.sessionStepTitle,
+      url: "",
+      contentCategoryId: liveWorkshopCatId,
+      workshopSessionId: sessionId,
+    });
+    await ctx.db.insert("unitContents", {
+      unitId,
+      contentId: sessionContentId,
+      order: stepOrder++,
+    });
+
+    const assignCatId = await getOrInsertContentCategory(
+      ctx,
+      SEED_CONTENT_CATEGORY_ASSESSMENT,
+      "Quizzes & assessments — formal checks",
+      opts.contentSort,
+    );
+    const assignId = await ctx.db.insert("contentItems", {
+      code: await allocateUniqueContentCode(ctx, spec.assignmentTitle),
+      type: "assignment",
+      title: spec.assignmentTitle,
+      url: "",
+      contentCategoryId: assignCatId,
+      assessment: {
+        description:
+          "Short confirmation after you have used the workshop session step (register or mark complete as directed by your facilitator).",
+        passingScore: 70,
+        questions: [
+          {
+            id: `ws-${inserted}-reflect`,
+            question:
+              "After the live workshop step, which statement best matches what you should do next?",
+            type: "multiple_choice",
+            options: [
+              "Ignore the session tile — it is optional decoration",
+              "Keep evidence of attendance or registration as directed for your site records",
+              "Delete the unit from your training plan",
+              "Skip all remaining certification units",
+            ],
+            correctAnswer:
+              "Keep evidence of attendance or registration as directed for your site records",
+          },
+        ],
+      },
+    });
+    await ctx.db.insert("unitContents", {
+      unitId,
+      contentId: assignId,
+      order: stepOrder,
+    });
+    inserted += 1;
+  }
+  return inserted;
+}
+
 async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
   const levelIds: Id<"certificationLevels">[] = [];
+  const levelIdByCourseName = new Map<string, Id<"certificationLevels">>();
   const unitIdBySeedKey = new Map<string, Id<"units">>();
   const certSort = { n: 0 };
   const unitSort = { n: 0 };
@@ -374,6 +598,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       certificationTier: certificationTierForCourseName(course.name),
     });
     levelIds.push(levelId);
+    levelIdByCourseName.set(course.name, levelId);
 
     for (const unit of course.units) {
       const unitCatLabel = seededUnitCategoryForCourse(course.name);
@@ -497,10 +722,21 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
     }
   }
 
+  const selfPacedUnitCount = LAND_LEASE_CURRICULUM.reduce(
+    (n, c) => n + c.units.length,
+    0,
+  );
+  const workshopUnitsInserted = await insertSeededWorkshopUnits(ctx, {
+    levelIdByCourseName,
+    unitSort,
+    contentSort,
+  });
+
   return {
     levelCount: levelIds.length,
-    unitCount: LAND_LEASE_CURRICULUM.reduce((n, c) => n + c.units.length, 0),
+    unitCount: selfPacedUnitCount + workshopUnitsInserted,
     prerequisiteCount,
+    workshopUnitsInserted,
   };
 }
 
@@ -558,6 +794,11 @@ export const adminClearTrainingData = mutation({
       certificationCategories: 0,
       unitCategories: 0,
       contentCategories: 0,
+      certificationWorkshopAttendees: 0,
+      workshopSessionWhiteboardStrokes: 0,
+      workshopSessionChatMessages: 0,
+      workshopRegistrations: 0,
+      workshopSessions: 0,
     };
     for (const row of await ctx.db.query("testResults").collect()) {
       await ctx.db.delete(row._id);
@@ -570,6 +811,26 @@ export const adminClearTrainingData = mutation({
     for (const row of await ctx.db.query("unitPrerequisites").collect()) {
       await ctx.db.delete(row._id);
       counts.unitPrerequisites += 1;
+    }
+    for (const row of await ctx.db.query("certificationWorkshopAttendees").collect()) {
+      await ctx.db.delete(row._id);
+      counts.certificationWorkshopAttendees += 1;
+    }
+    for (const row of await ctx.db.query("workshopSessionWhiteboardStrokes").collect()) {
+      await ctx.db.delete(row._id);
+      counts.workshopSessionWhiteboardStrokes += 1;
+    }
+    for (const row of await ctx.db.query("workshopSessionChatMessages").collect()) {
+      await ctx.db.delete(row._id);
+      counts.workshopSessionChatMessages += 1;
+    }
+    for (const row of await ctx.db.query("workshopRegistrations").collect()) {
+      await ctx.db.delete(row._id);
+      counts.workshopRegistrations += 1;
+    }
+    for (const row of await ctx.db.query("workshopSessions").collect()) {
+      await ctx.db.delete(row._id);
+      counts.workshopSessions += 1;
     }
     for (const row of await ctx.db.query("unitContents").collect()) {
       await ctx.db.delete(row._id);
@@ -626,7 +887,7 @@ export const adminSeedTrainingDatabase = mutation({
         operators,
         curriculumSkipped: true as const,
         message:
-          "Curriculum already present («Land Lease 101»). Use Clear training data first to re-seed.",
+          "Curriculum already present («Land Lease 101»). Use Clear test data first to re-seed.",
       };
     }
     const stats = await runInsertLandLeaseCurriculum(ctx);

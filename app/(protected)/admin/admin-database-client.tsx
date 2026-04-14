@@ -48,20 +48,25 @@ export default function AdminDatabaseClient() {
     <div className="space-y-6">
       <div>
         <p className="text-muted-foreground">
-          Seed or clear curriculum and learner progress. Companies and user
-          accounts are kept when clearing.
+          Seed demo operators, admins, and the Land Lease curriculum — or clear
+          curriculum and learner test data. Companies and user accounts are not
+          removed when you clear.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Seed &amp; clear</CardTitle>
+          <CardTitle>Test data — seed &amp; clear</CardTitle>
           <CardDescription>
-            Clear removes all certification levels, units, media, assessments,
-            prerequisites, and learner progress — <strong>not</strong> companies
-            or user accounts. Seed restores operator companies, default admin
-            logins, and the Land Lease curriculum (if «Land Lease 101» is
-            absent).
+            <strong>Clear test data</strong> deletes certification levels,
+            units, library content, assignments, prerequisites, curriculum
+            category rows, certification–unit and unit–content links, learner
+            progress, and stored quiz/test results.{" "}
+            <strong>Companies and user accounts stay.</strong>{" "}
+            <strong>Seed test data</strong> ensures demo operator companies and
+            default admin logins, then inserts Land Lease 101 only when that
+            curriculum is not already present — clear first if you need a clean
+            re-seed.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
@@ -70,7 +75,7 @@ export default function AdminDatabaseClient() {
             onClick={() => setClearTrainingDialogOpen(true)}
           >
             <Trash2 className="h-4 w-4 mr-1.5" />
-            Clear training data
+            Clear test data
           </Button>
           <Button
             variant="secondary"
@@ -83,8 +88,15 @@ export default function AdminDatabaseClient() {
                       "Curriculum already seeded — clear first to re-insert.",
                   );
                 } else {
+                  const ws =
+                    "workshopUnitsInserted" in res &&
+                    typeof (res as { workshopUnitsInserted?: unknown })
+                      .workshopUnitsInserted === "number"
+                      ? (res as { workshopUnitsInserted: number })
+                          .workshopUnitsInserted
+                      : 0;
                   toast.success(
-                    `Seeded ${res.levelCount} levels, ${res.unitCount} units, ${res.prerequisiteCount} prerequisite links`,
+                    `Seeded ${res.levelCount} levels, ${res.unitCount} units (${ws} live workshop), ${res.prerequisiteCount} prerequisite links`,
                   );
                 }
               } catch (e) {
@@ -93,7 +105,7 @@ export default function AdminDatabaseClient() {
             }}
           >
             <Database className="h-4 w-4 mr-1.5" />
-            Seed database
+            Seed test data
           </Button>
         </CardContent>
       </Card>
@@ -224,12 +236,13 @@ export default function AdminDatabaseClient() {
       >
         <DialogContent className="sm:max-w-md" showCloseButton>
           <DialogHeader>
-            <DialogTitle>Clear all training data?</DialogTitle>
+            <DialogTitle>Clear all test data?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This permanently deletes every certification level, unit, content
-            item, assignment, prerequisite rule, progress row, and quiz result.
-            Companies and users are kept.
+            This permanently deletes certification levels, units, content items,
+            assignments, prerequisite rules, curriculum category and link rows,
+            user progress, and quiz/test results. Companies and user accounts are
+            kept.
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button

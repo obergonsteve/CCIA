@@ -143,6 +143,28 @@ function PathStepNode({
   );
 }
 
+function CertificationLevelPageHeading({
+  code,
+  name,
+  className,
+}: {
+  code?: string | null;
+  name: string;
+  className?: string;
+}) {
+  const trimmed = code?.trim();
+  return (
+    <h1 className="min-w-0">
+      <span className={className}>{name}</span>
+      {trimmed ? (
+        <span className="mt-1 block font-mono text-sm font-semibold uppercase tracking-wide text-muted-foreground md:text-base">
+          {trimmed}
+        </span>
+      ) : null}
+    </h1>
+  );
+}
+
 export default function CertificationLevelClient({
   levelId: levelIdRaw,
 }: {
@@ -195,10 +217,12 @@ export default function CertificationLevelClient({
             />
             <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/70 to-transparent md:from-background/90" />
             <div className="absolute inset-0 flex flex-col justify-end p-6 md:p-8 md:max-w-xl">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                  {level.name}
-                </h1>
+              <div className="flex flex-wrap items-start gap-2">
+                <CertificationLevelPageHeading
+                  code={level.code}
+                  name={level.name}
+                  className="text-2xl font-bold tracking-tight md:text-3xl"
+                />
                 <Badge
                   className={cn(
                     "px-1.5 text-[10px] font-bold uppercase tracking-wide",
@@ -220,8 +244,12 @@ export default function CertificationLevelClient({
         </div>
       ) : (
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{level.name}</h1>
+          <div className="flex flex-wrap items-start gap-2">
+            <CertificationLevelPageHeading
+              code={level.code}
+              name={level.name}
+              className="text-2xl font-bold tracking-tight"
+            />
             <Badge
               className={cn(
                 "px-1.5 text-[10px] font-bold uppercase tracking-wide",
@@ -267,6 +295,7 @@ export default function CertificationLevelClient({
             <ol className="mt-4 flex w-full flex-col gap-3 border-t border-border/60 pt-4">
             {roadmap.units.map((u) => {
               const pathSteps = u.pathSteps satisfies PathStep[];
+              const unitCode = u.code?.trim() ?? "";
               const isWorkshop =
                 (u.deliveryMode ?? "self_paced") === "live_workshop";
               const pct =
@@ -337,10 +366,15 @@ export default function CertificationLevelClient({
                         aria-hidden
                       />
                     )}
-                    <span className="min-w-0 flex-1 leading-snug">
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
                       <span className="line-clamp-3 text-sm font-semibold text-foreground">
                         {u.title}
                       </span>
+                      {unitCode ? (
+                        <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {unitCode}
+                        </span>
+                      ) : null}
                     </span>
                   </span>
                   {showRegisteredSlot ? (
@@ -364,8 +398,8 @@ export default function CertificationLevelClient({
                   )}
                 </div>
               );
-              const linkAria = `${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`;
-              const workshopOpenAria = `${u.title}, live workshop${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}. Opens scheduled sessions for this unit.`;
+              const linkAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`;
+              const workshopOpenAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, live workshop${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}. Opens scheduled sessions for this unit.`;
               return (
                 <li
                   key={u.unitId}
@@ -422,7 +456,7 @@ export default function CertificationLevelClient({
                       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch]">
                         <ol
                           className="flex w-max list-none flex-row flex-nowrap items-center gap-x-0 pr-1"
-                          aria-label={`Steps in unit: ${u.title}`}
+                          aria-label={`Steps in unit: ${unitCode ? `${unitCode} — ` : ""}${u.title}`}
                         >
                           {pathSteps.map((step, si) => (
                             <li
