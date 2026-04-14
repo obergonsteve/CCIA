@@ -539,8 +539,12 @@ export const listUpcomingSessionsForWorkshopUnit = query({
  * registration for this unit, else the most recently ended one (chat-only context).
  */
 export const myRegisteredSessionForLiveWorkshopUnit = query({
-  args: { workshopUnitId: v.id("units") },
-  handler: async (ctx, { workshopUnitId }) => {
+  args: {
+    workshopUnitId: v.id("units"),
+    /** When set, use this session if the learner is registered (e.g. reopen a closed run). */
+    workshopSessionId: v.optional(v.id("workshopSessions")),
+  },
+  handler: async (ctx, { workshopUnitId, workshopSessionId }) => {
     const userId = await requireUserId(ctx);
     const ok = await userCanAccessWorkshopSession(ctx, workshopUnitId);
     if (!ok) {
@@ -559,6 +563,24 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
       session: Doc<"workshopSessions">;
       registration: Doc<"workshopRegistrations">;
     };
+    if (workshopSessionId) {
+      const focused = await ctx.db.get(workshopSessionId);
+      if (
+        focused &&
+        focused.workshopUnitId === workshopUnitId &&
+        focused.status === "scheduled"
+      ) {
+        const reg = await ctx.db
+          .query("workshopRegistrations")
+          .withIndex("by_session_and_user", (q) =>
+            q.eq("sessionId", workshopSessionId).eq("userId", userId),
+          )
+          .unique();
+        if (reg) {
+          return { session: focused, registration: reg };
+        }
+      }
+    }
     const rows: Row[] = [];
     for (const r of regs) {
       const s = await ctx.db.get(r.sessionId);

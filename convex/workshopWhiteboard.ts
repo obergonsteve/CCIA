@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { requireUserId } from "./lib/auth";
+import { isLive } from "./lib/softDelete";
 import { userCanAccessWorkshopSession } from "./lib/workshopUnitLevels";
 
 /** Must match `WorkshopShapeKind` in `workshop-whiteboard-shape-kinds.ts` (ccia-landlease). */
@@ -128,17 +129,61 @@ async function assertLiveWorkshopGate(
   }
 }
 
+/** List strokes: live sessions still use the LiveKit gate; ended sessions allow registered learners to read ink. */
+async function assertWorkshopWhiteboardReadAccess(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  workshopSessionId: Id<"workshopSessions">,
+): Promise<void> {
+  const session = await ctx.db.get(workshopSessionId);
+  if (!session || session.status !== "scheduled") {
+    throw new Error("Session not available.");
+  }
+  const unit = await ctx.db.get(session.workshopUnitId);
+  if (!unit || !isLive(unit) || unit.deliveryMode !== "live_workshop") {
+    throw new Error("Invalid workshop.");
+  }
+  const canAccess = await userCanAccessWorkshopSession(
+    ctx,
+    session.workshopUnitId,
+  );
+  if (!canAccess) {
+    throw new Error("Forbidden");
+  }
+  const user = await ctx.db.get(userId);
+  const isLiveHost =
+    user != null &&
+    (user.role === "admin" || user.role === "content_creator");
+  const reg = await ctx.db
+    .query("workshopRegistrations")
+    .withIndex("by_session_and_user", (q) =>
+      q.eq("sessionId", workshopSessionId).eq("userId", userId),
+    )
+    .unique();
+  if (!isLiveHost && !reg) {
+    throw new Error("Register for this session to view the whiteboard.");
+  }
+  const now = Date.now();
+  if (session.endsAt >= now) {
+    await assertLiveWorkshopGate(ctx, userId, workshopSessionId);
+  }
+}
+
 export const listWorkshopWhiteboardStrokes = query({
   args: { workshopSessionId: v.id("workshopSessions") },
   handler: async (ctx, { workshopSessionId }) => {
     const userId = await requireUserId(ctx);
     try {
-      await assertLiveWorkshopGate(ctx, userId, workshopSessionId);
+      await assertWorkshopWhiteboardReadAccess(ctx, userId, workshopSessionId);
     } catch {
       return [];
     }
     const session = await ctx.db.get(workshopSessionId);
-    if (!session || session.whiteboardVisible === false) {
+    if (!session) {
+      return [];
+    }
+    const archived = session.endsAt < Date.now();
+    if (!archived && session.whiteboardVisible === false) {
       return [];
     }
     const rows = await ctx.db

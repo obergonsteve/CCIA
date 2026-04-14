@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { format, isSameDay } from "date-fns";
-import { ExternalLink, Video } from "lucide-react";
+import { ExternalLink, MessageSquare, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -25,6 +25,19 @@ function formatWorkshopSessionRange(startMs: number, endMs: number): string {
     return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${endTime}`;
   }
   return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${format(end, "dd/MM/yyyy")}, ${endTime}`;
+}
+
+function workshopClosedReplayHref(
+  unitId: Id<"units">,
+  sessionId: Id<"workshopSessions">,
+  levelId: Id<"certificationLevels"> | null,
+): string {
+  const q = new URLSearchParams();
+  q.set("session", sessionId);
+  if (levelId) {
+    q.set("level", levelId);
+  }
+  return `/units/${unitId}?${q.toString()}`;
 }
 
 type LiveWorkshopSessionTimes = Pick<
@@ -257,6 +270,61 @@ function RegisteredCertPathWorkshopCard({
   );
 }
 
+/** Ended certification-path session — open the unit with `?session=` to load that run’s chat & whiteboard. */
+function ClosedCertPathWorkshopCard({
+  session,
+  workshopTitle,
+  levelId,
+}: {
+  session: Doc<"workshopSessions">;
+  workshopTitle: string;
+  levelId: Id<"certificationLevels"> | null;
+}) {
+  const href = workshopClosedReplayHref(
+    session.workshopUnitId,
+    session._id,
+    levelId,
+  );
+  return (
+    <Card
+      size="sm"
+      className="border border-slate-300/90 bg-slate-50 shadow-sm dark:border-slate-700/90 dark:bg-slate-950"
+    >
+      <CardHeader className="py-2">
+        <CardTitle className="text-base font-medium text-foreground">
+          {workshopTitle}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
+        </p>
+        <Badge
+          variant="outline"
+          className="mt-1 w-fit border-slate-400/60 bg-slate-200/40 px-2 py-0 text-[10px] font-bold uppercase tracking-wide text-slate-800 dark:border-slate-500/50 dark:bg-slate-800/50 dark:text-slate-100"
+        >
+          Closed
+        </Badge>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2 pb-2">
+        <Link
+          href={href}
+          title="Open this workshop unit with session chat and whiteboard"
+          aria-label={`Open unit for closed workshop: ${workshopTitle}`}
+          className={cn(
+            buttonVariants({ variant: "secondary", size: "sm" }),
+            "inline-flex max-w-full gap-1.5 rounded-full border-slate-400/45 bg-slate-200/50 px-3 font-medium text-slate-900 shadow-sm hover:bg-slate-200/80 dark:border-slate-500/50 dark:bg-slate-800/60 dark:text-slate-50 dark:hover:bg-slate-800/85",
+          )}
+        >
+          <MessageSquare
+            className="h-3.5 w-3.5 shrink-0 text-slate-700 dark:text-slate-300"
+            aria-hidden
+          />
+          <span className="truncate">Open unit · chat & whiteboard</span>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function WorkshopsClient() {
   const searchParams = useSearchParams();
   const filterUnitIdRaw = searchParams.get("unit");
@@ -310,6 +378,26 @@ export default function WorkshopsClient() {
       ({ session }) => session.workshopUnitId === filterUnitId,
     );
   }, [registeredOnPath, filterUnitId]);
+
+  const registeredActiveFiltered = useMemo(() => {
+    if (!registeredOnPathFiltered) {
+      return undefined;
+    }
+    return registeredOnPathFiltered.filter(
+      ({ past, session }) => !past && session.status === "scheduled",
+    );
+  }, [registeredOnPathFiltered]);
+
+  const closedWorkshopsFiltered = useMemo(() => {
+    if (!registeredOnPathFiltered) {
+      return undefined;
+    }
+    const rows = registeredOnPathFiltered.filter(
+      ({ past, session }) => past && session.status === "scheduled",
+    );
+    rows.sort((a, b) => b.session.endsAt - a.session.endsAt);
+    return rows;
+  }, [registeredOnPathFiltered]);
 
   const openSessionsNeedRegister = useMemo(
     () => upcomingFiltered?.filter((s) => !s.registered) ?? [],
@@ -385,7 +473,7 @@ export default function WorkshopsClient() {
             Loading…
           </p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 md:items-start">
+          <div className="space-y-4">
             <div
               className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-amber-500/45 bg-amber-500/[0.08] p-3 dark:border-amber-400/40 dark:bg-amber-500/[0.11]"
               aria-labelledby="workshop-list-registered-heading"
@@ -396,17 +484,17 @@ export default function WorkshopsClient() {
               >
                 Registered
               </h3>
-              {!registeredOnPathFiltered ||
-              registeredOnPathFiltered.length === 0 ? (
+              {!registeredActiveFiltered ||
+              registeredActiveFiltered.length === 0 ? (
                 <p className="text-sm text-amber-950/80 dark:text-amber-100/85">
-                  No registrations on your certification path
+                  No upcoming registrations on your certification path
                   {filterUnitId ? " for this unit" : ""} yet.
                 </p>
               ) : (
-                <ul className="flex list-none flex-col gap-2 p-0">
-                  {registeredOnPathFiltered.map(
+                <ul className="grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
+                  {registeredActiveFiltered.map(
                     ({ session, workshopTitle, past }) => (
-                      <li key={session._id}>
+                      <li key={session._id} className="min-w-0">
                         <RegisteredCertPathWorkshopCard
                           session={session}
                           workshopTitle={workshopTitle}
@@ -447,9 +535,9 @@ export default function WorkshopsClient() {
                   every upcoming one.
                 </p>
               ) : (
-                <ul className="flex list-none flex-col gap-2 p-0">
+                <ul className="grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
                   {openSessionsNeedRegister.map((s) => (
-                    <li key={s._id}>
+                    <li key={s._id} className="min-w-0">
                       <OpenCertPathSessionCard
                         session={s}
                         now={now}
@@ -465,6 +553,36 @@ export default function WorkshopsClient() {
                             }
                           })();
                         }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div
+              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-slate-400/40 bg-slate-500/[0.06] p-3 dark:border-slate-500/40 dark:bg-slate-500/[0.1]"
+              aria-labelledby="workshop-list-closed-heading"
+            >
+              <h3
+                id="workshop-list-closed-heading"
+                className="text-base font-semibold text-slate-900 dark:text-slate-50"
+              >
+                Closed
+              </h3>
+              {!closedWorkshopsFiltered ||
+              closedWorkshopsFiltered.length === 0 ? (
+                <p className="text-sm text-slate-800/80 dark:text-slate-100/85">
+                  No closed workshops on your path
+                  {filterUnitId ? " for this unit" : ""} yet.
+                </p>
+              ) : (
+                <ul className="grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
+                  {closedWorkshopsFiltered.map(({ session, workshopTitle }) => (
+                    <li key={session._id} className="min-w-0">
+                      <ClosedCertPathWorkshopCard
+                        session={session}
+                        workshopTitle={workshopTitle}
+                        levelId={filterLevelId}
                       />
                     </li>
                   ))}

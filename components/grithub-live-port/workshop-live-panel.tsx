@@ -30,13 +30,16 @@ const liveKitRoomFrameStyle: CSSProperties = { height: "100%" };
 
 export function WorkshopLivePanel({
   workshopUnitId,
+  workshopSessionId,
 }: {
   workshopUnitId: Id<"units">;
+  /** When set, load this registered session (e.g. `?session=` from Workshops → closed run). */
+  workshopSessionId?: Id<"workshopSessions">;
 }) {
-  const sessionRow = useQuery(
-    api.workshops.myRegisteredSessionForLiveWorkshopUnit,
-    { workshopUnitId },
-  );
+  const sessionRow = useQuery(api.workshops.myRegisteredSessionForLiveWorkshopUnit, {
+    workshopUnitId,
+    ...(workshopSessionId != null ? { workshopSessionId } : {}),
+  });
 
   /**
    * Convex can briefly yield `undefined` while reconnecting. Returning the

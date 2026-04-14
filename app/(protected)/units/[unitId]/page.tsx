@@ -13,5 +13,16 @@ export default async function UnitPage({ params, searchParams }: PageProps) {
   const levelRaw = resolvedSearch.level;
   const levelId =
     typeof levelRaw === "string" && levelRaw.length > 0 ? levelRaw : undefined;
-  return <UnitClient unitId={resolvedParams.unitId} levelId={levelId} />;
+  const sessionRaw = resolvedSearch.session;
+  const workshopSessionId =
+    typeof sessionRaw === "string" && sessionRaw.length > 0
+      ? sessionRaw
+      : undefined;
+  return (
+    <UnitClient
+      unitId={resolvedParams.unitId}
+      levelId={levelId}
+      workshopSessionId={workshopSessionId}
+    />
+  );
 }

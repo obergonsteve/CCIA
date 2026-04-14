@@ -231,8 +231,16 @@ function LegacyAssignmentStepBlock({
 }
 
 /** LiveKit room, screen share, and session chat (ported from GritHub Brainstorm). */
-function LiveWorkshopRoomPanel({ unitId }: { unitId: Id<"units"> }) {
-  const [open, setOpen] = useState(false);
+function LiveWorkshopRoomPanel({
+  unitId,
+  workshopSessionId,
+  defaultOpen,
+}: {
+  unitId: Id<"units">;
+  workshopSessionId?: Id<"workshopSessions">;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
   const bodyId = "unit-live-workshop-room-panel";
 
   return (
@@ -271,7 +279,10 @@ function LiveWorkshopRoomPanel({ unitId }: { unitId: Id<"units"> }) {
         hidden={!open}
         className="space-y-2 border-t border-purple-500/30 px-4 py-4 dark:border-purple-400/22"
       >
-        <WorkshopLivePanel workshopUnitId={unitId} />
+        <WorkshopLivePanel
+          workshopUnitId={unitId}
+          workshopSessionId={workshopSessionId}
+        />
       </div>
     </section>
   );
@@ -280,14 +291,20 @@ function LiveWorkshopRoomPanel({ unitId }: { unitId: Id<"units"> }) {
 export default function UnitClient({
   unitId: unitIdRaw,
   levelId: levelIdRaw,
+  workshopSessionId: workshopSessionIdRaw,
 }: {
   unitId: string;
   levelId?: string;
+  workshopSessionId?: string;
 }) {
   const unitId = unitIdRaw as Id<"units">;
   const levelId =
     levelIdRaw && levelIdRaw.length > 0
       ? (levelIdRaw as Id<"certificationLevels">)
+      : undefined;
+  const workshopSessionId =
+    workshopSessionIdRaw && workshopSessionIdRaw.length > 0
+      ? (workshopSessionIdRaw as Id<"workshopSessions">)
       : undefined;
 
   const unit = useQuery(api.units.get, { unitId });
@@ -426,7 +443,13 @@ export default function UnitClient({
         </div>
       </div>
 
-      {isLiveWorkshopUnit ? <LiveWorkshopRoomPanel unitId={unitId} /> : null}
+      {isLiveWorkshopUnit ? (
+        <LiveWorkshopRoomPanel
+          unitId={unitId}
+          workshopSessionId={workshopSessionId}
+          defaultOpen={workshopSessionId != null}
+        />
+      ) : null}
 
       {lockedByPrereq && prereqStatus.prerequisites.length > 0 ? (
         <div
