@@ -29,8 +29,8 @@ function WorkshopParticipantThumbnail() {
           )}
         </div>
         <div className="flex justify-center px-px">
-          <div className="-mb-1 max-w-full origin-top scale-[0.88]">
-            <ParticipantName className="block max-w-full truncate text-center text-[10px] font-medium leading-tight text-slate-900/95 dark:text-slate-100/90">
+          <div className="-mb-1 max-w-full origin-top scale-[0.82]">
+            <ParticipantName className="block w-full max-w-full truncate text-center text-[9px] font-medium leading-none text-slate-900/95 dark:text-slate-100/90">
               {trackRef.participant.isLocal ? (
                 <span className="text-slate-700/85 dark:text-slate-400/85"> · you</span>
               ) : null}
