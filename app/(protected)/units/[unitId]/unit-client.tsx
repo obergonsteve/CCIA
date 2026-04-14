@@ -457,7 +457,7 @@ export default function UnitClient({
       <div>
         <div className="flex min-w-0 items-center justify-between gap-2">
           <h1 className="min-w-0 flex-1 text-2xl font-bold leading-snug tracking-tight">
-            {unit.title}
+            Unit: {unit.title}
           </h1>
           <Badge
             variant="outline"
