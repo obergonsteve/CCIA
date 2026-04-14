@@ -161,11 +161,10 @@ export function BrainstormCallControls({
       }
       if (someoneElseSharing) return;
       setScreenSharePending(true);
+      // Default capture options: broadest browser support for the system picker.
+      // (`selfBrowserSurface` + forced tab audio has caused silent failures in some Chrome builds.)
       localParticipant
-        .setScreenShareEnabled(true, {
-          audio: true,
-          selfBrowserSurface: "include",
-        })
+        .setScreenShareEnabled(true, { audio: true })
         .then(() => setScreenShareError(null))
         .catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);

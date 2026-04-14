@@ -1,7 +1,7 @@
 "use client";
 
 import { BrainstormCallControls } from "@/components/grithub-live-port/brainstorm-call-controls";
-import { BrainstormScreenShareBlock } from "@/components/grithub-live-port/brainstorm-screen-share-block";
+import { WorkshopVideoConference } from "@/components/grithub-live-port/workshop-video-conference";
 import { WorkshopRoomParticipants } from "@/components/grithub-live-port/workshop-room-participants";
 import { EmojiStrip } from "@/components/grithub-live-port/emoji-strip";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
   LiveKitRoom,
   StartMediaButton,
-  VideoConference,
 } from "@livekit/components-react";
 import "@livekit/components-styles";
 import "./workshop-livekit-overrides.css";
@@ -235,11 +234,10 @@ export function WorkshopLivePanel({
       <WorkshopWhiteboardPlaceholder />
 
       <div
-        className={`rounded-lg border border-slate-300 flex flex-col min-w-0 ${
-          liveKitCredentials
-            ? "bg-sky-50/90 p-2 dark:bg-sky-950/25"
-            : "items-center justify-center gap-4 p-6 text-center bg-sky-50/90 dark:bg-sky-950/25"
-        }`}
+        className={cn(
+          "flex min-w-0 flex-col rounded-lg border border-amber-400/70 bg-amber-50/55 ring-1 ring-amber-400/20 dark:border-amber-500/45 dark:bg-muted/45 dark:ring-amber-500/15",
+          liveKitCredentials ? "p-2" : "items-center justify-center gap-4 p-6 text-center",
+        )}
       >
         {liveKitCredentials && !sessionEnded ? (
           <div
@@ -258,10 +256,9 @@ export function WorkshopLivePanel({
               className="flex flex-col flex-1 min-h-0 min-w-0"
               style={liveKitRoomFrameStyle}
             >
-              <BrainstormScreenShareBlock />
               <WorkshopRoomParticipants />
               <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
-                <VideoConference />
+                <WorkshopVideoConference />
               </div>
               <StartMediaButton className="shrink-0 mx-auto my-1" />
               <BrainstormCallControls />

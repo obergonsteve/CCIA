@@ -28,11 +28,15 @@ function WorkshopParticipantThumbnail() {
             </div>
           )}
         </div>
-        <ParticipantName className="max-w-full truncate text-center text-[10px] font-medium leading-tight text-slate-100">
-          {trackRef.participant.isLocal ? (
-            <span className="text-slate-400"> · you</span>
-          ) : null}
-        </ParticipantName>
+        <div className="flex justify-center px-px">
+          <div className="-mb-1 max-w-full origin-top scale-[0.88]">
+            <ParticipantName className="block max-w-full truncate text-center text-[10px] font-medium leading-tight text-slate-100">
+              {trackRef.participant.isLocal ? (
+                <span className="text-slate-400"> · you</span>
+              ) : null}
+            </ParticipantName>
+          </div>
+        </div>
       </div>
     </ParticipantContextIfNeeded>
   );
