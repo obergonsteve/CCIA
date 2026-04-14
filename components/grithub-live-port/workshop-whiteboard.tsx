@@ -5,7 +5,6 @@
  * (`useQuery` + mutations). Renders outside `LiveKitRoom`; AV stays in LiveKit.
  */
 
-import { EmojiStrip } from "@/components/grithub-live-port/emoji-strip";
 import {
   drawShapeMsg,
   type ShapeMsg,
@@ -18,7 +17,6 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
   ChevronDown,
-  Download,
   Eraser,
   Hand,
   Loader2,
@@ -26,7 +24,6 @@ import {
   Redo2,
   RotateCcw,
   Shapes,
-  Smile,
   Trash2,
   Type,
   Undo2,
@@ -49,7 +46,6 @@ import { toast } from "sonner";
 
 /** Toolbar accent — matches GritHub brainstorm constants. */
 const TOOLBAR_COLOR = "#7c3aed";
-const TOOLBAR_COLOR_BLACKBOARD = "#e879f9";
 
 /** Same as the 16:9 stage; chip row aligns with the board. */
 const WHITEBOARD_STAGE_MAX_W =
@@ -57,7 +53,7 @@ const WHITEBOARD_STAGE_MAX_W =
 
 /**
  * Convex often completes in one frame; React can batch +1/-1 so the chip never
- * paints. Hold the “Saving…” state at least this long (GritHub-style feedback).
+ * paints. Hold the “Syncing…” state at least this long (GritHub-style feedback).
  */
 const MIN_WHITEBOARD_SAVE_CHIP_MS = 320;
 
@@ -93,18 +89,6 @@ const PALETTE_WHITEBOARD = [
   "#4f46e5",
   "#0d9488",
   "#be123c",
-];
-const PALETTE_BLACKBOARD = [
-  "#00aaff",
-  "#ff4466",
-  "#39ff14",
-  "#ffdd00",
-  "#dd66ff",
-  "#00ffff",
-  "#ff8800",
-  "#8888ff",
-  "#00ffaa",
-  "#ff1493",
 ];
 
 type LineThickness = "thin" | "med" | "thick";
@@ -454,12 +438,7 @@ export function WorkshopWhiteboard({
   /** False until after mount; avoids rAF/toast updates before the client tree is committed. */
   const mountedRef = useRef(false);
 
-  const [localViewTheme, setLocalViewTheme] = useState<
-    "whiteboard" | "blackboard"
-  >("whiteboard");
-  const displayTheme = localViewTheme;
-  const toolbarColor =
-    displayTheme === "blackboard" ? TOOLBAR_COLOR_BLACKBOARD : TOOLBAR_COLOR;
+  const toolbarColor = TOOLBAR_COLOR;
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -491,27 +470,19 @@ export function WorkshopWhiteboard({
     y1: number;
   } | null>(null);
 
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [emojiStripExpanded, setEmojiStripExpanded] = useState(false);
-  const [pendingEmoji, setPendingEmoji] = useState<string | null>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
-
   const [textInputAt, setTextInputAt] = useState<{
     normX: number;
     normY: number;
   } | null>(null);
   const [textDraft, setTextDraft] = useState("");
 
-  const [exportBusy, setExportBusy] = useState(false);
   /** Convex ink mutations in flight (batch + single strokes). */
   const [convexSaveDepth, setConvexSaveDepth] = useState(0);
 
   const myColor = useMemo(() => {
     const id = me?._id != null ? String(me._id) : "anon";
-    const palette =
-      displayTheme === "blackboard" ? PALETTE_BLACKBOARD : PALETTE_WHITEBOARD;
-    return palette[hashIdentity(id) % palette.length]!;
-  }, [me?._id, displayTheme]);
+    return PALETTE_WHITEBOARD[hashIdentity(id) % PALETTE_WHITEBOARD.length]!;
+  }, [me?._id]);
 
   const persistStroke = useCallback(
     async (strokeData: WbElement) => {
@@ -598,7 +569,7 @@ export function WorkshopWhiteboard({
       const canvas = canvasRef.current;
       if (!canvas) return;
       const { w, h } = logicalSizeRef.current;
-      const bg = canvasBackground(localViewTheme);
+      const bg = canvasBackground("whiteboard");
       const sync = flushAwaitRef.current;
       const fo = flushOverlayRef.current;
       if (
@@ -656,7 +627,6 @@ export function WorkshopWhiteboard({
   }, [
     elements,
     strokes,
-    localViewTheme,
     drawingTool,
     polyDraftPts,
     strokeWidthNorm,
@@ -685,16 +655,6 @@ export function WorkshopWhiteboard({
     if (viewportRef.current) ro.observe(viewportRef.current);
     return () => ro.disconnect();
   }, [syncCanvasSize]);
-
-  useEffect(() => {
-    if (!emojiPickerOpen) return;
-    const onDown = (e: MouseEvent) => {
-      const el = emojiPickerRef.current;
-      if (el && !el.contains(e.target as Node)) setEmojiPickerOpen(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [emojiPickerOpen]);
 
   useEffect(() => {
     if (!shapePickerOpen) return;
@@ -726,10 +686,6 @@ export function WorkshopWhiteboard({
   useEffect(() => {
     if (zoom <= 1 && mode === "pan") setMode("draw");
   }, [zoom, mode]);
-
-  useEffect(() => {
-    if (pendingEmoji && mode === "pan") setMode("draw");
-  }, [pendingEmoji, mode]);
 
   useEffect(() => {
     if (!isPanning) return;
@@ -807,21 +763,6 @@ export function WorkshopWhiteboard({
       void persistStroke(msg);
     },
     [persistStroke, textSize, fontPxForTextSize, myColor],
-  );
-
-  const placeEmojiAt = useCallback(
-    (normX: number, normY: number, emoji: string) => {
-      const msg: EmojiMsg = {
-        v: 1,
-        t: "E",
-        x: normX,
-        y: normY,
-        e: emoji,
-        c: myColor,
-      };
-      void persistStroke(msg);
-    },
-    [persistStroke, myColor],
   );
 
   const finalizeShapeDrag = useCallback(() => {
@@ -923,13 +864,6 @@ export function WorkshopWhiteboard({
       }
       const p = normFromClient(e.clientX, e.clientY);
       if (!p) return;
-      if (pendingEmoji) {
-        e.preventDefault();
-        placeEmojiAt(p.x, p.y, pendingEmoji);
-        setPendingEmoji(null);
-        setEmojiPickerOpen(false);
-        return;
-      }
       if (mode === "write") {
         e.preventDefault();
         setTextInputAt({ normX: p.x, normY: p.y });
@@ -974,8 +908,6 @@ export function WorkshopWhiteboard({
     [
       mode,
       normFromClient,
-      pendingEmoji,
-      placeEmojiAt,
       pan.x,
       pan.y,
       inkKind,
@@ -1044,26 +976,6 @@ export function WorkshopWhiteboard({
     if (mode === "pan") setMode("draw");
   }, [mode]);
 
-  const exportPng = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas || exportBusy) return;
-    setExportBusy(true);
-    try {
-      const blob = await new Promise<Blob | null>((res) =>
-        canvas.toBlob((b) => res(b), "image/png"),
-      );
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `workshop-whiteboard-${Date.now()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setExportBusy(false);
-    }
-  }, [exportBusy]);
-
   const transformStyle: CSSProperties = {
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
     transformOrigin: "center center",
@@ -1076,59 +988,11 @@ export function WorkshopWhiteboard({
       {/* GritHub-style: horizontal scroll so the full toolbar stays reachable on narrow layouts */}
       <div className="w-full min-w-0 shrink-0 overflow-x-auto overflow-y-visible">
         <div className="relative z-20 flex min-h-[2.75rem] w-max min-w-full flex-wrap items-center justify-center gap-1 border-b border-amber-400 bg-gradient-to-b from-[#cfd5cc] via-[#f6f7f5] to-[#cfd5cc] px-2 py-1.5">
-        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
+        <div className={toolbarPillClass(false, false)}>
           <div
             className={cn(
               "flex h-full min-h-0 flex-1",
-              toolbarDivideClass(displayTheme === "blackboard"),
-            )}
-          >
-            <button
-              type="button"
-              title="Your view: blackboard (dark, fluorescent pens)"
-              aria-label="Blackboard"
-              className={cn(
-                toolbarSegBtn,
-                "min-w-[2.25rem] px-2",
-                displayTheme === "blackboard"
-                  ? "bg-violet-600 text-white"
-                  : "text-neutral-700 hover:bg-neutral-100",
-              )}
-              onClick={() => setLocalViewTheme("blackboard")}
-            >
-              <span
-                className="block h-4 w-4 shrink-0 rounded-sm bg-neutral-800 ring-1 ring-black/10"
-                aria-hidden
-              />
-            </button>
-            <button
-              type="button"
-              title="Your view: whiteboard (light)"
-              aria-label="Whiteboard"
-              className={cn(
-                toolbarSegBtn,
-                "min-w-[2.25rem] px-2",
-                displayTheme === "whiteboard"
-                  ? "bg-violet-600 text-white"
-                  : displayTheme === "blackboard"
-                    ? "text-neutral-200 hover:bg-neutral-800"
-                    : "text-neutral-700 hover:bg-neutral-100",
-              )}
-              onClick={() => setLocalViewTheme("whiteboard")}
-            >
-              <span
-                className="block h-4 w-4 shrink-0 rounded-sm border border-neutral-300 bg-white"
-                aria-hidden
-              />
-            </button>
-          </div>
-        </div>
-
-        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
-          <div
-            className={cn(
-              "flex h-full min-h-0 flex-1",
-              toolbarDivideClass(displayTheme === "blackboard"),
+              toolbarDivideClass(false),
             )}
           >
             <button
@@ -1140,7 +1004,7 @@ export function WorkshopWhiteboard({
               className={cn(
                 toolbarSegBtn,
                 "w-8",
-                displayTheme === "blackboard"
+                false
                   ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-40"
                   : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-40",
               )}
@@ -1156,7 +1020,7 @@ export function WorkshopWhiteboard({
               className={cn(
                 toolbarSegBtn,
                 "min-w-[2.75rem] gap-1 px-2 text-xs font-medium tabular-nums",
-                displayTheme === "blackboard"
+                false
                   ? "text-neutral-200 hover:bg-neutral-800"
                   : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1174,7 +1038,7 @@ export function WorkshopWhiteboard({
               className={cn(
                 toolbarSegBtn,
                 "w-8",
-                displayTheme === "blackboard"
+                false
                   ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-40"
                   : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-40",
               )}
@@ -1188,7 +1052,7 @@ export function WorkshopWhiteboard({
         <div
           className={toolbarPillClass(
             mode === "pan" && zoom > 1,
-            displayTheme === "blackboard",
+            false,
           )}
           title={
             zoom <= 1
@@ -1210,7 +1074,7 @@ export function WorkshopWhiteboard({
               "min-w-[2.25rem] px-2",
               mode === "pan" && zoom > 1
                 ? "bg-violet-600 text-white"
-                : displayTheme === "blackboard"
+                : false
                   ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
                   : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-50",
             )}
@@ -1226,13 +1090,13 @@ export function WorkshopWhiteboard({
         <div
           className={toolbarPillClass(
             mode === "draw",
-            displayTheme === "blackboard",
+            false,
           )}
         >
           <div
             className={cn(
               "flex h-full min-h-0 flex-1",
-              toolbarDivideClass(displayTheme === "blackboard"),
+              toolbarDivideClass(false),
             )}
           >
             <button
@@ -1255,7 +1119,7 @@ export function WorkshopWhiteboard({
                   inkKind === "draw" &&
                   drawingTool === "freehand"
                   ? "bg-violet-600 text-white"
-                  : displayTheme === "blackboard"
+                  : false
                     ? "text-neutral-200 hover:bg-neutral-800"
                     : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1294,7 +1158,7 @@ export function WorkshopWhiteboard({
                     inkKind === "draw" &&
                     drawingTool === "freehand"
                     ? "bg-violet-600 text-white"
-                    : displayTheme === "blackboard"
+                    : false
                       ? "text-neutral-200 hover:bg-neutral-800"
                       : "text-neutral-700 hover:bg-neutral-100",
                 )}
@@ -1329,7 +1193,7 @@ export function WorkshopWhiteboard({
                 "w-8",
                 mode === "draw" && inkKind === "erase"
                   ? "bg-violet-600 text-white"
-                  : displayTheme === "blackboard"
+                  : false
                     ? "text-neutral-200 hover:bg-neutral-800"
                     : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1355,7 +1219,7 @@ export function WorkshopWhiteboard({
                     inkKind === "draw" &&
                     drawingTool !== "freehand"),
               ),
-              displayTheme === "blackboard",
+              false,
             ),
           )}
         >
@@ -1373,7 +1237,7 @@ export function WorkshopWhiteboard({
                     inkKind === "draw" &&
                     drawingTool !== "freehand")
                   ? "bg-violet-600 text-white"
-                  : displayTheme === "blackboard"
+                  : false
                     ? "text-neutral-200 hover:bg-neutral-800"
                     : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1427,13 +1291,13 @@ export function WorkshopWhiteboard({
           <div
             className={cn(
               "flex h-8 shrink-0 items-center gap-1.5 overflow-hidden rounded-md border px-1.5 shadow-sm",
-              displayTheme === "blackboard"
+              false
                 ? "border-neutral-600 bg-neutral-900"
                 : "border-neutral-300/90 bg-white",
             )}
           >
             <span
-              className={`max-w-[140px] truncate px-1 text-[10px] font-medium leading-tight sm:max-w-none sm:text-xs ${displayTheme === "blackboard" ? "text-neutral-300" : "text-amber-900/90"}`}
+              className={`max-w-[140px] truncate px-1 text-[10px] font-medium leading-tight sm:max-w-none sm:text-xs ${false ? "text-neutral-300" : "text-amber-900/90"}`}
             >
               Click to add points (Esc clears)
             </span>
@@ -1442,7 +1306,7 @@ export function WorkshopWhiteboard({
               title="Commit shape"
               disabled={polyDraftPts.length < 2}
               onClick={() => finishPolyDraft()}
-              className={`shrink-0 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:opacity-40 sm:text-xs ${displayTheme === "blackboard" ? "bg-violet-600 text-white hover:bg-violet-500" : "bg-violet-600 text-white hover:bg-violet-700"}`}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wide disabled:opacity-40 sm:text-xs ${false ? "bg-violet-600 text-white hover:bg-violet-500" : "bg-violet-600 text-white hover:bg-violet-700"}`}
             >
               Finish
             </button>
@@ -1451,7 +1315,7 @@ export function WorkshopWhiteboard({
               title="Remove last point"
               disabled={polyDraftPts.length === 0}
               onClick={() => setPolyDraftPts((p) => p.slice(0, -1))}
-              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${displayTheme === "blackboard" ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${false ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
             >
               Undo pt
             </button>
@@ -1460,7 +1324,7 @@ export function WorkshopWhiteboard({
               title="Clear all points"
               disabled={polyDraftPts.length === 0}
               onClick={() => setPolyDraftPts([])}
-              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${displayTheme === "blackboard" ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
+              className={`shrink-0 rounded px-2 py-1 text-[10px] font-medium disabled:opacity-40 sm:text-xs ${false ? "text-neutral-200 hover:bg-neutral-700" : "text-amber-900 hover:bg-amber-50"}`}
             >
               Clear
             </button>
@@ -1470,13 +1334,13 @@ export function WorkshopWhiteboard({
         <div
           className={toolbarPillClass(
             mode === "write",
-            displayTheme === "blackboard",
+            false,
           )}
         >
           <div
             className={cn(
               "flex h-full min-h-0 flex-1",
-              toolbarDivideClass(displayTheme === "blackboard"),
+              toolbarDivideClass(false),
             )}
           >
             <button
@@ -1488,7 +1352,7 @@ export function WorkshopWhiteboard({
                 "w-8",
                 mode === "write"
                   ? "bg-violet-600 text-white"
-                  : displayTheme === "blackboard"
+                  : false
                     ? "text-neutral-200 hover:bg-neutral-800"
                     : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1509,7 +1373,7 @@ export function WorkshopWhiteboard({
                   "w-8",
                   textSize === s && mode === "write"
                     ? "bg-violet-600 text-white"
-                    : displayTheme === "blackboard"
+                    : false
                       ? "text-neutral-200 hover:bg-neutral-800"
                       : "text-neutral-700 hover:bg-neutral-100",
                 )}
@@ -1540,119 +1404,34 @@ export function WorkshopWhiteboard({
           </div>
         </div>
 
-        <div
-          ref={emojiPickerRef}
-          className={cn(
-            "relative",
-            toolbarPillClass(
-              Boolean(pendingEmoji || emojiPickerOpen),
-              displayTheme === "blackboard",
-            ),
-          )}
-        >
+        <div className={toolbarPillClass(false, false)}>
           <button
             type="button"
-            onClick={() => setEmojiPickerOpen((o) => !o)}
+            title={
+              canClearForEveryone
+                ? "Clear the whiteboard for everyone"
+                : "Only the host can clear the board for everyone."
+            }
+            disabled={!canClearForEveryone}
+            onClick={() => void clearAll()}
             className={cn(
               toolbarSegBtn,
               "min-w-[2.25rem] px-2",
-              pendingEmoji || emojiPickerOpen
-                ? "bg-violet-600 text-white"
-                : displayTheme === "blackboard"
-                  ? "text-neutral-200 hover:bg-neutral-800"
-                  : "text-neutral-700 hover:bg-neutral-100",
+              false
+                ? "text-neutral-200 hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-40"
+                : "text-neutral-700 hover:bg-neutral-100 disabled:pointer-events-none disabled:opacity-40",
             )}
-            style={
-              pendingEmoji || emojiPickerOpen
-                ? undefined
-                : { color: toolbarColor }
-            }
-            title={
-              pendingEmoji
-                ? `Place ${pendingEmoji} (click canvas)`
-                : "Choose emoji"
-            }
+            style={{ color: toolbarColor }}
           >
-            {pendingEmoji ? (
-              <span className="text-lg leading-none">{pendingEmoji}</span>
-            ) : (
-              <Smile className="h-4 w-4" />
-            )}
+            <Trash2 className="h-4 w-4 shrink-0" />
           </button>
-          {emojiPickerOpen ? (
-            <div className="absolute left-0 top-full z-30 mt-1 min-w-[280px] rounded-lg border border-amber-200 bg-white p-2 shadow-lg">
-              <EmojiStrip
-                onInsert={(emoji) => {
-                  setPendingEmoji(emoji);
-                  setEmojiPickerOpen(false);
-                }}
-                expanded={emojiStripExpanded}
-                onToggleExpand={() => setEmojiStripExpanded((e) => !e)}
-                expandButtonClass="text-amber-700 hover:text-amber-800 hover:underline"
-                buttonFocusRingClass="focus:ring-amber-500"
-              />
-              <p className="mt-1 text-center text-xs text-amber-700">
-                Pick an emoji, then click on the canvas to place it.
-              </p>
-            </div>
-          ) : null}
         </div>
 
-        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
+        <div className={toolbarPillClass(false, false)}>
           <div
             className={cn(
               "flex h-full min-h-0 flex-1",
-              toolbarDivideClass(displayTheme === "blackboard"),
-            )}
-          >
-            <button
-              type="button"
-              title={
-                canClearForEveryone
-                  ? "Clear the whiteboard for everyone"
-                  : "Only the host can clear the board for everyone."
-              }
-              disabled={!canClearForEveryone}
-              onClick={() => void clearAll()}
-              className={cn(
-                toolbarSegBtn,
-                "px-2",
-                displayTheme === "blackboard"
-                  ? "text-neutral-200 hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-40"
-                  : "text-neutral-700 hover:bg-neutral-100 disabled:pointer-events-none disabled:opacity-40",
-              )}
-              style={{ color: toolbarColor }}
-            >
-              <Trash2 className="h-4 w-4 shrink-0" />
-            </button>
-            <button
-              type="button"
-              title="Export PNG"
-              disabled={exportBusy}
-              onClick={() => void exportPng()}
-              className={cn(
-                toolbarSegBtn,
-                "px-2",
-                displayTheme === "blackboard"
-                  ? "text-neutral-200 hover:bg-neutral-800 disabled:opacity-50"
-                  : "text-neutral-700 hover:bg-neutral-100 disabled:opacity-50",
-              )}
-              style={{ color: toolbarColor }}
-            >
-              {exportBusy ? (
-                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 shrink-0" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className={toolbarPillClass(false, displayTheme === "blackboard")}>
-          <div
-            className={cn(
-              "flex h-full min-h-0 flex-1",
-              toolbarDivideClass(displayTheme === "blackboard"),
+              toolbarDivideClass(false),
             )}
           >
             <button
@@ -1662,7 +1441,7 @@ export function WorkshopWhiteboard({
               className={cn(
                 toolbarSegBtn,
                 "px-2",
-                displayTheme === "blackboard"
+                false
                   ? "text-neutral-200 hover:bg-neutral-800"
                   : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1678,7 +1457,7 @@ export function WorkshopWhiteboard({
               className={cn(
                 toolbarSegBtn,
                 "cursor-not-allowed px-2 opacity-35",
-                displayTheme === "blackboard"
+                false
                   ? "text-neutral-200 hover:bg-neutral-800"
                   : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1694,7 +1473,7 @@ export function WorkshopWhiteboard({
               className={cn(
                 toolbarSegBtn,
                 "px-2",
-                displayTheme === "blackboard"
+                false
                   ? "text-neutral-200 hover:bg-neutral-800"
                   : "text-neutral-700 hover:bg-neutral-100",
               )}
@@ -1708,32 +1487,10 @@ export function WorkshopWhiteboard({
         </div>
       </div>
 
-      <div className="flex w-full min-w-0 flex-col items-center gap-1.5 bg-[#96a4b4] px-2 pb-2 pt-1.5 dark:bg-slate-900/90">
-        <div
-          className="flex min-h-7 w-full shrink-0 items-center justify-end"
-          style={{ maxWidth: WHITEBOARD_STAGE_MAX_W }}
-        >
-          {convexSaveDepth > 0 ? (
-            <span
-              role="status"
-              aria-live="polite"
-              className={`pointer-events-none z-10 inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium tabular-nums shadow-md ring-1 ring-black/5 dark:ring-white/10 ${
-                displayTheme === "blackboard"
-                  ? "border-neutral-600 bg-neutral-900 text-neutral-100"
-                  : "border-slate-500/60 bg-white text-slate-800"
-              }`}
-            >
-              <Loader2
-                className="h-3.5 w-3.5 shrink-0 animate-spin opacity-90"
-                aria-hidden
-              />
-              Saving…
-            </span>
-          ) : null}
-        </div>
+      <div className="flex w-full min-w-0 flex-col items-center bg-[#96a4b4] px-2 py-2 dark:bg-slate-900/90">
         <div
           ref={viewportRef}
-          className="aspect-[16/9] w-full shrink-0 overflow-hidden rounded-md border border-slate-600/55 bg-slate-100 shadow-inner dark:border-slate-600 dark:bg-slate-950"
+          className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-md border border-slate-600/55 bg-slate-100 shadow-inner dark:border-slate-600 dark:bg-slate-950"
           style={{ maxWidth: WHITEBOARD_STAGE_MAX_W }}
         >
           <div style={transformStyle}>
@@ -1746,11 +1503,9 @@ export function WorkshopWhiteboard({
                     ? isPanning
                       ? "grabbing"
                       : "grab"
-                    : pendingEmoji
-                      ? "copy"
-                      : mode === "write"
-                        ? "text"
-                        : "crosshair",
+                    : mode === "write"
+                      ? "text"
+                      : "crosshair",
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -1769,6 +1524,25 @@ export function WorkshopWhiteboard({
               }}
             />
           </div>
+          {convexSaveDepth > 0 ? (
+            <div className="pointer-events-none absolute bottom-px right-px z-10">
+              <span
+                role="status"
+                aria-live="polite"
+                className={`inline-flex items-center gap-px rounded-sm border px-0.5 py-0 text-[9px] font-medium leading-tight tabular-nums shadow-sm ring-1 ring-black/10 dark:ring-white/10 ${
+                  false
+                    ? "border-neutral-700 bg-neutral-900/95 text-neutral-200"
+                    : "border-slate-400/70 bg-white/95 text-slate-700"
+                }`}
+              >
+                <Loader2
+                  className="h-2 w-2 shrink-0 animate-spin opacity-90"
+                  aria-hidden
+                />
+                Syncing…
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
 

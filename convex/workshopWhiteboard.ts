@@ -137,6 +137,10 @@ export const listWorkshopWhiteboardStrokes = query({
     } catch {
       return [];
     }
+    const session = await ctx.db.get(workshopSessionId);
+    if (!session || session.whiteboardVisible === false) {
+      return [];
+    }
     const rows = await ctx.db
       .query("workshopSessionWhiteboardStrokes")
       .withIndex("by_workshop_session", (q) =>
@@ -232,6 +236,7 @@ export const clearWorkshopWhiteboardStrokes = mutation({
     if (user.role !== "admin" && user.role !== "content_creator") {
       throw new Error("Only a host can clear the whiteboard for everyone.");
     }
+    await assertLiveWorkshopGate(ctx, userId, workshopSessionId);
     const session = await ctx.db.get(workshopSessionId);
     if (!session || session.status !== "scheduled") {
       throw new Error("Session is not available.");

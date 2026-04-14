@@ -89,6 +89,8 @@ export function WorkshopLivePanel({
   const [draft, setDraft] = useState("");
   const [chatEmojiStripOpen, setChatEmojiStripOpen] = useState(false);
   const [chatEmojiStripExpanded, setChatEmojiStripExpanded] = useState(false);
+  const [chatSectionExpanded, setChatSectionExpanded] = useState(false);
+  const chatSectionId = "workshop-session-chat-panel";
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const sessionEnded = useMemo(() => {
@@ -233,12 +235,19 @@ export function WorkshopLivePanel({
             closed.
           </p>
         ) : null}
-        {isLiveHost && liveRoomStarted && !sessionEnded ? (
+        {isLiveHost &&
+        liveRoomStarted &&
+        !sessionEnded &&
+        liveKitCredentials ? (
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-muted-foreground">Shared whiteboard</span>
             <Button
               type="button"
               size="sm"
+              title={
+                whiteboardLive
+                  ? "Stop showing the whiteboard to everyone in the room"
+                  : "Show the whiteboard to everyone in the room"
+              }
               variant={whiteboardLive ? "default" : "outline"}
               className={
                 whiteboardLive
@@ -259,7 +268,7 @@ export function WorkshopLivePanel({
                 }
               }}
             >
-              {whiteboardLive ? "Live for everyone" : "Hidden"}
+              {whiteboardLive ? "Hide whiteboard" : "Share whiteboard"}
             </Button>
           </div>
         ) : null}
@@ -269,30 +278,32 @@ export function WorkshopLivePanel({
         className={cn(
           "flex min-w-0 flex-col rounded-lg border border-border bg-muted/25 ring-1 ring-border/30 dark:bg-muted/35",
           liveKitCredentials ? "p-2" : "p-4",
-          !liveKitCredentials &&
-            !(liveRoomStarted && whiteboardLive && !sessionEnded) &&
-            "items-center justify-center gap-4 text-center",
+          !liveKitCredentials && !joining && "items-center justify-center gap-4 text-center",
         )}
       >
-        {/*
-          GritHub-style: Convex whiteboard is the primary surface, outside LiveKit.
-          Show whenever the host has started the live session (no AV token required).
-        */}
-        {liveRoomStarted && !sessionEnded && whiteboardLive ? (
-          <div className="mb-3 min-h-0 w-full shrink-0">
-            <WorkshopWhiteboard
-              workshopSessionId={sessionDoc._id}
-              canClearForEveryone={Boolean(
-                isLiveHost && liveRoomStarted && !sessionEnded,
-              )}
-            />
-          </div>
-        ) : null}
         {liveKitCredentials && !sessionEnded ? (
           <div
             className="livekit-workshop-room flex min-h-[220px] min-w-0 flex-1 flex-col overflow-hidden rounded-md"
             data-lk-theme="default"
           >
+            {/*
+              Convex whiteboard syncs to everyone in this session who has joined the
+              live room (same gate as LiveKit). Not shown until connected so we only
+              expose ink to registered attendees who are actually in the call.
+            */}
+            {liveRoomStarted && whiteboardLive ? (
+              <div className="mb-2 min-h-0 w-full shrink-0 px-0.5 pt-0.5">
+                <WorkshopWhiteboard
+                  workshopSessionId={sessionDoc._id}
+                  canClearForEveryone={Boolean(
+                    isLiveHost &&
+                      liveRoomStarted &&
+                      !sessionEnded &&
+                      liveKitCredentials,
+                  )}
+                />
+              </div>
+            ) : null}
             <LiveKitRoom
               room={persistedLkRoom}
               serverUrl={liveKitCredentials.serverUrl}
@@ -368,22 +379,52 @@ export function WorkshopLivePanel({
         )}
       </div>
 
+      <div className="min-w-0">
+      {!chatSectionExpanded ? (
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 rounded-lg border border-sky-200/80 bg-sky-100/90 px-3 py-2.5 text-left shadow-sm ring-1 ring-sky-200/35 transition-colors hover:bg-sky-100 dark:border-sky-800/55 dark:bg-sky-950/45 dark:ring-sky-800/40 dark:hover:bg-sky-950/55"
+          aria-expanded={false}
+          onClick={() => setChatSectionExpanded(true)}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-sky-950/85 dark:text-sky-100/90">
+            Session chat
+          </span>
+          <ChevronDown
+            className="h-4 w-4 shrink-0 text-sky-800/70 dark:text-sky-200/80"
+            aria-hidden
+          />
+        </button>
+      ) : (
       <div
+        id={chatSectionId}
         className={cn(
-          "grid min-h-[200px] grid-rows-[auto_minmax(7rem,1fr)_auto] overflow-hidden rounded-lg border border-border bg-muted/25 ring-1 ring-border/30 dark:bg-muted/35",
-          !chatEmojiStripOpen && "max-h-[min(320px,50vh)]",
+          "grid min-h-[364px] grid-rows-[auto_minmax(20.8rem,1fr)_auto] overflow-hidden rounded-lg border border-border bg-muted/25 ring-1 ring-border/30 dark:bg-muted/35",
+          !chatEmojiStripOpen && "max-h-[min(676px,72vh)]",
           chatEmojiStripOpen &&
             !chatEmojiStripExpanded &&
-            "max-h-[min(440px,62vh)] sm:max-h-[min(480px,68vh)]",
+            "max-h-[min(728px,78vh)] sm:max-h-[min(780px,82vh)]",
           chatEmojiStripOpen &&
             chatEmojiStripExpanded &&
-            "max-h-[min(520px,72vh)] sm:max-h-[min(560px,78vh)]",
+            "max-h-[min(832px,85vh)] sm:max-h-[min(884px,88vh)]",
         )}
       >
-        <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Session chat
+        <div className="flex min-h-0 items-center justify-between gap-2 border-b border-sky-200/80 bg-sky-100/90 px-2 py-1.5 sm:px-3 dark:border-sky-800/55 dark:bg-sky-950/45">
+          <span className="px-1 text-xs font-semibold uppercase tracking-wide text-sky-950/85 dark:text-sky-100/90">
+            Session chat
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sky-800/75 transition-colors hover:bg-sky-200/60 hover:text-sky-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-sky-200/85 dark:hover:bg-sky-900/70 dark:hover:text-sky-50"
+            aria-expanded={true}
+            aria-controls={chatSectionId}
+            aria-label="Collapse session chat"
+            onClick={() => setChatSectionExpanded(false)}
+          >
+            <ChevronUp className="h-4 w-4" aria-hidden />
+          </button>
         </div>
-        <div className="min-h-0 space-y-1 overflow-y-auto px-3 py-1.5">
+        <div className="min-h-0 space-y-1 overflow-y-auto bg-sky-50/90 px-3 py-1.5 dark:bg-sky-950/25">
           {messages === undefined ? (
             <p className="text-xs text-muted-foreground">Loading messages…</p>
           ) : messages.length === 0 ? (
@@ -418,7 +459,7 @@ export function WorkshopLivePanel({
             ))
           )}
         </div>
-        <div className="flex min-h-0 flex-col gap-2 border-t border-border p-2">
+        <div className="flex min-h-0 flex-col gap-2 border-t border-sky-200/90 bg-sky-100/95 p-2 dark:border-sky-800/50 dark:bg-sky-950/45">
           {!sessionEnded ? (
             <div className="flex min-h-0 flex-col gap-1">
               {chatEmojiStripOpen ? (
@@ -490,6 +531,8 @@ export function WorkshopLivePanel({
           </Button>
           </div>
         </div>
+      </div>
+      )}
       </div>
     </div>
   );

@@ -238,13 +238,13 @@ function LiveWorkshopRoomPanel({ unitId }: { unitId: Id<"units"> }) {
   return (
     <section
       className={cn(
-        "rounded-xl border border-purple-500/25 bg-purple-500/[0.04] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/20 dark:bg-purple-500/[0.07]",
+        "rounded-xl border border-purple-500/30 bg-purple-500/[0.08] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/25 dark:bg-purple-500/[0.11]",
       )}
       aria-label="Live workshop room"
     >
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left outline-none transition-colors hover:bg-purple-500/[0.07] focus-visible:ring-2 focus-visible:ring-purple-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:bg-purple-500/[0.10]"
+        className="flex w-full items-center justify-between gap-2 rounded-xl bg-purple-500/[0.05] px-4 py-3 text-left outline-none transition-colors hover:bg-purple-500/[0.11] focus-visible:ring-2 focus-visible:ring-purple-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-purple-500/[0.08] dark:hover:bg-purple-500/[0.14]"
         aria-expanded={open}
         aria-controls={bodyId}
         onClick={() => setOpen((v) => !v)}
