@@ -15,9 +15,27 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
-import { format, isSameDay } from "date-fns";
-import { ExternalLink, MessageSquare, Video } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
+import { ChevronLeft, ChevronRight, ExternalLink, MessageSquare, Video } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from "react";
 import { toast } from "sonner";
 
 /** Date + hours:minutes only (no seconds). Same calendar day → one date, two times. */
@@ -30,6 +48,316 @@ function formatWorkshopSessionRange(startMs: number, endMs: number): string {
     return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${endTime}`;
   }
   return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${format(end, "dd/MM/yyyy")}, ${endTime}`;
+}
+
+const WEEK_STARTS_ON = 1 as const;
+
+type WorkshopCalendarKind = "registered" | "open" | "closed";
+
+function dayKeyFromMs(ms: number): number {
+  return startOfDay(new Date(ms)).getTime();
+}
+
+function LearnerWorkshopsPathCalendar({
+  registeredActive,
+  openSessions,
+  closed,
+  viewMonth,
+  onViewMonthChange,
+  selectedDayMs,
+  focusedSessionId,
+  onSelectCalendarDay,
+  onClearSessionFocus,
+  todayClockMs,
+}: {
+  registeredActive: Array<{
+    session: Doc<"workshopSessions">;
+    workshopTitle: string;
+    past: boolean;
+  }>;
+  openSessions: WorkshopBrowseRow[];
+  closed: Array<{ session: Doc<"workshopSessions">; workshopTitle: string }>;
+  viewMonth: Date;
+  onViewMonthChange: (monthStart: Date) => void;
+  selectedDayMs: number | null;
+  focusedSessionId: Id<"workshopSessions"> | null;
+  onSelectCalendarDay: (dayStartMs: number) => void;
+  onClearSessionFocus: () => void;
+  /** Wall-clock ms (e.g. parent `now` tick) so “today” stays correct. */
+  todayClockMs: number;
+}) {
+
+  const kindsByDay = useMemo(() => {
+    const map = new Map<number, Set<WorkshopCalendarKind>>();
+    const add = (startsAt: number, kind: WorkshopCalendarKind) => {
+      const dk = dayKeyFromMs(startsAt);
+      let set = map.get(dk);
+      if (!set) {
+        set = new Set();
+        map.set(dk, set);
+      }
+      set.add(kind);
+    };
+    for (const { session } of registeredActive) {
+      add(session.startsAt, "registered");
+    }
+    for (const s of openSessions) {
+      add(s.startsAt, "open");
+    }
+    for (const { session } of closed) {
+      add(session.startsAt, "closed");
+    }
+    return map;
+  }, [registeredActive, openSessions, closed]);
+
+  const monthStart = startOfMonth(viewMonth);
+  const monthEnd = endOfMonth(viewMonth);
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: WEEK_STARTS_ON });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: WEEK_STARTS_ON });
+  const gridDays = useMemo(
+    () => eachDayOfInterval({ start: gridStart, end: gridEnd }),
+    [gridStart, gridEnd],
+  );
+
+  const weekShort = useMemo(() => {
+    const mon = startOfWeek(new Date(2024, 5, 3), {
+      weekStartsOn: WEEK_STARTS_ON,
+    });
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(mon);
+      d.setDate(mon.getDate() + i);
+      return format(d, "EEE");
+    });
+  }, []);
+
+  const hasAnyMarker =
+    registeredActive.length > 0 || openSessions.length > 0 || closed.length > 0;
+
+  const ringDayMs =
+    focusedSessionId != null
+      ? (() => {
+          const all = [
+            ...registeredActive.map((r) => r.session),
+            ...openSessions,
+            ...closed.map((c) => c.session),
+          ];
+          const hit = all.find((s) => s._id === focusedSessionId);
+          return hit ? dayKeyFromMs(hit.startsAt) : selectedDayMs;
+        })()
+      : selectedDayMs;
+
+  return (
+    <div
+      className="rounded-lg border-2 border-amber-500/45 bg-amber-500/[0.07] p-2 shadow-sm dark:border-amber-400/40 dark:bg-amber-500/[0.11]"
+      role="region"
+      aria-label="Workshop calendar"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/25 pb-2 dark:border-amber-400/20">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-1 sm:justify-start">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            aria-label="Previous month"
+            onClick={() =>
+              onViewMonthChange(startOfMonth(subMonths(viewMonth, 1)))
+            }
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <p className="min-w-0 flex-1 text-center text-xs font-semibold tabular-nums sm:flex-none">
+            {format(viewMonth, "MMMM yyyy")}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            aria-label="Next month"
+            onClick={() =>
+              onViewMonthChange(startOfMonth(addMonths(viewMonth, 1)))
+            }
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-7 shrink-0 px-2 text-[11px] font-semibold",
+              "border-emerald-600/45 bg-emerald-500/[0.14] text-emerald-950 shadow-none",
+              "hover:border-emerald-600/55 hover:bg-emerald-500/22 hover:text-emerald-950",
+              "dark:border-emerald-400/50 dark:bg-emerald-500/18 dark:text-emerald-50",
+              "dark:hover:border-emerald-400/60 dark:hover:bg-emerald-500/26 dark:hover:text-emerald-50",
+            )}
+            onClick={() => {
+              const t = startOfDay(new Date(todayClockMs));
+              onViewMonthChange(startOfMonth(t));
+              onSelectCalendarDay(t.getTime());
+              onClearSessionFocus();
+            }}
+          >
+            Today
+          </Button>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <span
+              className="size-1.5 shrink-0 rounded-full bg-purple-500 dark:bg-purple-400"
+              aria-hidden
+            />
+            Registered
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span
+              className="size-1.5 shrink-0 rounded-full bg-sky-500 dark:bg-sky-400"
+              aria-hidden
+            />
+            Not registered
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span
+              className="size-1.5 shrink-0 rounded-full bg-slate-500 dark:bg-slate-400"
+              aria-hidden
+            />
+            Closed
+          </span>
+        </div>
+      </div>
+
+      {!hasAnyMarker ? (
+        <p className="pt-2 text-xs text-muted-foreground">
+          No workshops on your certification path to show on the calendar yet.
+        </p>
+      ) : null}
+      <div
+        className={cn(
+          "grid grid-cols-7 gap-px text-center text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300",
+          hasAnyMarker ? "mt-2" : "mt-1.5",
+        )}
+        aria-hidden
+      >
+        {weekShort.map((label, i) => (
+          <div key={`${i}-${label}`} className="py-0.5 leading-none">
+            {label}
+          </div>
+        ))}
+      </div>
+      <div
+        className="mt-0.5 grid grid-cols-7 gap-px"
+        role="grid"
+        aria-label="Workshop dates by month"
+      >
+        {gridDays.map((day) => {
+          const dk = startOfDay(day).getTime();
+          const kinds = kindsByDay.get(dk);
+          const inMonth = isSameMonth(day, viewMonth);
+          const selected = ringDayMs != null && ringDayMs === dk;
+          const todayCell = isSameDay(day, new Date(todayClockMs));
+          return (
+            <div
+              key={dk}
+              className="flex h-9 items-center justify-center"
+            >
+              <button
+                type="button"
+                role="gridcell"
+                aria-current={todayCell ? "date" : undefined}
+                aria-label={
+                  todayCell
+                    ? `${format(day, "EEEE d MMMM yyyy")} (today)`
+                    : format(day, "EEEE d MMMM yyyy")
+                }
+                aria-selected={selected}
+                onClick={() => {
+                  onSelectCalendarDay(dk);
+                  onClearSessionFocus();
+                }}
+                className={cn(
+                  "relative flex size-9 shrink-0 flex-col items-center justify-center rounded-md border border-transparent text-xs leading-none transition-colors",
+                  inMonth ? "text-foreground" : "text-muted-foreground/45",
+                  todayCell &&
+                    !selected &&
+                    "ring-1 ring-inset ring-emerald-500/55 dark:ring-emerald-400/50",
+                  todayCell &&
+                    selected &&
+                    "ring-1 ring-inset ring-emerald-500/40 ring-offset-0 dark:ring-emerald-400/35",
+                  selected
+                    ? "z-[1] border-2 border-amber-500 bg-amber-500/25 font-semibold shadow-sm dark:border-amber-400 dark:bg-amber-500/20"
+                    : "hover:bg-muted/80",
+                )}
+              >
+                {todayCell ? (
+                  <span
+                    className="pointer-events-none absolute right-0.5 top-0.5 size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"
+                    title="Today"
+                    aria-hidden
+                  />
+                ) : null}
+                <span className={cn("tabular-nums", todayCell && "font-semibold")}>
+                  {format(day, "d")}
+                </span>
+                {kinds != null && kinds.size > 0 ? (
+                  <span className="mt-px flex h-2 items-center justify-center gap-px">
+                    {kinds.has("registered") ? (
+                      <span
+                        className="size-1 rounded-full bg-purple-500 dark:bg-purple-400"
+                        title="Registered"
+                      />
+                    ) : null}
+                    {kinds.has("open") ? (
+                      <span
+                        className="size-1 rounded-full bg-sky-500 dark:bg-sky-400"
+                        title="Not registered"
+                      />
+                    ) : null}
+                    {kinds.has("closed") ? (
+                      <span
+                        className="size-1 rounded-full bg-slate-500 dark:bg-slate-400"
+                        title="Closed"
+                      />
+                    ) : null}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function workshopCardSelectHandler(
+  e: MouseEvent,
+  sessionId: Id<"workshopSessions">,
+  startsAt: number,
+  onRequestFocusSession: (id: Id<"workshopSessions">, startsAt: number) => void,
+) {
+  if ((e.target as HTMLElement).closest("a, button")) {
+    return;
+  }
+  onRequestFocusSession(sessionId, startsAt);
+}
+
+function workshopListItemHighlightClass(
+  sessionId: Id<"workshopSessions">,
+  startsAt: number,
+  calendarFocusedSessionId: Id<"workshopSessions"> | null,
+  calendarSelectedDayMs: number | null,
+): string {
+  const dayMs = dayKeyFromMs(startsAt);
+  const dayMatches =
+    calendarSelectedDayMs != null && calendarSelectedDayMs === dayMs;
+  if (calendarFocusedSessionId === sessionId) {
+    return "ring-2 ring-amber-500 ring-offset-2 ring-offset-background";
+  }
+  if (dayMatches && calendarFocusedSessionId == null) {
+    return "ring-2 ring-amber-400/90 ring-offset-2 ring-offset-background dark:ring-amber-400/70";
+  }
+  return "";
 }
 
 function workshopClosedReplayHref(
@@ -154,25 +482,25 @@ function RegisteredCertPathWorkshopCard({
         past && "border-dashed opacity-80",
       )}
     >
-      <Link
-        href={`/units/${session.workshopUnitId}`}
-        className={cn(
-          "group block rounded-t-xl outline-none transition-colors",
-          "hover:bg-purple-100/95 focus-visible:bg-purple-100/95 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/75 dark:focus-visible:bg-purple-900/75",
-        )}
-        aria-label={`Open workshop unit: ${workshopTitle}`}
-      >
-        <CardHeader className="py-2">
+      <CardHeader className="py-2">
+        <Link
+          href={`/units/${session.workshopUnitId}`}
+          className={cn(
+            "group inline-flex max-w-full rounded-md outline-none transition-colors",
+            "hover:bg-purple-100/95 focus-visible:bg-purple-100/95 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/75 dark:focus-visible:bg-purple-900/75",
+          )}
+          aria-label={`Open workshop unit: ${workshopTitle}`}
+        >
           <CardTitle className="text-base font-medium text-foreground underline-offset-4 group-hover:underline">
             {workshopTitle}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
-            {past ? " · Past" : ""}
-          </p>
-          <WorkshopSessionStatusRow session={session} now={now} />
-        </CardHeader>
-      </Link>
+        </Link>
+        <p className="text-xs text-muted-foreground">
+          {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
+          {past ? " · Past" : ""}
+        </p>
+        <WorkshopSessionStatusRow session={session} now={now} />
+      </CardHeader>
       <CardContent className="flex flex-wrap gap-2 pb-2">
         {session.externalJoinUrl && !past ? (
           <Link
@@ -307,6 +635,59 @@ export default function WorkshopsClient() {
     return () => window.clearInterval(id);
   }, []);
 
+  const [workshopCalendarViewMonth, setWorkshopCalendarViewMonth] = useState(
+    () => startOfMonth(new Date()),
+  );
+  const [calendarSelectedDayMs, setCalendarSelectedDayMs] = useState<
+    number | null
+  >(null);
+  const [calendarFocusedSessionId, setCalendarFocusedSessionId] = useState<
+    Id<"workshopSessions"> | null
+  >(null);
+
+  const focusWorkshopFromList = useCallback(
+    (sessionId: Id<"workshopSessions">, startsAt: number) => {
+      setCalendarFocusedSessionId(sessionId);
+      setCalendarSelectedDayMs(dayKeyFromMs(startsAt));
+      setWorkshopCalendarViewMonth(startOfMonth(new Date(startsAt)));
+    },
+    [],
+  );
+
+  const clearCalendarSessionFocus = useCallback(() => {
+    setCalendarFocusedSessionId(null);
+  }, []);
+
+  const pathListsReady =
+    registeredOnPath !== undefined && upcomingPath !== undefined;
+
+  useEffect(() => {
+    if (!pathListsReady) {
+      return;
+    }
+    const root = document.getElementById("workshop-upcoming-sessions");
+    if (!root) {
+      return;
+    }
+    if (calendarFocusedSessionId) {
+      root
+        .querySelector(
+          `[data-workshop-session="${calendarFocusedSessionId}"]`,
+        )
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+    if (calendarSelectedDayMs != null) {
+      root
+        .querySelector(`[data-workshop-day="${calendarSelectedDayMs}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [
+    pathListsReady,
+    calendarFocusedSessionId,
+    calendarSelectedDayMs,
+  ]);
+
   const upcomingFiltered = useMemo(() => {
     if (!upcomingPath) {
       return undefined;
@@ -353,9 +734,6 @@ export default function WorkshopsClient() {
     () => upcomingFiltered?.filter((s) => !s.registered) ?? [],
     [upcomingFiltered],
   );
-
-  const pathListsReady =
-    registeredOnPath !== undefined && upcomingPath !== undefined;
 
   const certPathHref =
     filterLevelId != null
@@ -424,19 +802,31 @@ export default function WorkshopsClient() {
           </p>
         ) : (
           <div className="space-y-4">
+            <LearnerWorkshopsPathCalendar
+              registeredActive={registeredActiveFiltered ?? []}
+              openSessions={openSessionsNeedRegister}
+              closed={closedWorkshopsFiltered ?? []}
+              viewMonth={workshopCalendarViewMonth}
+              onViewMonthChange={setWorkshopCalendarViewMonth}
+              selectedDayMs={calendarSelectedDayMs}
+              focusedSessionId={calendarFocusedSessionId}
+              onSelectCalendarDay={setCalendarSelectedDayMs}
+              onClearSessionFocus={clearCalendarSessionFocus}
+              todayClockMs={now}
+            />
             <div
-              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-amber-500/45 bg-amber-500/[0.08] p-3 dark:border-amber-400/40 dark:bg-amber-500/[0.11]"
+              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-purple-500/45 bg-purple-500/[0.08] p-3 dark:border-purple-400/40 dark:bg-purple-500/[0.11]"
               aria-labelledby="workshop-list-registered-heading"
             >
               <h3
                 id="workshop-list-registered-heading"
-                className="text-base font-semibold text-amber-950 dark:text-amber-50"
+                className="text-base font-semibold text-purple-950 dark:text-purple-50"
               >
                 Registered
               </h3>
               {!registeredActiveFiltered ||
               registeredActiveFiltered.length === 0 ? (
-                <p className="text-sm text-amber-950/80 dark:text-amber-100/85">
+                <p className="text-sm text-purple-950/80 dark:text-purple-100/85">
                   No upcoming registrations on your certification path
                   {filterUnitId ? " for this unit" : ""} yet.
                 </p>
@@ -444,7 +834,28 @@ export default function WorkshopsClient() {
                 <ul className="grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
                   {registeredActiveFiltered.map(
                     ({ session, workshopTitle, past }) => (
-                      <li key={session._id} className="min-w-0">
+                      <li
+                        key={session._id}
+                        className={cn(
+                          "min-w-0 rounded-xl transition-shadow",
+                          workshopListItemHighlightClass(
+                            session._id,
+                            session.startsAt,
+                            calendarFocusedSessionId,
+                            calendarSelectedDayMs,
+                          ),
+                        )}
+                        data-workshop-session={session._id}
+                        data-workshop-day={dayKeyFromMs(session.startsAt)}
+                        onClick={(e) =>
+                          workshopCardSelectHandler(
+                            e,
+                            session._id,
+                            session.startsAt,
+                            focusWorkshopFromList,
+                          )
+                        }
+                      >
                         <RegisteredCertPathWorkshopCard
                           session={session}
                           workshopTitle={workshopTitle}
@@ -487,7 +898,28 @@ export default function WorkshopsClient() {
               ) : (
                 <ul className="grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
                   {openSessionsNeedRegister.map((s) => (
-                    <li key={s._id} className="min-w-0">
+                    <li
+                      key={s._id}
+                      className={cn(
+                        "min-w-0 rounded-xl transition-shadow",
+                        workshopListItemHighlightClass(
+                          s._id,
+                          s.startsAt,
+                          calendarFocusedSessionId,
+                          calendarSelectedDayMs,
+                        ),
+                      )}
+                      data-workshop-session={s._id}
+                      data-workshop-day={dayKeyFromMs(s.startsAt)}
+                      onClick={(e) =>
+                        workshopCardSelectHandler(
+                          e,
+                          s._id,
+                          s.startsAt,
+                          focusWorkshopFromList,
+                        )
+                      }
+                    >
                       <OpenCertPathSessionCard
                         session={s}
                         now={now}
@@ -528,7 +960,28 @@ export default function WorkshopsClient() {
               ) : (
                 <ul className="grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
                   {closedWorkshopsFiltered.map(({ session, workshopTitle }) => (
-                    <li key={session._id} className="min-w-0">
+                    <li
+                      key={session._id}
+                      className={cn(
+                        "min-w-0 rounded-xl transition-shadow",
+                        workshopListItemHighlightClass(
+                          session._id,
+                          session.startsAt,
+                          calendarFocusedSessionId,
+                          calendarSelectedDayMs,
+                        ),
+                      )}
+                      data-workshop-session={session._id}
+                      data-workshop-day={dayKeyFromMs(session.startsAt)}
+                      onClick={(e) =>
+                        workshopCardSelectHandler(
+                          e,
+                          session._id,
+                          session.startsAt,
+                          focusWorkshopFromList,
+                        )
+                      }
+                    >
                       <ClosedCertPathWorkshopCard
                         session={session}
                         workshopTitle={workshopTitle}
