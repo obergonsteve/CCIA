@@ -38,16 +38,16 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-/** Date + hours:minutes only (no seconds). Same calendar day → one date, two times. */
+/** Weekday + date (dd/MM/yyyy) + times. Same calendar day → one date line, two times. */
 function formatWorkshopSessionRange(startMs: number, endMs: number): string {
   const start = new Date(startMs);
   const end = new Date(endMs);
   const startTime = format(start, "HH:mm");
   const endTime = format(end, "HH:mm");
   if (isSameDay(start, end)) {
-    return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${endTime}`;
+    return `${format(start, "EEE dd/MM/yyyy")}, ${startTime} — ${endTime}`;
   }
-  return `${format(start, "dd/MM/yyyy")}, ${startTime} — ${format(end, "dd/MM/yyyy")}, ${endTime}`;
+  return `${format(start, "EEE dd/MM/yyyy")}, ${startTime} — ${format(end, "EEE dd/MM/yyyy")}, ${endTime}`;
 }
 
 const WEEK_STARTS_ON = 1 as const;

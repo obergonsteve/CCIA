@@ -2581,69 +2581,66 @@ export default function AdminCoursesClient() {
               onValueChange={setUnitCategoryFilter}
               categories={unitCategories}
             />
-            <div
-              className="mb-2 grid w-full grid-cols-2 gap-2"
-              role="group"
-              aria-label="Filter units by delivery format"
-            >
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={trainingLeftTab === "workshops"}
-                className={cn(
-                  "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
-                  ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
-                  unitDeliveryFilter === "self_paced"
-                    ? cn(
-                        adminUnitDeliveryLREdgeColors("self_paced"),
-                        "bg-brand-gold/26 font-medium text-foreground hover:bg-brand-gold/32 dark:bg-brand-gold/28 dark:hover:bg-brand-gold/36",
-                      )
-                    : cn(
-                        adminUnitDeliveryLREdgeColorsMuted("self_paced"),
-                        "bg-background hover:bg-brand-gold/10 dark:hover:bg-brand-gold/12",
-                      ),
-                )}
-                onClick={() => setUnitDeliveryFilter("self_paced")}
-                aria-pressed={unitDeliveryFilter === "self_paced"}
-                title={
-                  trainingLeftTab === "workshops"
-                    ? "Self-paced is hidden while the Timetable tab is open"
-                    : "Show self-paced units (default)"
-                }
+            {trainingLeftTab !== "workshops" ? (
+              <div
+                className="mb-2 grid w-full grid-cols-2 gap-2"
+                role="group"
+                aria-label="Filter units by delivery format"
               >
-                <span className="min-w-0 truncate">Self-paced</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  ({unitSelfPacedCount})
-                </span>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className={cn(
-                  "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
-                  ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
-                  unitDeliveryFilter === "live_workshop"
-                    ? cn(
-                        adminUnitDeliveryLREdgeColors("live_workshop"),
-                        "bg-purple-500/28 font-medium text-foreground hover:bg-purple-500/36 dark:bg-purple-400/26 dark:hover:bg-purple-400/34",
-                      )
-                    : cn(
-                        adminUnitDeliveryLREdgeColorsMuted("live_workshop"),
-                        "bg-background hover:bg-purple-500/10 dark:hover:bg-purple-400/12",
-                      ),
-                )}
-                onClick={() => setUnitDeliveryFilter("live_workshop")}
-                aria-pressed={unitDeliveryFilter === "live_workshop"}
-                title="Show live workshop units (scheduled sessions)"
-              >
-                <span className="min-w-0 truncate">Workshop</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  ({unitWorkshopCount})
-                </span>
-              </Button>
-            </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className={cn(
+                    "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
+                    ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+                    unitDeliveryFilter === "self_paced"
+                      ? cn(
+                          adminUnitDeliveryLREdgeColors("self_paced"),
+                          "bg-brand-gold/26 font-medium text-foreground hover:bg-brand-gold/32 dark:bg-brand-gold/28 dark:hover:bg-brand-gold/36",
+                        )
+                      : cn(
+                          adminUnitDeliveryLREdgeColorsMuted("self_paced"),
+                          "bg-background hover:bg-brand-gold/10 dark:hover:bg-brand-gold/12",
+                        ),
+                  )}
+                  onClick={() => setUnitDeliveryFilter("self_paced")}
+                  aria-pressed={unitDeliveryFilter === "self_paced"}
+                  title="Show self-paced units (default)"
+                >
+                  <span className="min-w-0 truncate">Self-paced</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    ({unitSelfPacedCount})
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className={cn(
+                    "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
+                    ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+                    unitDeliveryFilter === "live_workshop"
+                      ? cn(
+                          adminUnitDeliveryLREdgeColors("live_workshop"),
+                          "bg-purple-500/28 font-medium text-foreground hover:bg-purple-500/36 dark:bg-purple-400/26 dark:hover:bg-purple-400/34",
+                        )
+                      : cn(
+                          adminUnitDeliveryLREdgeColorsMuted("live_workshop"),
+                          "bg-background hover:bg-purple-500/10 dark:hover:bg-purple-400/12",
+                        ),
+                  )}
+                  onClick={() => setUnitDeliveryFilter("live_workshop")}
+                  aria-pressed={unitDeliveryFilter === "live_workshop"}
+                  title="Show live workshop units (scheduled sessions)"
+                >
+                  <span className="min-w-0 truncate">Workshop</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    ({unitWorkshopCount})
+                  </span>
+                </Button>
+              </div>
+            ) : null}
             <hr className="my-2 h-0 shrink-0 border-0 border-t-2 border-solid border-brand-gold/50 dark:border-brand-gold/40" />
             {filterCertId && filterCertName ? (
               <button
