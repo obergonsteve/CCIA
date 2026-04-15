@@ -203,23 +203,23 @@ function LearnerWorkshopsPathCalendar({
           </Button>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1.5">
             <span
-              className="size-1.5 shrink-0 rounded-full bg-purple-500 dark:bg-purple-400"
+              className="size-3 shrink-0 rounded-full bg-purple-500 shadow-sm dark:bg-purple-400"
               aria-hidden
             />
             Registered
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1.5">
             <span
-              className="size-1.5 shrink-0 rounded-full bg-sky-500 dark:bg-sky-400"
+              className="size-3 shrink-0 rounded-full bg-sky-500 shadow-sm dark:bg-sky-400"
               aria-hidden
             />
             Not registered
           </span>
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1.5">
             <span
-              className="size-1.5 shrink-0 rounded-full bg-slate-500 dark:bg-slate-400"
+              className="size-3 shrink-0 rounded-full bg-slate-500 shadow-sm dark:bg-slate-400"
               aria-hidden
             />
             Closed
@@ -234,7 +234,7 @@ function LearnerWorkshopsPathCalendar({
       ) : null}
       <div
         className={cn(
-          "grid grid-cols-7 gap-px text-center text-[10px] font-bold uppercase tracking-wide text-blue-800 dark:text-blue-300",
+          "grid grid-cols-7 gap-px text-center text-[10px] font-bold uppercase tracking-wide text-orange-900 dark:text-orange-400",
           hasAnyMarker ? "mt-2" : "mt-1.5",
         )}
         aria-hidden
@@ -300,22 +300,22 @@ function LearnerWorkshopsPathCalendar({
                   {format(day, "d")}
                 </span>
                 {kinds != null && kinds.size > 0 ? (
-                  <span className="mt-px flex h-2 items-center justify-center gap-px">
+                  <span className="mt-0.5 flex min-h-2.5 items-center justify-center gap-0.5">
                     {kinds.has("registered") ? (
                       <span
-                        className="size-1 rounded-full bg-purple-500 dark:bg-purple-400"
+                        className="size-2 shrink-0 rounded-full bg-purple-500 shadow-sm dark:bg-purple-400"
                         title="Registered"
                       />
                     ) : null}
                     {kinds.has("open") ? (
                       <span
-                        className="size-1 rounded-full bg-sky-500 dark:bg-sky-400"
+                        className="size-2 shrink-0 rounded-full bg-sky-500 shadow-sm dark:bg-sky-400"
                         title="Not registered"
                       />
                     ) : null}
                     {kinds.has("closed") ? (
                       <span
-                        className="size-1 rounded-full bg-slate-500 dark:bg-slate-400"
+                        className="size-2 shrink-0 rounded-full bg-slate-500 shadow-sm dark:bg-slate-400"
                         title="Closed"
                       />
                     ) : null}
@@ -478,7 +478,7 @@ function RegisteredCertPathWorkshopCard({
     <Card
       size="sm"
       className={cn(
-        "border border-purple-200/90 bg-purple-50 shadow-sm dark:border-purple-800/85 dark:bg-purple-950",
+        "border border-purple-300/80 bg-purple-100 shadow-sm dark:border-purple-900/80 dark:bg-[color-mix(in_oklab,purple_32%,#0f0518)]",
         past && "border-dashed opacity-80",
       )}
     >
@@ -487,7 +487,7 @@ function RegisteredCertPathWorkshopCard({
           href={`/units/${session.workshopUnitId}`}
           className={cn(
             "group inline-flex max-w-full rounded-md outline-none transition-colors",
-            "hover:bg-purple-100/95 focus-visible:bg-purple-100/95 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/75 dark:focus-visible:bg-purple-900/75",
+            "hover:bg-purple-200/90 focus-visible:bg-purple-200/90 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/85 dark:focus-visible:bg-purple-900/85",
           )}
           aria-label={`Open workshop unit: ${workshopTitle}`}
         >
