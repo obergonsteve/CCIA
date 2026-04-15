@@ -256,6 +256,7 @@ function LearnerWorkshopsPathCalendar({
           const inMonth = isSameMonth(day, viewMonth);
           const selected = ringDayMs != null && ringDayMs === dk;
           const todayCell = isSameDay(day, new Date(todayClockMs));
+          const hasWorkshops = kinds != null && kinds.size > 0;
           return (
             <div
               key={dk}
@@ -276,17 +277,22 @@ function LearnerWorkshopsPathCalendar({
                   onClearSessionFocus();
                 }}
                 className={cn(
-                  "relative flex size-9 shrink-0 flex-col items-center justify-center rounded-md border border-transparent text-xs leading-none transition-colors",
+                  "relative flex size-9 shrink-0 flex-col items-center justify-center text-xs leading-none transition-colors",
                   inMonth ? "text-foreground" : "text-muted-foreground/45",
+                  selected
+                    ? "z-[1] rounded-full border-2 border-amber-500 bg-amber-500/25 font-semibold shadow-sm dark:border-amber-400 dark:bg-amber-500/20"
+                    : cn(
+                        hasWorkshops
+                          ? "rounded-full border-2 border-neutral-400 dark:border-neutral-500"
+                          : "rounded-md border border-transparent",
+                      ),
                   todayCell &&
                     !selected &&
                     "ring-1 ring-inset ring-emerald-500/55 dark:ring-emerald-400/50",
                   todayCell &&
                     selected &&
                     "ring-1 ring-inset ring-emerald-500/40 ring-offset-0 dark:ring-emerald-400/35",
-                  selected
-                    ? "z-[1] border-2 border-amber-500 bg-amber-500/25 font-semibold shadow-sm dark:border-amber-400 dark:bg-amber-500/20"
-                    : "hover:bg-muted/80",
+                  !selected && "hover:bg-muted/80",
                 )}
               >
                 {todayCell ? (
@@ -352,10 +358,10 @@ function workshopListItemHighlightClass(
   const dayMatches =
     calendarSelectedDayMs != null && calendarSelectedDayMs === dayMs;
   if (calendarFocusedSessionId === sessionId) {
-    return "ring-2 ring-amber-500 ring-offset-2 ring-offset-background";
+    return "ring-3 ring-amber-500 ring-offset-2 ring-offset-background";
   }
   if (dayMatches && calendarFocusedSessionId == null) {
-    return "ring-2 ring-amber-400/90 ring-offset-2 ring-offset-background dark:ring-amber-400/70";
+    return "ring-3 ring-amber-400/90 ring-offset-2 ring-offset-background dark:ring-amber-400/70";
   }
   return "";
 }
@@ -416,7 +422,7 @@ function OpenCertPathSessionCard({
   return (
     <Card
       size="sm"
-      className="border border-sky-500/30 bg-sky-500/[0.05] shadow-sm dark:border-sky-400/25 dark:bg-sky-500/[0.09]"
+      className="border border-sky-300/75 bg-sky-100 shadow-sm dark:border-sky-400/30 dark:bg-sky-500/[0.16]"
     >
       <CardHeader className="py-2">
         <CardTitle className="text-base font-medium">
@@ -441,6 +447,21 @@ function OpenCertPathSessionCard({
         >
           {session.full ? "Full" : "Register"}
         </Button>
+        <Link
+          href={`/units/${session.workshopUnitId}`}
+          title="Open workshop unit — live session (video, chat, screen share)"
+          aria-label={`Open workshop unit: ${session.workshopTitle}`}
+          className={cn(
+            buttonVariants({ variant: "secondary", size: "sm" }),
+            "max-w-full rounded-full border-sky-500/35 bg-sky-500/10 px-3 font-medium text-sky-950 shadow-sm hover:bg-sky-500/18 dark:border-sky-400/40 dark:bg-sky-500/15 dark:text-sky-50 dark:hover:bg-sky-500/24",
+          )}
+        >
+          <Video
+            className="h-3.5 w-3.5 text-sky-800 dark:text-sky-200"
+            aria-hidden
+          />
+          <span className="truncate">Open workshop unit</span>
+        </Link>
         {session.externalJoinUrl ? (
           <Link
             href={session.externalJoinUrl}
@@ -502,6 +523,17 @@ function RegisteredCertPathWorkshopCard({
         <WorkshopSessionStatusRow session={session} now={now} />
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2 pb-2">
+        {!past && session.status === "scheduled" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-amber-600/60 bg-amber-500/[0.22] text-amber-950 shadow-none hover:border-amber-600/75 hover:bg-amber-500/30 dark:border-amber-400/55 dark:bg-amber-500/28 dark:text-amber-50 dark:hover:border-amber-400/70 dark:hover:bg-amber-500/36"
+            onClick={onUnregister}
+          >
+            Unregister
+          </Button>
+        ) : null}
         {session.externalJoinUrl && !past ? (
           <Link
             href={session.externalJoinUrl}
@@ -518,8 +550,8 @@ function RegisteredCertPathWorkshopCard({
         ) : !past ? (
           <Link
             href={`/units/${session.workshopUnitId}`}
-            title="Open unit page — Live workshop (video, chat, screen share)"
-            aria-label="Open unit page — Live workshop (video, chat, screen share)"
+            title="Open workshop unit — live session (video, chat, screen share)"
+            aria-label={`Open workshop unit: ${workshopTitle}`}
             className={cn(
               buttonVariants({ variant: "secondary", size: "sm" }),
               "max-w-full rounded-full border-purple-500/35 bg-purple-500/10 px-3 font-medium text-purple-950 shadow-sm hover:bg-purple-500/18 dark:border-purple-400/40 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/24",
@@ -529,19 +561,8 @@ function RegisteredCertPathWorkshopCard({
               className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
               aria-hidden
             />
-            <span className="truncate">Open unit · Live workshop</span>
+            <span className="truncate">Open workshop unit</span>
           </Link>
-        ) : null}
-        {!past && session.status === "scheduled" ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="border-purple-500/40 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/45 dark:text-purple-100 dark:hover:bg-purple-500/15"
-            onClick={onUnregister}
-          >
-            Unregister
-          </Button>
         ) : null}
       </CardContent>
     </Card>
@@ -585,8 +606,8 @@ function ClosedCertPathWorkshopCard({
       <CardContent className="flex flex-wrap gap-2 pb-2">
         <Link
           href={href}
-          title="Open this workshop unit with session chat and whiteboard"
-          aria-label={`Open unit for closed workshop: ${workshopTitle}`}
+          title="Open workshop unit — session chat and whiteboard"
+          aria-label={`Open workshop unit: ${workshopTitle}`}
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
             "inline-flex max-w-full gap-1.5 rounded-full border-slate-400/45 bg-slate-200/50 px-3 font-medium text-slate-900 shadow-sm hover:bg-slate-200/80 dark:border-slate-500/50 dark:bg-slate-800/60 dark:text-slate-50 dark:hover:bg-slate-800/85",
@@ -596,7 +617,7 @@ function ClosedCertPathWorkshopCard({
             className="h-3.5 w-3.5 shrink-0 text-slate-700 dark:text-slate-300"
             aria-hidden
           />
-          <span className="truncate">Open unit · chat & whiteboard</span>
+          <span className="truncate">Open workshop unit</span>
         </Link>
       </CardContent>
     </Card>
