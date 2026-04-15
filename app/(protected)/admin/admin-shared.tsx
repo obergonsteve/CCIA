@@ -112,7 +112,7 @@ export function adminUnitDeliveryLREdgeColorsMuted(
     : "border-l-brand-gold/50 border-r-brand-gold/50 dark:border-l-brand-gold/45 dark:border-r-brand-gold/45";
 }
 
-/** L/R edges for non–workshop-session **content** rows (library column = sky). */
+/** L/R accent edges for **content** rows in the library / unit lists (sky). */
 export const ADMIN_CONTENT_NON_SESSION_LR_EDGE =
   "border-l-brand-sky border-r-brand-sky dark:border-l-brand-sky dark:border-r-brand-sky";
 
@@ -500,10 +500,6 @@ export function ContentLibraryDragRow({
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
   const hasActions = onEdit != null || onDelete != null;
-  const libraryContentLREdge =
-    item.type === "workshop_session"
-      ? adminUnitDeliveryLREdgeColors("live_workshop")
-      : ADMIN_CONTENT_NON_SESSION_LR_EDGE;
   return (
     <div
       ref={setNodeRef}
@@ -514,7 +510,7 @@ export function ContentLibraryDragRow({
         inSelectedUnit &&
           "border-l-brand-gold border-r-brand-gold dark:border-l-brand-gold dark:border-r-brand-gold",
         !inSelectedUnit && "border-border bg-card",
-        !inSelectedUnit && libraryContentLREdge,
+        !inSelectedUnit && ADMIN_CONTENT_NON_SESSION_LR_EDGE,
         !inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
         inSelectedUnit && selected && ADMIN_LIST_ROW_SELECTED,
         isDragging && "opacity-40",
@@ -637,10 +633,6 @@ export function SortableUnitContentRow({
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
   const hasActions = onEdit != null || onDelete != null;
-  const unitAttachedContentLREdge =
-    item.type === "workshop_session"
-      ? adminUnitDeliveryLREdgeColors("live_workshop")
-      : ADMIN_CONTENT_NON_SESSION_LR_EDGE;
   return (
     <div
       ref={setNodeRef}
@@ -648,7 +640,7 @@ export function SortableUnitContentRow({
       className={cn(
         "group flex min-w-0 items-stretch overflow-hidden rounded-lg border border-border bg-card text-sm shadow-sm",
         ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
-        unitAttachedContentLREdge,
+        ADMIN_CONTENT_NON_SESSION_LR_EDGE,
         selected && ADMIN_LIST_ROW_SELECTED,
       )}
     >

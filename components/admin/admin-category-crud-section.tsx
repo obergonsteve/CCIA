@@ -104,11 +104,11 @@ function CategoryCrudColumn({
   }
 
   return (
-    <div className={cn("rounded-2xl p-4", categoryColumnToneClass[tone])}>
+    <div className={cn("rounded-2xl p-3", categoryColumnToneClass[tone])}>
       <h3 className="text-sm font-semibold tracking-tight text-foreground">
         {title}
       </h3>
-      <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-background/80 p-2.5">
+      <div className="mt-2 space-y-1.5 rounded-md border border-border/60 bg-background/80 p-2">
         <div className="space-y-1">
           <Label className="text-[11px] text-muted-foreground">
             New short code
@@ -139,13 +139,13 @@ function CategoryCrudColumn({
         </Button>
       </div>
       {!rows?.length ? (
-        <p className="mt-3 text-xs text-muted-foreground">No categories yet.</p>
+        <p className="mt-2 text-xs text-muted-foreground">No categories yet.</p>
       ) : (
-        <ul className="mt-3 max-h-[min(40vh,360px)] space-y-2 overflow-y-auto pr-0.5">
+        <ul className="mt-2 max-h-[min(40vh,360px)] space-y-1 overflow-y-auto pr-0.5">
           {rows.map((row) => (
             <li
               key={row._id}
-              className="group space-y-2 rounded-md border border-border/60 bg-background/80 p-2.5"
+              className="group space-y-1 rounded-md border border-border/60 bg-background/80 px-2.5 py-1"
             >
               {editingId === row._id ? (
                 <>
@@ -179,8 +179,8 @@ function CategoryCrudColumn({
                   </div>
                 </>
               ) : (
-                <div className="flex gap-3">
-                  <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1 space-y-0.5">
                     <p className="truncate text-sm font-medium">
                       {row.shortCode}
                     </p>
@@ -189,7 +189,7 @@ function CategoryCrudColumn({
                     </p>
                   </div>
                   <div
-                    className="flex shrink-0 flex-col items-end gap-1.5 self-start opacity-100 transition-opacity duration-150 md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100"
+                    className="flex shrink-0 flex-col items-end gap-1 self-start opacity-100 transition-opacity duration-150 md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100"
                   >
                     <Button
                       type="button"
@@ -291,7 +291,7 @@ export function AdminCategoryCrudSection() {
               Add and edit categories here, then assign them from the dropdowns
               on each certification, unit, and content form above.
             </p>
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
               <CategoryCrudColumn
                 title="Certifications"
                 tone="lime"

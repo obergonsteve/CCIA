@@ -320,11 +320,6 @@ function urlFieldForContentKind(kind: Doc<"contentItems">["type"]): {
         label: "Deck / slideshow URL",
         placeholder: "URL to the slideshow or presentation",
       };
-    case "workshop_session":
-      return {
-        label: "Notes (optional)",
-        placeholder: "Short message shown with this step",
-      };
     default:
       return null;
   }
@@ -715,9 +710,6 @@ export default function AdminCoursesClient() {
   const [editUnitDeliveryMode, setEditUnitDeliveryMode] = useState<
     "self_paced" | "live_workshop"
   >("self_paced");
-  const [addLibraryWorkshopSessionId, setAddLibraryWorkshopSessionId] =
-    useState<string>("");
-  const [editWorkshopSessionId, setEditWorkshopSessionId] = useState<string>("");
   const [editContentOpen, setEditContentOpen] = useState(false);
   const [editContentId, setEditContentId] = useState<Id<"contentItems"> | null>(
     null,
@@ -3079,9 +3071,15 @@ export default function AdminCoursesClient() {
                                   item.type === "test" ||
                                     item.type === "assignment"
                                     ? item.assessment?.description ?? ""
-                                    : item.url,
+                                    : item.type === "workshop_session"
+                                      ? item.url || ""
+                                      : item.url,
                                 );
-                                setEditContentKind(item.type);
+                                setEditContentKind(
+                                  item.type === "workshop_session"
+                                    ? "link"
+                                    : item.type,
+                                );
                                 setEditContentOrder(String(item.order));
                                 setEditContentStorageId(
                                   item.storageId ?? null,
@@ -3094,9 +3092,6 @@ export default function AdminCoursesClient() {
                                 );
                                 setEditContentCategorySelect(
                                   item.contentCategoryId ?? CATEGORY_SELECT_NONE,
-                                );
-                                setEditWorkshopSessionId(
-                                  item.workshopSessionId ?? "",
                                 );
                                 setEditContentOpen(true);
                               }}
@@ -3174,9 +3169,15 @@ export default function AdminCoursesClient() {
                                 item.type === "test" ||
                                   item.type === "assignment"
                                   ? item.assessment?.description ?? ""
-                                  : item.url,
+                                  : item.type === "workshop_session"
+                                    ? item.url || ""
+                                    : item.url,
                               );
-                              setEditContentKind(item.type);
+                              setEditContentKind(
+                                item.type === "workshop_session"
+                                  ? "link"
+                                  : item.type,
+                              );
                               setEditContentOrder(String(item.order ?? 0));
                               setEditContentStorageId(
                                 item.storageId ?? null,
@@ -3189,9 +3190,6 @@ export default function AdminCoursesClient() {
                               );
                               setEditContentCategorySelect(
                                 item.contentCategoryId ?? CATEGORY_SELECT_NONE,
-                              );
-                              setEditWorkshopSessionId(
-                                item.workshopSessionId ?? "",
                               );
                               setEditContentOpen(true);
                             }}
@@ -3470,10 +3468,6 @@ export default function AdminCoursesClient() {
                 value={addCertTier}
                 onChange={setAddCertTier}
               />
-              <p className="text-[11px] text-muted-foreground">
-                Higher-level grouping for the catalog and workshops. Enforcement
-                of “mandatory” is an org policy, not a hard rule in the app.
-              </p>
             </div>
             <div className="space-y-1">
               <Label htmlFor="add-cert-summary">Short summary</Label>
@@ -3733,7 +3727,6 @@ export default function AdminCoursesClient() {
             setAddLibraryAssessment(null);
             setContentLibraryCode("");
             setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
-            setAddLibraryWorkshopSessionId("");
             return;
           }
           if (contentKind === "test" || contentKind === "assignment") {
@@ -3832,9 +3825,6 @@ export default function AdminCoursesClient() {
                   } else {
                     setAddLibraryAssessment(null);
                   }
-                  if (k !== "workshop_session") {
-                    setAddLibraryWorkshopSessionId("");
-                  }
                 }}
               >
                 <SelectTrigger>
@@ -3847,9 +3837,6 @@ export default function AdminCoursesClient() {
                   <SelectItem value="slideshow">Deck (slideshow)</SelectItem>
                   <SelectItem value="test">Test</SelectItem>
                   <SelectItem value="assignment">Assignment</SelectItem>
-                  <SelectItem value="workshop_session">
-                    Live workshop session
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -3987,75 +3974,6 @@ export default function AdminCoursesClient() {
                   </div>
                 </>
               ) : null
-            ) : contentKind === "workshop_session" ? (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label>Scheduled session</Label>
-                  {workshopSessionsAdmin === undefined ? (
-                    <p className="text-sm text-muted-foreground">Loading…</p>
-                  ) : workshopSessionsAdmin.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Create sessions under{" "}
-                      <span className="font-medium text-foreground">
-                        Training Content → Timetable tab
-                      </span>{" "}
-                      first.
-                    </p>
-                  ) : (
-                    <Select
-                      value={addLibraryWorkshopSessionId || "__pick__"}
-                      onValueChange={(v) =>
-                        setAddLibraryWorkshopSessionId(
-                          v === "__pick__" ? "" : (v ?? ""),
-                        )
-                      }
-                      itemToStringLabel={(v) => {
-                        if (v == null || v === "" || v === "__pick__") {
-                          return "Choose a session…";
-                        }
-                        const s = workshopSessionsAdmin.find(
-                          (x) => x._id === v,
-                        );
-                        if (!s) {
-                          return String(v);
-                        }
-                        const start = new Date(s.startsAt).toLocaleString();
-                        return `${s.workshopTitle} — ${start}`;
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a session…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__pick__" label="Choose a session…">
-                          Choose a session…
-                        </SelectItem>
-                        {workshopSessionsAdmin
-                          .filter((s) => s.status === "scheduled")
-                          .map((s) => {
-                            const start = new Date(s.startsAt).toLocaleString();
-                            const label = `${s.workshopTitle} — ${start}`;
-                            return (
-                              <SelectItem key={s._id} value={s._id} label={label}>
-                                {label}
-                              </SelectItem>
-                            );
-                          })}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="add-lib-ws-notes">Notes (optional)</Label>
-                  <Textarea
-                    id="add-lib-ws-notes"
-                    placeholder="Short message shown with this step"
-                    value={contentUrl}
-                    onChange={(e) => setContentUrl(e.target.value)}
-                    className="min-h-[60px]"
-                  />
-                </div>
-              </div>
             ) : urlFieldForContentKind(contentKind) ? (
               <div className="space-y-1">
                 <Label htmlFor="add-lib-url">
@@ -4138,35 +4056,6 @@ export default function AdminCoursesClient() {
                     } else {
                       toast.success("Saved to library");
                     }
-                  } else if (contentKind === "workshop_session") {
-                    if (!addLibraryWorkshopSessionId) {
-                      toast.error("Select a scheduled workshop session");
-                      return;
-                    }
-                    const cid = await createContent({
-                      type: "workshop_session",
-                      title: contentTitle.trim(),
-                      ...(contentLibraryCode.trim()
-                        ? { code: contentLibraryCode.trim() }
-                        : {}),
-                      url: contentUrl.trim() || "",
-                      workshopSessionId: addLibraryWorkshopSessionId as Id<
-                        "workshopSessions"
-                      >,
-                      contentCategoryId:
-                        newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
-                          ? undefined
-                          : (newLibraryContentCategorySelect as Id<"contentCategories">),
-                    });
-                    if (selectedDetailUnitId) {
-                      await attachContentToUnit({
-                        unitId: selectedDetailUnitId,
-                        contentId: cid,
-                      });
-                      toast.success("Saved to library and attached to unit");
-                    } else {
-                      toast.success("Saved to library");
-                    }
                   } else {
                     const urlMeta = urlFieldForContentKind(contentKind);
                     if (!contentUrl.trim() && urlMeta) {
@@ -4199,7 +4088,6 @@ export default function AdminCoursesClient() {
                   setContentLibraryCode("");
                   setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
                   setContentUrl("");
-                  setAddLibraryWorkshopSessionId("");
                   setAddLibraryAssessment(null);
                   setAddLibraryOpen(false);
                 } catch (e) {
@@ -4307,9 +4195,6 @@ export default function AdminCoursesClient() {
                     value={certDetailTier}
                     onChange={setCertDetailTier}
                   />
-                  <p className="text-[11px] text-muted-foreground">
-                    Higher-level grouping for the catalog and workshops.
-                  </p>
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label htmlFor="cert-summary">Short summary</Label>
@@ -4461,7 +4346,6 @@ export default function AdminCoursesClient() {
             setEditContentAssessment(null);
             setEditContentCode("");
             setEditContentCategorySelect(CATEGORY_SELECT_NONE);
-            setEditWorkshopSessionId("");
           }
         }}
       >
@@ -4569,9 +4453,6 @@ export default function AdminCoursesClient() {
                   } else {
                     setEditContentAssessment(null);
                   }
-                  if (k !== "workshop_session") {
-                    setEditWorkshopSessionId("");
-                  }
                 }}
               >
                 <SelectTrigger>
@@ -4584,9 +4465,6 @@ export default function AdminCoursesClient() {
                   <SelectItem value="slideshow">Deck (slideshow)</SelectItem>
                   <SelectItem value="test">Test</SelectItem>
                   <SelectItem value="assignment">Assignment</SelectItem>
-                  <SelectItem value="workshop_session">
-                    Live workshop session
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -4601,71 +4479,6 @@ export default function AdminCoursesClient() {
                   onChange={(e) => setEditContentUrl(e.target.value)}
                   className="min-h-[72px]"
                 />
-              </div>
-            ) : editContentKind === "workshop_session" ? (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label>Scheduled session</Label>
-                  {workshopSessionsAdmin === undefined ? (
-                    <p className="text-sm text-muted-foreground">Loading…</p>
-                  ) : workshopSessionsAdmin.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Add sessions under Training Content → Timetable tab.
-                    </p>
-                  ) : (
-                    <Select
-                      value={editWorkshopSessionId || "__pick__"}
-                      onValueChange={(v) =>
-                        setEditWorkshopSessionId(
-                          v === "__pick__" ? "" : (v ?? ""),
-                        )
-                      }
-                      itemToStringLabel={(v) => {
-                        if (v == null || v === "" || v === "__pick__") {
-                          return "Choose a session…";
-                        }
-                        const s = workshopSessionsAdmin.find(
-                          (x) => x._id === v,
-                        );
-                        if (!s) {
-                          return String(v);
-                        }
-                        const start = new Date(s.startsAt).toLocaleString();
-                        return `${s.workshopTitle} — ${start}`;
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a session…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__pick__" label="Choose a session…">
-                          Choose a session…
-                        </SelectItem>
-                        {workshopSessionsAdmin
-                          .filter((s) => s.status === "scheduled")
-                          .map((s) => {
-                            const start = new Date(s.startsAt).toLocaleString();
-                            const label = `${s.workshopTitle} — ${start}`;
-                            return (
-                              <SelectItem key={s._id} value={s._id} label={label}>
-                                {label}
-                              </SelectItem>
-                            );
-                          })}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="ec-ws-notes">Notes (optional)</Label>
-                  <Textarea
-                    id="ec-ws-notes"
-                    placeholder="Short message shown with this step"
-                    value={editContentUrl}
-                    onChange={(e) => setEditContentUrl(e.target.value)}
-                    className="min-h-[60px]"
-                  />
-                </div>
               </div>
             ) : urlFieldForContentKind(editContentKind) ? (
               <div className="space-y-1">
@@ -4877,26 +4690,6 @@ export default function AdminCoursesClient() {
                             editContentAssessment.description,
                           questions: builtQuestions,
                         },
-                      });
-                    } else if (editContentKind === "workshop_session") {
-                      if (!editWorkshopSessionId) {
-                        toast.error("Select a scheduled workshop session");
-                        return;
-                      }
-                      await updateContent({
-                        contentId: editContentId,
-                        title: editContentTitle.trim(),
-                        code: editContentCode.trim(),
-                        url: editContentUrl.trim() || "",
-                        type: "workshop_session",
-                        workshopSessionId: editWorkshopSessionId as Id<
-                          "workshopSessions"
-                        >,
-                        contentCategoryId:
-                          editContentCategorySelect === CATEGORY_SELECT_NONE
-                            ? null
-                            : (editContentCategorySelect as Id<"contentCategories">),
-                        storageId: editContentStorageId ?? undefined,
                       });
                     } else {
                       await updateContent({
