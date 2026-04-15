@@ -390,7 +390,7 @@ function WorkshopSessionStatusRow({
 }) {
   const status = liveWorkshopSessionStatus(session, now);
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
       <Badge
         variant="outline"
         className={cn(
@@ -485,12 +485,14 @@ function OpenCertPathSessionCard({
 function RegisteredCertPathWorkshopCard({
   session,
   workshopTitle,
+  workshopUnitCode,
   past,
   now,
   onUnregister,
 }: {
   session: Doc<"workshopSessions">;
   workshopTitle: string;
+  workshopUnitCode: string | null;
   past: boolean;
   now: number;
   onUnregister: () => void;
@@ -503,20 +505,25 @@ function RegisteredCertPathWorkshopCard({
         past && "border-dashed opacity-80",
       )}
     >
-      <CardHeader className="py-2">
+      <CardHeader className="gap-0.5 py-1.5">
         <Link
           href={`/units/${session.workshopUnitId}`}
           className={cn(
-            "group inline-flex max-w-full rounded-md outline-none transition-colors",
+            "group flex w-full min-w-0 max-w-full flex-col gap-0 rounded-md outline-none transition-colors",
             "hover:bg-purple-200/90 focus-visible:bg-purple-200/90 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/85 dark:focus-visible:bg-purple-900/85",
           )}
           aria-label={`Open workshop unit: ${workshopTitle}`}
         >
-          <CardTitle className="text-base font-medium text-foreground underline-offset-4 group-hover:underline">
-            {workshopTitle}
+          <CardTitle className="min-w-0 text-base font-medium leading-snug text-foreground underline-offset-4 group-hover:underline">
+            <span className="block truncate">{workshopTitle}</span>
           </CardTitle>
+          {workshopUnitCode ? (
+            <span className="w-full min-w-0 break-words font-mono text-[10px] font-semibold leading-snug tracking-wide text-muted-foreground [overflow-wrap:anywhere]">
+              {workshopUnitCode}
+            </span>
+          ) : null}
         </Link>
-        <p className="text-xs text-muted-foreground">
+        <p className="mt-1.5 text-xs leading-tight text-muted-foreground">
           {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
           {past ? " · Past" : ""}
         </p>
@@ -854,7 +861,12 @@ export default function WorkshopsClient() {
               ) : (
                 <ul className="grid list-none grid-cols-1 gap-2 p-0 md:grid-cols-2">
                   {registeredActiveFiltered.map(
-                    ({ session, workshopTitle, past }) => (
+                    ({
+                      session,
+                      workshopTitle,
+                      workshopUnitCode,
+                      past,
+                    }) => (
                       <li
                         key={session._id}
                         className={cn(
@@ -880,6 +892,7 @@ export default function WorkshopsClient() {
                         <RegisteredCertPathWorkshopCard
                           session={session}
                           workshopTitle={workshopTitle}
+                          workshopUnitCode={workshopUnitCode}
                           past={past}
                           now={now}
                           onUnregister={() => {

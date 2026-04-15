@@ -452,6 +452,8 @@ export const myRegistrationsOnCertificationPath = query({
       registration: Doc<"workshopRegistrations">;
       session: Doc<"workshopSessions">;
       workshopTitle: string;
+      /** From `units.code` when set (admin short id). */
+      workshopUnitCode: string | null;
       past: boolean;
       tiers: Array<"bronze" | "silver" | "gold">;
     }> = [];
@@ -482,6 +484,8 @@ export const myRegistrationsOnCertificationPath = query({
         registration: r,
         session,
         workshopTitle: u && isLive(u) ? u.title : "Workshop",
+        workshopUnitCode:
+          u && isLive(u) ? (u.code?.trim() ? u.code.trim() : null) : null,
         past: session.endsAt < now,
         tiers,
       });
