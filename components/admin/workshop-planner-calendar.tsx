@@ -66,6 +66,7 @@ function DroppablePlannerDayCell({
   const cancelled = daySessions.filter((s) => s.status === "cancelled").length;
   const highlighted =
     dropHighlightDayMs != null && dropHighlightDayMs === dayStart.getTime();
+  const hasScheduledWorkshop = scheduled > 0;
 
   return (
     <button
@@ -76,7 +77,10 @@ function DroppablePlannerDayCell({
       aria-selected={selected}
       onClick={() => onSelectDay(dayStart)}
       className={cn(
-        "relative flex aspect-square max-h-11 flex-col items-center justify-center rounded-md border border-transparent text-sm transition-colors",
+        "relative flex aspect-square max-h-11 flex-col items-center justify-center border border-transparent text-sm transition-colors",
+        hasScheduledWorkshop && !selected
+          ? "rounded-full ring-1 ring-inset ring-muted-foreground/40 dark:ring-muted-foreground/35"
+          : "rounded-md",
         inMonth ? "text-foreground" : "text-muted-foreground/45",
         selected
           ? "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30"
@@ -85,9 +89,9 @@ function DroppablePlannerDayCell({
           "ring-2 ring-inset ring-purple-500/55 dark:ring-purple-400/50",
       )}
     >
-      <span className="tabular-nums">{format(day, "d")}</span>
+      <span className="tabular-nums leading-none">{format(day, "d")}</span>
       {(scheduled > 0 || cancelled > 0) && (
-        <span className="mt-0.5 flex h-3 items-center justify-center gap-0.5">
+        <span className="mt-px flex h-2.5 shrink-0 items-center justify-center gap-0.5">
           {scheduled > 0 ? (
             <span
               className="size-1.5 rounded-full bg-purple-500 dark:bg-purple-400"
@@ -126,6 +130,7 @@ function StaticPlannerDayCell({
   const daySessions = sessionsForCalendarDay(sessions, day);
   const scheduled = daySessions.filter((s) => s.status === "scheduled").length;
   const cancelled = daySessions.filter((s) => s.status === "cancelled").length;
+  const hasScheduledWorkshop = scheduled > 0;
 
   return (
     <button
@@ -135,16 +140,19 @@ function StaticPlannerDayCell({
       aria-selected={selected}
       onClick={() => onSelectDay(dayStart)}
       className={cn(
-        "relative flex aspect-square max-h-11 flex-col items-center justify-center rounded-md border border-transparent text-sm transition-colors",
+        "relative flex aspect-square max-h-11 flex-col items-center justify-center border border-transparent text-sm transition-colors",
+        hasScheduledWorkshop && !selected
+          ? "rounded-full ring-1 ring-inset ring-muted-foreground/40 dark:ring-muted-foreground/35"
+          : "rounded-md",
         inMonth ? "text-foreground" : "text-muted-foreground/45",
         selected
           ? "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30"
           : "hover:bg-muted/80",
       )}
     >
-      <span className="tabular-nums">{format(day, "d")}</span>
+      <span className="tabular-nums leading-none">{format(day, "d")}</span>
       {(scheduled > 0 || cancelled > 0) && (
-        <span className="mt-0.5 flex h-3 items-center justify-center gap-0.5">
+        <span className="mt-px flex h-2.5 shrink-0 items-center justify-center gap-0.5">
           {scheduled > 0 ? (
             <span
               className="size-1.5 rounded-full bg-purple-500 dark:bg-purple-400"
@@ -170,6 +178,7 @@ export function WorkshopPlannerCalendar({
   droppableDays = false,
   dropHighlightDayMs,
   onViewMonthChange,
+  className,
 }: {
   sessions: WorkshopPlannerSessionMarker[];
   /** `null` = no day filter (e.g. show all workshop units in Training Content centre column). */
@@ -181,6 +190,8 @@ export function WorkshopPlannerCalendar({
   dropHighlightDayMs?: number | null;
   /** Fired when the visible month changes (for session counts in the shell). */
   onViewMonthChange?: (monthStart: Date) => void;
+  /** Merged onto the root (e.g. `space-y-2` for a denser timetable column). */
+  className?: string;
 }) {
   const [viewMonth, setViewMonth] = useState(() =>
     startOfMonth(startOfDay(selectedDay ?? new Date())),
@@ -216,7 +227,7 @@ export function WorkshopPlannerCalendar({
   }, []);
 
   return (
-    <div className="space-y-3">
+    <div className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:justify-start">
           <Button
@@ -244,20 +255,6 @@ export function WorkshopPlannerCalendar({
           </Button>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-          {droppableDays ? (
-            <Button
-              type="button"
-              variant={selectedDay == null ? "secondary" : "outline"}
-              size="sm"
-              className="h-8 whitespace-nowrap px-2.5 text-xs"
-              aria-pressed={selectedDay == null}
-              aria-label="All workshops — list every live workshop unit in the centre column (no day filter)"
-              title="List all workshop units in the centre column (no day filter)"
-              onClick={() => onSelectDay(null)}
-            >
-              All workshops
-            </Button>
-          ) : null}
           <Button
             type="button"
             variant="outline"

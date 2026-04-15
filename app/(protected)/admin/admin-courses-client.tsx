@@ -192,6 +192,7 @@ function AdminCategoryFilterSelect({
   value,
   onValueChange,
   categories,
+  className,
 }: {
   htmlId: string;
   label: string;
@@ -200,10 +201,12 @@ function AdminCategoryFilterSelect({
   categories:
     | { _id: string; shortCode: string; longDescription: string }[]
     | undefined;
+  /** Merged onto the outer wrapper (e.g. margin tweaks). */
+  className?: string;
 }) {
   if (categories === undefined) {
     return (
-      <div className="mb-2 space-y-1">
+      <div className={cn("mb-2 space-y-1", className)}>
         <Label
           htmlFor={htmlId}
           className="text-xs font-medium text-muted-foreground"
@@ -222,7 +225,7 @@ function AdminCategoryFilterSelect({
   }
   const selectValue = filterCategorySelectValue(value, categories);
   return (
-    <div className="mb-2 space-y-1">
+    <div className={cn("mb-2 space-y-1", className)}>
       <Label
         htmlFor={htmlId}
         className="text-xs font-medium text-muted-foreground"
@@ -2471,7 +2474,7 @@ export default function AdminCoursesClient() {
               </TabsContent>
               <TabsContent
                 value="workshops"
-                className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col gap-2 outline-none data-[state=inactive]:hidden"
+                className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col gap-1 outline-none data-[state=inactive]:hidden"
               >
                 <h2 className="sr-only">Timetable</h2>
                 <AdminCategoryFilterSelect
@@ -2480,8 +2483,23 @@ export default function AdminCoursesClient() {
                   value={workshopTimetableUnitCategoryFilter}
                   onValueChange={setWorkshopTimetableUnitCategoryFilter}
                   categories={unitCategories}
+                  className="mb-1"
                 />
-                <p className="mb-3 shrink-0 text-sm text-muted-foreground">
+                <Button
+                  type="button"
+                  variant={
+                    workshopPlannerDay == null ? "secondary" : "outline"
+                  }
+                  size="sm"
+                  className="mb-1 h-8 w-fit shrink-0 self-center whitespace-nowrap px-2.5 text-xs"
+                  aria-pressed={workshopPlannerDay == null}
+                  aria-label="All workshops — list every live workshop unit in the centre column (no day filter)"
+                  title="List all workshop units in the centre column (no day filter)"
+                  onClick={() => handleWorkshopPlannerSelectDay(null)}
+                >
+                  All workshops
+                </Button>
+                <p className="mb-1 shrink-0 text-sm text-muted-foreground">
                   {workshopPlannerDay == null
                     ? "Drag a workshop unit onto a date to schedule it."
                     : "Select 'All workshops' to drag Workshop Units onto the timetable calendar."}
@@ -2496,6 +2514,7 @@ export default function AdminCoursesClient() {
                     onViewMonthChange={(m) =>
                       setWorkshopCalendarViewMonth(startOfMonth(m))
                     }
+                    className="space-y-2"
                   />
                 </div>
               </TabsContent>
