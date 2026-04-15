@@ -206,7 +206,7 @@ function AdminCategoryFilterSelect({
 }) {
   if (categories === undefined) {
     return (
-      <div className={cn("mb-2 space-y-1", className)}>
+      <div className={cn("mb-0 space-y-1", className)}>
         <Label
           htmlFor={htmlId}
           className="text-xs font-medium text-muted-foreground"
@@ -225,7 +225,7 @@ function AdminCategoryFilterSelect({
   }
   const selectValue = filterCategorySelectValue(value, categories);
   return (
-    <div className={cn("mb-2 space-y-1", className)}>
+    <div className={cn("mb-0 space-y-1", className)}>
       <Label
         htmlFor={htmlId}
         className="text-xs font-medium text-muted-foreground"
@@ -2483,7 +2483,6 @@ export default function AdminCoursesClient() {
                   value={workshopTimetableUnitCategoryFilter}
                   onValueChange={setWorkshopTimetableUnitCategoryFilter}
                   categories={unitCategories}
-                  className="mb-1"
                 />
                 <Button
                   type="button"
@@ -2491,7 +2490,7 @@ export default function AdminCoursesClient() {
                     workshopPlannerDay == null ? "secondary" : "outline"
                   }
                   size="sm"
-                  className="mb-1 h-8 w-fit shrink-0 self-center whitespace-nowrap px-2.5 text-xs"
+                  className="mb-1 h-8 min-w-[8.75rem] shrink-0 self-center whitespace-nowrap px-4 text-sm"
                   aria-pressed={workshopPlannerDay == null}
                   aria-label="All workshops — list every live workshop unit in the centre column (no day filter)"
                   title="List all workshop units in the centre column (no day filter)"
@@ -2499,10 +2498,11 @@ export default function AdminCoursesClient() {
                 >
                   All workshops
                 </Button>
+                <hr className="my-1.5 h-0 shrink-0 border-0 border-t-2 border-solid border-purple-500/45 dark:border-purple-400/40" />
                 <p className="mb-1 shrink-0 text-sm text-muted-foreground">
                   {workshopPlannerDay == null
                     ? "Drag a workshop unit onto a date to schedule it."
-                    : "Select 'All workshops' to drag Workshop Units onto the timetable calendar."}
+                    : "Select 'All workshops' to drag Workshop Units onto the calendar."}
                 </p>
                 <div className="min-h-0 flex-1 overflow-y-auto scrollbar-panel">
                   <WorkshopPlannerCalendar
