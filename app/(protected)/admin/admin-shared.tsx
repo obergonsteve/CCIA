@@ -26,6 +26,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery } from "convex/react";
 import {
+  BarChart3,
   CircleX,
   GripHorizontal,
   GripVertical,
@@ -233,6 +234,7 @@ export function DraggableUnitPaletteItem({
    */
   unlinkActionTone = "muted",
   onOpenPrerequisites,
+  onStats,
 }: {
   unit: UnitAdminListRow;
   selected?: boolean;
@@ -250,13 +252,15 @@ export function DraggableUnitPaletteItem({
   deleteVariant?: "unlink" | "trash" | "cancel";
   unlinkActionTone?: "sky" | "muted";
   onOpenPrerequisites?: () => void;
+  /** Opens admin analytics for this unit. */
+  onStats?: () => void;
 }) {
   const paletteDragDisabled = Boolean(inSelectedCert);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette-unit:${unit._id}`,
     disabled: paletteDragDisabled,
   });
-  const hasActions = onEdit != null || onDelete != null;
+  const hasActions = onEdit != null || onDelete != null || onStats != null;
   const { text: descText, show: showDesc } = unitRowDescription(unit);
   const chips = onOpenPrerequisites ? (
     <UnitRowPereqAssignChips
@@ -346,8 +350,29 @@ export function DraggableUnitPaletteItem({
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
-          {onEdit || onDelete ? (
+          {onEdit || onDelete || onStats ? (
             <>
+              {onStats ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-none"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStats();
+                      }}
+                    >
+                      <BarChart3 className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    Stats — starts, completions, learners
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
               {onEdit ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -875,6 +900,7 @@ export function SortableLevelRow({
   onSelect,
   onEdit,
   onDelete,
+  onStats,
 }: {
   level: Doc<"certificationLevels">;
   selected: boolean;
@@ -884,6 +910,8 @@ export function SortableLevelRow({
   onSelect: () => void;
   onEdit?: () => void;
   onDelete: () => void;
+  /** Opens admin analytics for this certification. */
+  onStats?: () => void;
 }) {
   const {
     attributes,
@@ -1009,6 +1037,21 @@ export function SortableLevelRow({
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
         )}
       >
+        {onStats ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 rounded-none"
+            title="Stats — starts, completions, learners"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStats();
+            }}
+          >
+            <BarChart3 className="h-3 w-3" />
+          </Button>
+        ) : null}
         {onEdit ? (
           <Button
             type="button"
@@ -1056,6 +1099,7 @@ export function SortableUnitRow({
   onEdit,
   onRemoveFromCert,
   onOpenPrerequisites,
+  onStats,
 }: {
   unit: Doc<"units">;
   selected: boolean;
@@ -1069,6 +1113,7 @@ export function SortableUnitRow({
   onEdit: () => void;
   onRemoveFromCert: () => void;
   onOpenPrerequisites?: () => void;
+  onStats?: () => void;
 }) {
   const {
     attributes,
@@ -1167,6 +1212,28 @@ export function SortableUnitRow({
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
         )}
       >
+        {onStats ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-none"
+                title="Stats — starts, completions, learners"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStats();
+                }}
+              >
+                <BarChart3 className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              Stats — starts, completions, learners
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

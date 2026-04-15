@@ -64,6 +64,10 @@ import {
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  AdminTrainingStatsSheet,
+  type AdminTrainingStatsTarget,
+} from "@/components/admin/admin-training-stats-sheet";
 import { WorkshopSessionEditRow } from "@/components/admin/workshop-session-edit-row";
 import {
   WorkshopPlannerCalendar,
@@ -662,6 +666,16 @@ export default function AdminCoursesClient() {
     setWorkshopPlannerDay(d == null ? null : startOfDay(d));
   }, []);
 
+  const openCertificationStats = useCallback((levelId: Id<"certificationLevels">) => {
+    setTrainingStatsTarget({ kind: "certification", levelId });
+    setTrainingStatsOpen(true);
+  }, []);
+
+  const openUnitStats = useCallback((unitId: Id<"units">) => {
+    setTrainingStatsTarget({ kind: "unit", unitId });
+    setTrainingStatsOpen(true);
+  }, []);
+
   /** `null` = no day filter — centre column lists all live-workshop units (calendar “All”). */
   const [workshopPlannerDay, setWorkshopPlannerDay] = useState<Date | null>(
     () => null,
@@ -680,6 +694,9 @@ export default function AdminCoursesClient() {
   const [scheduleEndsLocal, setScheduleEndsLocal] = useState("");
   const [scheduleCapacity, setScheduleCapacity] = useState("");
   const [scheduleExternalUrl, setScheduleExternalUrl] = useState("");
+  const [trainingStatsOpen, setTrainingStatsOpen] = useState(false);
+  const [trainingStatsTarget, setTrainingStatsTarget] =
+    useState<AdminTrainingStatsTarget | null>(null);
   const [contentSearch, setContentSearch] = useState("");
   /** Content / library column: filter by admin-defined content category (chips). */
   const [contentLibraryCategoryFilter, setContentLibraryCategoryFilter] =
@@ -2459,6 +2476,7 @@ export default function AdminCoursesClient() {
                             }
                             onSelect={() => handleCertFilterToggle(l._id)}
                             onEdit={() => openCertificationEditor(l._id)}
+                            onStats={() => openCertificationStats(l._id)}
                             onDelete={() => {
                               setCertDeleteId(l._id);
                               setCertDeleteOpen(true);
@@ -2754,6 +2772,7 @@ export default function AdminCoursesClient() {
                                 onOpenPrerequisites={() =>
                                   togglePrereqsUnderRow(u._id)
                                 }
+                                onStats={() => openUnitStats(u._id)}
                               />
                             </UnitRowContentDropTarget>
                             {prereqsPanelUnitId === u._id ? (
@@ -2904,6 +2923,7 @@ export default function AdminCoursesClient() {
                             onOpenPrerequisites={() =>
                               togglePrereqsUnderRow(u._id)
                             }
+                            onStats={() => openUnitStats(u._id)}
                           />
                         </UnitRowContentDropTarget>
                         {prereqsPanelUnitId === u._id ? (
@@ -5421,6 +5441,17 @@ export default function AdminCoursesClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AdminTrainingStatsSheet
+        open={trainingStatsOpen}
+        onOpenChange={(o) => {
+          setTrainingStatsOpen(o);
+          if (!o) {
+            setTrainingStatsTarget(null);
+          }
+        }}
+        target={trainingStatsTarget}
+      />
 
       </div>
     </TooltipProvider>

@@ -304,7 +304,9 @@ export default defineSchema({
     completed: v.boolean(),
     completedAt: v.optional(v.number()),
     lastAccessed: v.number(),
-  }).index("by_user_unit", ["userId", "unitId"]),
+  })
+    .index("by_user_unit", ["userId", "unitId"])
+    .index("by_unit", ["unitId"]),
 
   testResults: defineTable({
     userId: v.id("users"),
@@ -343,7 +345,8 @@ export default defineSchema({
     score: v.optional(v.number()),
   })
     .index("by_user_unit", ["userId", "unitId"])
-    .index("by_user_unit_content", ["userId", "unitId", "contentId"]),
+    .index("by_user_unit_content", ["userId", "unitId", "contentId"])
+    .index("by_unit", ["unitId"]),
 
   /** Append-only audit trail for starts, completions, and assessment attempts. */
   contentProgressEvents: defineTable({
@@ -361,7 +364,9 @@ export default defineSchema({
     durationMs: v.optional(v.number()),
     score: v.optional(v.number()),
     passed: v.optional(v.boolean()),
-  }).index("by_user_unit", ["userId", "unitId"]),
+  })
+    .index("by_user_unit", ["userId", "unitId"])
+    .index("by_unit", ["unitId"]),
 
   /** Legacy tab assessment: one row per user × assignment when used as a sequential step. */
   userAssignmentProgress: defineTable({

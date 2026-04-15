@@ -9,6 +9,7 @@
  */
 
 import type * as adminDeleted from "../adminDeleted.js";
+import type * as adminStats from "../adminStats.js";
 import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as authMutations from "../authMutations.js";
@@ -50,6 +51,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   adminDeleted: typeof adminDeleted;
+  adminStats: typeof adminStats;
   assignments: typeof assignments;
   auth: typeof auth;
   authMutations: typeof authMutations;
