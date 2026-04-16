@@ -80,6 +80,22 @@ export const ADMIN_LIST_ROW_SELECTED =
 export const ADMIN_LIST_ITEM_LR_BORDER_WIDTH =
   "border-l-[2.8px] border-r-[2.8px]";
 
+/** Visible label for BarChart “stats” tooltips on training board rows. */
+const ADMIN_ANALYTICS_TOOLTIP_TEXT =
+  "Analytics — starts, completions, learners";
+/**
+ * Radix renders tooltip children twice (visible + visually-hidden for
+ * `aria-describedby`). Use a distinct `aria-label` so the hidden node does not
+ * repeat the same string in the DOM / inspector.
+ */
+const ADMIN_ANALYTICS_TOOLTIP_ARIA_LABEL =
+  "Engagement analytics: starts, completions, learners";
+const adminAnalyticsTooltipContentProps = {
+  side: "left" as const,
+  className: "pb-1 pt-1.5",
+  "aria-label": ADMIN_ANALYTICS_TOOLTIP_ARIA_LABEL,
+};
+
 /** One-line secondary line for cert-scoped and all-units lists (same field, same rules). */
 function unitRowDescription(unit: { description?: string }): {
   text: string;
@@ -368,8 +384,8 @@ export function DraggableUnitPaletteItem({
                       <BarChart3 className="h-3 w-3" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="left">
-                    Analytics — starts, completions, learners
+                  <TooltipContent {...adminAnalyticsTooltipContentProps}>
+                    {ADMIN_ANALYTICS_TOOLTIP_TEXT}
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -615,8 +631,8 @@ export function ContentLibraryDragRow({
                   <BarChart3 className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left">
-                Analytics — starts, completions, learners
+              <TooltipContent {...adminAnalyticsTooltipContentProps}>
+                {ADMIN_ANALYTICS_TOOLTIP_TEXT}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -765,8 +781,8 @@ export function SortableUnitContentRow({
                   <BarChart3 className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left">
-                Analytics — starts, completions, learners
+              <TooltipContent {...adminAnalyticsTooltipContentProps}>
+                {ADMIN_ANALYTICS_TOOLTIP_TEXT}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -1125,8 +1141,8 @@ export function SortableLevelRow({
                 <BarChart3 className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">
-              Analytics — starts, completions, learners
+            <TooltipContent {...adminAnalyticsTooltipContentProps}>
+              {ADMIN_ANALYTICS_TOOLTIP_TEXT}
             </TooltipContent>
           </Tooltip>
         ) : null}
@@ -1306,8 +1322,8 @@ export function SortableUnitRow({
                 <BarChart3 className="h-3 w-3" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">
-              Analytics — starts, completions, learners
+            <TooltipContent {...adminAnalyticsTooltipContentProps}>
+              {ADMIN_ANALYTICS_TOOLTIP_TEXT}
             </TooltipContent>
           </Tooltip>
         ) : null}

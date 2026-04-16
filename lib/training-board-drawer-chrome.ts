@@ -43,3 +43,20 @@ export function trainingBoardDrawerChrome(
       };
   }
 }
+
+/**
+ * Applied on the scroll body of edit drawers so inputs sit on a slightly
+ * lifted, lighter surface than the colour-mixed panel behind them.
+ */
+export const trainingBoardEditDrawerFieldChrome = [
+  "[&_[data-slot=input]]:border-border/50 [&_[data-slot=input]]:bg-background/90",
+  "[&_[data-slot=input]]:text-foreground [&_[data-slot=input]]:shadow-sm",
+  "[&_[data-slot=input]]:dark:border-border/45 [&_[data-slot=input]]:dark:bg-background/50",
+  "[&_[data-slot=textarea]]:border-border/50 [&_[data-slot=textarea]]:bg-background/90",
+  "[&_[data-slot=textarea]]:text-foreground [&_[data-slot=textarea]]:shadow-sm",
+  "[&_[data-slot=textarea]]:dark:border-border/45 [&_[data-slot=textarea]]:dark:bg-background/50",
+  "[&_[data-slot=select-trigger]]:border-border/50 [&_[data-slot=select-trigger]]:bg-background/90",
+  "[&_[data-slot=select-trigger]]:text-foreground [&_[data-slot=select-trigger]]:shadow-sm",
+  "[&_[data-slot=select-trigger]]:dark:border-border/45 [&_[data-slot=select-trigger]]:dark:bg-background/50",
+  "[&_[data-slot=select-trigger]]:dark:hover:bg-background/60",
+].join(" ");

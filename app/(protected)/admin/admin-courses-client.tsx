@@ -14,7 +14,6 @@ import {
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -89,7 +88,10 @@ import {
   effectiveCertificationTier,
   type CertificationTierKey,
 } from "@/lib/certificationTier";
-import { trainingBoardDrawerChrome } from "@/lib/training-board-drawer-chrome";
+import {
+  trainingBoardDrawerChrome,
+  trainingBoardEditDrawerFieldChrome,
+} from "@/lib/training-board-drawer-chrome";
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
@@ -4267,10 +4269,6 @@ export default function AdminCoursesClient() {
             )}
           >
             <SheetTitle>Edit certification</SheetTitle>
-            <SheetDescription className="text-pretty pr-2">
-              Catalog fields and company scope. Click the certification in the
-              list (not the pencil) to filter the centre to its units.
-            </SheetDescription>
           </SheetHeader>
           {editCertId && selectedCert ? (
             <>
@@ -4278,6 +4276,7 @@ export default function AdminCoursesClient() {
                 className={cn(
                   "min-h-0 flex-1 overflow-y-auto px-4 py-3",
                   EDIT_CERT_DRAWER_CHROME.body,
+                  trainingBoardEditDrawerFieldChrome,
                 )}
               >
                 <div className="space-y-4">
@@ -4527,15 +4526,12 @@ export default function AdminCoursesClient() {
             )}
           >
             <SheetTitle>Edit content</SheetTitle>
-            <SheetDescription className="break-words pr-2">
-              Fields depend on content type. Change type to switch between URL
-              resources and tests/assignments.
-            </SheetDescription>
           </SheetHeader>
           <div
             className={cn(
               "min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3",
               EDIT_CONTENT_DRAWER_CHROME.body,
+              trainingBoardEditDrawerFieldChrome,
             )}
           >
           <div className="min-w-0 space-y-3">
@@ -4957,6 +4953,7 @@ export default function AdminCoursesClient() {
             className={cn(
               "min-h-0 flex-1 overflow-y-auto px-4 py-3",
               EDIT_UNIT_DRAWER_CHROME.body,
+              trainingBoardEditDrawerFieldChrome,
             )}
           >
           <div className="space-y-3">
