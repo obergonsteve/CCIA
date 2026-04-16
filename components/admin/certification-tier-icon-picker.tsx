@@ -47,7 +47,7 @@ export function CertificationTierIconPicker({
               title={certificationTierSectionTitle(tier)}
               onClick={() => onChange(tier)}
               className={cn(
-                "relative flex min-w-[4.5rem] flex-col items-center gap-1.5 overflow-hidden rounded-xl border-2 px-3 py-2.5 transition-[border-color,box-shadow,background-color] outline-none",
+                "relative flex min-w-[3.25rem] flex-col items-center gap-1 overflow-hidden rounded-xl border-2 px-2 py-1.5 transition-[border-color,box-shadow,background-color] outline-none",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 "disabled:pointer-events-none disabled:opacity-50",
                 "before:pointer-events-none before:absolute before:inset-0 before:rounded-[10px] before:opacity-0 before:transition-opacity before:content-['']",
@@ -67,7 +67,7 @@ export function CertificationTierIconPicker({
             >
               <CertificationTierMedallion
                 tier={tier}
-                className="size-[3.993rem]"
+                className="size-[2.88rem]"
                 aria-hidden
               />
               <span
