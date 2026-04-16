@@ -2345,11 +2345,11 @@ export default function AdminCoursesClient() {
     <TooltipProvider delayDuration={400}>
       <div className="-mt-3 min-h-0 space-y-4">
       <div className="pb-2">
-        <p className="text-base leading-snug text-muted-foreground">
-          Assemble Content into Units and Units into Certifications. Schedule
-          live Workshop Units.
+        <p className="-mt-2 mb-5 text-base leading-snug text-muted-foreground">
+          Build Content and assemble into Units. Combine Units into
+          Certifications. Schedule live Workshop Units.
         </p>
-        <p className="mx-auto mt-3 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border border-[oklch(0.58_0.11_232/0.55)] bg-[oklch(0.97_0.038_96/0.84)] px-2.5 py-1 text-center text-sm leading-none text-[oklch(0.44_0.095_232)] dark:border-[oklch(0.55_0.095_232/0.45)] dark:bg-[oklch(0.34_0.048_92/0.82)] dark:text-[oklch(0.82_0.065_232)]">
+        <p className="mx-auto mt-0 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border border-[oklch(0.58_0.11_232/0.55)] bg-[oklch(0.97_0.038_96/0.84)] px-2.5 py-1 text-center text-sm leading-none text-[oklch(0.44_0.095_232)] dark:border-[oklch(0.55_0.095_232/0.45)] dark:bg-[oklch(0.34_0.048_92/0.82)] dark:text-[oklch(0.82_0.065_232)]">
           <GripHorizontal
             className="h-3 w-3 shrink-0 text-current opacity-90"
             aria-hidden

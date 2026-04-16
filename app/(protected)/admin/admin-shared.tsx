@@ -327,7 +327,7 @@ export function DraggableUnitPaletteItem({
           >
             <span className="block truncate font-medium">{unit.title}</span>
             {unitCategoryShortCode?.trim() ? (
-              <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-gold/90">
+              <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-gold)_86%,black)]">
                 {unitCategoryShortCode.trim()}
               </span>
             ) : null}
@@ -344,7 +344,7 @@ export function DraggableUnitPaletteItem({
           <div className="leading-tight">
             <span className="block truncate font-medium">{unit.title}</span>
             {unitCategoryShortCode?.trim() ? (
-              <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-gold/90">
+              <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-gold)_86%,black)]">
                 {unitCategoryShortCode.trim()}
               </span>
             ) : null}
@@ -592,7 +592,7 @@ export function ContentLibraryDragRow({
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
         {contentCategoryShortCode?.trim() ? (
-          <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
+          <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-sky)_86%,black)]">
             {contentCategoryShortCode.trim()}
           </div>
         ) : null}
@@ -747,7 +747,7 @@ export function SortableUnitContentRow({
       <div className="min-w-0 flex-1 px-0 py-1.5 leading-tight">
         <div className="truncate font-medium">{displayTitle}</div>
         {contentCategoryShortCode?.trim() ? (
-          <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-brand-sky/90">
+          <div className="mt-0.5 truncate text-[10px] font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-sky)_86%,black)]">
             {contentCategoryShortCode.trim()}
           </div>
         ) : null}
@@ -1070,7 +1070,7 @@ export function SortableLevelRow({
         >
           <span className="block truncate text-sm font-medium">{level.name}</span>
           {certificationCategoryLabel?.trim() ? (
-            <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-lime/90 dark:text-brand-lime/85">
+            <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-lime)_86%,black)]">
               {certificationCategoryLabel.trim()}
             </span>
           ) : null}
@@ -1286,7 +1286,7 @@ export function SortableUnitRow({
             </span>
           ) : null}
           {unitCategoryShortCode?.trim() ? (
-            <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-gold/90">
+            <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-gold)_86%,black)]">
               {unitCategoryShortCode.trim()}
             </span>
           ) : null}
