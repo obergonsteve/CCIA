@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ContentLibraryMediaUpload } from "@/components/admin/content-library-media-upload";
 import { AdminCategoryCrudSection } from "@/components/admin/admin-category-crud-section";
 import { CertificationTierIconPicker } from "@/components/admin/certification-tier-icon-picker";
 import { CertificationTierMedallion } from "@/components/certification-tier-medallion";
@@ -317,6 +318,28 @@ function createEmptyAssessment(): NonNullable<
       },
     ],
   };
+}
+
+/** Closed-trigger label for Type selects — must match each `SelectItem` text. */
+function contentTypeItemToStringLabel(value: string | null): string {
+  switch (value) {
+    case "link":
+      return "Link";
+    case "video":
+      return "Video";
+    case "pdf":
+      return "PDF";
+    case "slideshow":
+      return "Deck (slideshow)";
+    case "test":
+      return "Test";
+    case "assignment":
+      return "Assignment";
+    case "workshop_session":
+      return "Live workshop";
+    default:
+      return value?.trim() || "Link";
+  }
 }
 
 /** Link / video / PDF / deck: primary resource field. Tests & assignments use description + assessment block instead. */
@@ -819,6 +842,8 @@ export default function AdminCoursesClient() {
   const [addLibraryAssessment, setAddLibraryAssessment] = useState<
     NonNullable<Doc<"contentItems">["assessment"]> | null
   >(null);
+  const [addLibraryStorageId, setAddLibraryStorageId] =
+    useState<Id<"_storage"> | null>(null);
 
   const unitsInFilteredCert = useQuery(
     api.units.listByLevel,
@@ -2318,19 +2343,13 @@ export default function AdminCoursesClient() {
 
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="min-h-0 space-y-4">
+      <div className="-mt-3 min-h-0 space-y-4">
       <div className="pb-2">
         <p className="text-base leading-snug text-muted-foreground">
-          Assemble Units and Content into structured Certification courses.
-          Construct and schedule live Workshop Units.
+          Assemble Content into Units and Units into Certifications. Schedule
+          live Workshop Units.
         </p>
-        <p
-          className={cn(
-            "mx-auto mt-3 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border px-2.5 py-1 text-center text-sm leading-none",
-            "border-[oklch(0.58_0.11_232/0.88)] text-[oklch(0.44_0.095_232)]",
-            "dark:border-[oklch(0.55_0.095_232/0.65)] dark:text-[oklch(0.82_0.065_232)]",
-          )}
-        >
+        <p className="mx-auto mt-3 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border border-[oklch(0.58_0.11_232/0.55)] bg-[oklch(0.97_0.022_232)] px-2.5 py-1 text-center text-sm leading-none text-[oklch(0.44_0.095_232)] dark:border-[oklch(0.55_0.095_232/0.45)] dark:bg-[oklch(0.33_0.04_232)] dark:text-[oklch(0.82_0.065_232)]">
           <GripHorizontal
             className="h-3 w-3 shrink-0 text-current opacity-90"
             aria-hidden
@@ -3486,7 +3505,7 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <Sheet
         open={addCertOpen}
         onOpenChange={(open) => {
           setAddCertOpen(open);
@@ -3500,14 +3519,29 @@ export default function AdminCoursesClient() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>New certification</DialogTitle>
-            <DialogDescription>
-              Add a certification track. You can edit full details after saving.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl",
+            EDIT_CERT_DRAWER_CHROME.sheet,
+          )}
+        >
+          <SheetHeader
+            className={cn(
+              "shrink-0 border-b px-4 py-3 text-left pr-12",
+              EDIT_CERT_DRAWER_CHROME.header,
+            )}
+          >
+            <SheetTitle>Add certification</SheetTitle>
+          </SheetHeader>
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto px-4 py-3",
+              EDIT_CERT_DRAWER_CHROME.body,
+              trainingBoardEditDrawerFieldChrome,
+            )}
+          >
+            <div className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="add-cert-name">Name</Label>
               <Input
@@ -3610,7 +3644,8 @@ export default function AdminCoursesClient() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          </div>
+          <SheetFooter className="flex shrink-0 flex-row flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
             <Button
               type="button"
               variant="outline"
@@ -3657,11 +3692,11 @@ export default function AdminCoursesClient() {
             >
               Create
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog
+      <Sheet
         open={addUnitOpen}
         onOpenChange={(open) => {
           setAddUnitOpen(open);
@@ -3674,15 +3709,29 @@ export default function AdminCoursesClient() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>New unit</DialogTitle>
-            <DialogDescription>
-              Units can belong to certifications and hold lessons and
-              assessments.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg",
+            EDIT_UNIT_DRAWER_CHROME.sheet,
+          )}
+        >
+          <SheetHeader
+            className={cn(
+              "shrink-0 border-b px-4 py-3 text-left pr-12",
+              EDIT_UNIT_DRAWER_CHROME.header,
+            )}
+          >
+            <SheetTitle>Add unit</SheetTitle>
+          </SheetHeader>
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto px-4 py-3",
+              EDIT_UNIT_DRAWER_CHROME.body,
+              trainingBoardEditDrawerFieldChrome,
+            )}
+          >
+            <div className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="add-unit-title">Title</Label>
               <Input
@@ -3793,7 +3842,8 @@ export default function AdminCoursesClient() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          </div>
+          <SheetFooter className="flex shrink-0 flex-row flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
             <Button
               type="button"
               variant="outline"
@@ -3835,16 +3885,17 @@ export default function AdminCoursesClient() {
             >
               Create
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog
+      <Sheet
         open={addLibraryOpen}
         onOpenChange={(open) => {
           setAddLibraryOpen(open);
           if (!open) {
             setAddLibraryAssessment(null);
+            setAddLibraryStorageId(null);
             setContentLibraryCode("");
             setContentShortDescription("");
             setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
@@ -3857,15 +3908,29 @@ export default function AdminCoursesClient() {
           }
         }}
       >
-        <DialogContent className="max-h-[min(90dvh,800px)] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add to library</DialogTitle>
-            <DialogDescription>
-              Fields depend on type. If a unit is selected in the centre, new
-              items attach to it.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl",
+            EDIT_CONTENT_DRAWER_CHROME.sheet,
+          )}
+        >
+          <SheetHeader
+            className={cn(
+              "shrink-0 border-b px-4 py-3 text-left pr-12",
+              EDIT_CONTENT_DRAWER_CHROME.header,
+            )}
+          >
+            <SheetTitle>Add content to library</SheetTitle>
+          </SheetHeader>
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3",
+              EDIT_CONTENT_DRAWER_CHROME.body,
+              trainingBoardEditDrawerFieldChrome,
+            )}
+          >
+            <div className="min-w-0 space-y-3">
             <div className="space-y-1">
               <Label htmlFor="add-lib-title">Title</Label>
               <Input
@@ -3939,19 +4004,16 @@ export default function AdminCoursesClient() {
                   </SelectContent>
                 </Select>
               )}
-              <p className="text-[11px] text-muted-foreground">
-                {contentCategories === undefined
-                  ? "Loading categories…"
-                  : "Manage categories in the section below this page."}
-              </p>
             </div>
             <div className="space-y-1">
               <Label>Type</Label>
               <Select
                 value={contentKind}
+                itemToStringLabel={contentTypeItemToStringLabel}
                 onValueChange={(v) => {
                   const k = (v ?? "link") as Doc<"contentItems">["type"];
                   setContentKind(k);
+                  setAddLibraryStorageId(null);
                   if (k === "test" || k === "assignment") {
                     setAddLibraryAssessment((prev) => prev ?? createEmptyAssessment());
                   } else {
@@ -3972,6 +4034,12 @@ export default function AdminCoursesClient() {
                 </SelectContent>
               </Select>
             </div>
+            <ContentLibraryMediaUpload
+              contentType={contentKind}
+              storageId={addLibraryStorageId}
+              onStorageIdChange={setAddLibraryStorageId}
+              inputId="add-lib-file"
+            />
             {contentKind === "test" || contentKind === "assignment" ? (
               addLibraryAssessment ? (
                 <>
@@ -4123,7 +4191,8 @@ export default function AdminCoursesClient() {
               </div>
             ) : null}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          </div>
+          <SheetFooter className="flex shrink-0 flex-row flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
             <Button
               type="button"
               variant="outline"
@@ -4179,6 +4248,9 @@ export default function AdminCoursesClient() {
                         newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
                           ? undefined
                           : (newLibraryContentCategorySelect as Id<"contentCategories">),
+                      ...(addLibraryStorageId
+                        ? { storageId: addLibraryStorageId }
+                        : {}),
                       assessment: {
                         ...addLibraryAssessment,
                         description: contentUrl.trim() || "—",
@@ -4196,8 +4268,14 @@ export default function AdminCoursesClient() {
                     }
                   } else {
                     const urlMeta = urlFieldForContentKind(contentKind);
-                    if (!contentUrl.trim() && urlMeta) {
-                      toast.error(`${urlMeta.label} is required`);
+                    if (
+                      urlMeta &&
+                      !contentUrl.trim() &&
+                      !addLibraryStorageId
+                    ) {
+                      toast.error(
+                        `${urlMeta.label} is required (or upload a file below)`,
+                      );
                       return;
                     }
                     const cid = await createContent({
@@ -4217,6 +4295,9 @@ export default function AdminCoursesClient() {
                         newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
                           ? undefined
                           : (newLibraryContentCategorySelect as Id<"contentCategories">),
+                      ...(addLibraryStorageId
+                        ? { storageId: addLibraryStorageId }
+                        : {}),
                     });
                     if (selectedDetailUnitId) {
                       await attachContentToUnit({
@@ -4234,6 +4315,7 @@ export default function AdminCoursesClient() {
                   setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
                   setContentUrl("");
                   setAddLibraryAssessment(null);
+                  setAddLibraryStorageId(null);
                   setAddLibraryOpen(false);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed");
@@ -4242,9 +4324,9 @@ export default function AdminCoursesClient() {
             >
               Save to library
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <Sheet
         open={certDetailsOpen}
@@ -4613,9 +4695,13 @@ export default function AdminCoursesClient() {
               <Label>Type</Label>
               <Select
                 value={editContentKind}
+                itemToStringLabel={contentTypeItemToStringLabel}
                 onValueChange={(v) => {
                   const k = (v ?? "link") as Doc<"contentItems">["type"];
                   setEditContentKind(k);
+                  if (k !== "video" && k !== "pdf" && k !== "slideshow") {
+                    setEditContentStorageId(null);
+                  }
                   if (k === "test" || k === "assignment") {
                     setEditContentAssessment((prev) => {
                       const base =
@@ -4658,6 +4744,12 @@ export default function AdminCoursesClient() {
                 </SelectContent>
               </Select>
             </div>
+            <ContentLibraryMediaUpload
+              contentType={editContentKind}
+              storageId={editContentStorageId}
+              onStorageIdChange={setEditContentStorageId}
+              inputId="ec-file"
+            />
             {editContentKind === "test" ||
             editContentKind === "assignment" ? (
               <div className="space-y-1">
@@ -4875,7 +4967,7 @@ export default function AdminCoursesClient() {
                           editContentCategorySelect === CATEGORY_SELECT_NONE
                             ? null
                             : (editContentCategorySelect as Id<"contentCategories">),
-                        storageId: editContentStorageId ?? undefined,
+                        storageId: editContentStorageId,
                         assessment: {
                           ...editContentAssessment,
                           description:
@@ -4896,7 +4988,7 @@ export default function AdminCoursesClient() {
                           editContentCategorySelect === CATEGORY_SELECT_NONE
                             ? null
                             : (editContentCategorySelect as Id<"contentCategories">),
-                        storageId: editContentStorageId ?? undefined,
+                        storageId: editContentStorageId,
                       });
                     }
                     if (editUnitContentLinkId) {

@@ -239,7 +239,7 @@ export const update = mutation({
     contentCategoryId: v.optional(
       v.union(v.id("contentCategories"), v.null()),
     ),
-    storageId: v.optional(v.id("_storage")),
+    storageId: v.optional(v.union(v.id("_storage"), v.null())),
     duration: v.optional(v.number()),
     assessment: v.optional(assessmentPayloadValidator),
     workshopSessionId: v.optional(
@@ -255,6 +255,7 @@ export const update = mutation({
     code,
     workshopSessionId,
     shortDescription: shortDescriptionRaw,
+    storageId,
     ...fields
   }) => {
     await requireAdminOrCreator(ctx);
@@ -278,6 +279,12 @@ export const update = mutation({
             shortDescription: String(shortDescriptionRaw).trim(),
           }
         : {};
+    const storageExtras =
+      storageId !== undefined
+        ? {
+            storageId: storageId === null ? undefined : storageId,
+          }
+        : {};
     if (isAssessmentType(type)) {
       if (!assessment) {
         throw new Error("test and assignment content requires assessment data");
@@ -285,6 +292,7 @@ export const update = mutation({
       await ctx.db.patch(contentId, {
         ...fields,
         ...shortDescExtras,
+        ...storageExtras,
         code: normalizedCode,
         ...cat,
         type,
@@ -305,6 +313,7 @@ export const update = mutation({
     await ctx.db.patch(contentId, {
       ...fields,
       ...shortDescExtras,
+      ...storageExtras,
       code: normalizedCode,
       ...cat,
       type,

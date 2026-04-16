@@ -332,7 +332,7 @@ export function DraggableUnitPaletteItem({
               </span>
             ) : null}
             {showDesc ? (
-              <span className="mt-0.5 block truncate text-[11px] leading-snug text-muted-foreground">
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                 {descText}
               </span>
             ) : null}
@@ -349,7 +349,7 @@ export function DraggableUnitPaletteItem({
               </span>
             ) : null}
             {showDesc ? (
-              <span className="mt-0.5 block truncate text-[11px] leading-snug text-muted-foreground">
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                 {descText}
               </span>
             ) : null}
@@ -597,11 +597,11 @@ export function ContentLibraryDragRow({
           </div>
         ) : null}
         {shortLine ? (
-          <div className="mt-0.5 line-clamp-1 break-words text-[11px] leading-snug text-muted-foreground">
+          <div className="mt-0.5 truncate text-xs text-muted-foreground">
             {shortLine}
           </div>
         ) : null}
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+        <div className="mt-0.5 truncate text-xs text-muted-foreground/65 dark:text-muted-foreground/60">
           {subtitle}
         </div>
       </div>
@@ -751,7 +751,7 @@ export function SortableUnitContentRow({
             {contentCategoryShortCode.trim()}
           </div>
         ) : null}
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+        <div className="mt-0.5 truncate text-xs text-muted-foreground/65 dark:text-muted-foreground/60">
           {subtitle}
         </div>
       </div>
@@ -1076,7 +1076,7 @@ export function SortableLevelRow({
           ) : null}
           {showShort ? (
             <span
-              className="mt-0.5 block min-w-0 w-full max-w-full truncate text-[11px] text-muted-foreground"
+              className="mt-0.5 block min-w-0 w-full max-w-full truncate text-xs text-muted-foreground"
               title={shortSource}
             >
               {short}
