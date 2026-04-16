@@ -2349,7 +2349,7 @@ export default function AdminCoursesClient() {
           Assemble Content into Units and Units into Certifications. Schedule
           live Workshop Units.
         </p>
-        <p className="mx-auto mt-3 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border border-[oklch(0.58_0.11_232/0.55)] bg-[oklch(0.97_0.022_232)] px-2.5 py-1 text-center text-sm leading-none text-[oklch(0.44_0.095_232)] dark:border-[oklch(0.55_0.095_232/0.45)] dark:bg-[oklch(0.33_0.04_232)] dark:text-[oklch(0.82_0.065_232)]">
+        <p className="mx-auto mt-3 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border border-[oklch(0.58_0.11_232/0.55)] bg-[oklch(0.97_0.022_232/0.80)] px-2.5 py-1 text-center text-sm leading-none text-[oklch(0.44_0.095_232)] dark:border-[oklch(0.55_0.095_232/0.45)] dark:bg-[oklch(0.33_0.04_232/0.78)] dark:text-[oklch(0.82_0.065_232)]">
           <GripHorizontal
             className="h-3 w-3 shrink-0 text-current opacity-90"
             aria-hidden
