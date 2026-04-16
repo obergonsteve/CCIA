@@ -1,5 +1,5 @@
 import { mutation, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import {
   LAND_LEASE_CURRICULUM,
   seedUnitKey,
@@ -12,6 +12,7 @@ import {
   SEED_CODE_BASE_MAX_LEN,
 } from "./lib/entityCodes";
 import { requireAdminOrCreator } from "./lib/auth";
+import { isLive } from "./lib/softDelete";
 
 /** bcrypt cost 10 via bcryptjs — hashes for stevemoore / gillmoore (must match `auth.login`). */
 const HASH_STEVE = "$2b$10$q9aiw4mBWZLc.OKxISlyeuQydcRVExVRFIX611C1V.1V0QStXkNn2";
@@ -94,6 +95,55 @@ async function getOrInsertContentCategory(
 }
 
 const SEED_CONTENT_CATEGORY_ASSESSMENT = "Quizzes & assessments";
+
+function seededShortDescriptionForLessonContent(args: {
+  unitTitle: string;
+  contentTitle: string;
+  type: SeedContent["type"];
+}): string {
+  const u = args.unitTitle.trim();
+  const t = args.contentTitle.trim();
+  const kind =
+    args.type === "video"
+      ? "Video"
+      : args.type === "slideshow"
+        ? "Slide deck"
+        : args.type === "pdf"
+          ? "PDF reference"
+          : "Link";
+  return `${kind} for “${u}”: ${t}.`;
+}
+
+function seededShortDescriptionForAssessment(
+  title: string,
+  description: string,
+): string {
+  const line = description.split(/\r?\n/)[0]?.trim() ?? "";
+  if (line.length > 0) {
+    return line.length > 220 ? `${line.slice(0, 217)}…` : line;
+  }
+  return `Graded step — ${title.trim()}.`;
+}
+
+function shortDescriptionFromContentRow(row: Doc<"contentItems">): string {
+  const title = row.title.trim();
+  if (row.type === "test" || row.type === "assignment") {
+    const intro = row.assessment?.description?.trim() ?? "";
+    return seededShortDescriptionForAssessment(title, intro);
+  }
+  if (row.type === "workshop_session") {
+    return `${title} — register for a scheduled live workshop session.`;
+  }
+  const kind =
+    row.type === "video"
+      ? "Video"
+      : row.type === "slideshow"
+        ? "Slide deck"
+        : row.type === "pdf"
+          ? "PDF"
+          : "Link";
+  return `${kind}: ${title}`;
+}
 
 /**
  * Idempotent: creates community-operator companies (including CCIA) and two admin users.
@@ -261,6 +311,8 @@ export const bootstrapDemo = mutation({
       title: "NSW Fair Trading — Land lease communities",
       url: "https://www.fairtrading.nsw.gov.au/",
       contentCategoryId: demoContentCatLink,
+      shortDescription:
+        "NSW regulator hub for land lease community rules, forms, and publications.",
     });
     await ctx.db.insert("unitContents", {
       unitId,
@@ -273,6 +325,8 @@ export const bootstrapDemo = mutation({
       title: "Orientation checkpoint",
       url: "",
       contentCategoryId: demoContentCatAssess,
+      shortDescription:
+        "Confirm you have reviewed the orientation materials before moving on.",
       assessment: {
         description: "Confirm you have reviewed the supporting material.",
         passingScore: 80,
@@ -469,6 +523,7 @@ async function insertSeededWorkshopUnits(
       url: SEED_WORKSHOP_DEMO_VIDEO_URL,
       contentCategoryId: videoCatId,
       duration: 150,
+      shortDescription: `Pre-work video — how the live “${spec.title.trim()}” session is structured.`,
     });
     await ctx.db.insert("unitContents", {
       unitId,
@@ -488,6 +543,7 @@ async function insertSeededWorkshopUnits(
       title: spec.linkTitle,
       url: spec.linkUrl,
       contentCategoryId: linkCatId,
+      shortDescription: `Reading before ${spec.courseName} — context and checklists for facilitators.`,
     });
     await ctx.db.insert("unitContents", {
       unitId,
@@ -517,6 +573,8 @@ async function insertSeededWorkshopUnits(
       url: "",
       contentCategoryId: liveWorkshopCatId,
       workshopSessionId: sessionId,
+      shortDescription:
+        "Pick a scheduled time and register — this step completes when you are booked in.",
     });
     await ctx.db.insert("unitContents", {
       unitId,
@@ -536,6 +594,8 @@ async function insertSeededWorkshopUnits(
       title: spec.assignmentTitle,
       url: "",
       contentCategoryId: assignCatId,
+      shortDescription:
+        "Short reflection after the live workshop step to capture takeaways for your site file.",
       assessment: {
         description:
           "Short confirmation after you have used the workshop session step (register or mark complete as directed by your facilitator).",
@@ -636,6 +696,11 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
           title: c.title,
           url: c.url,
           contentCategoryId: contentCatId,
+          shortDescription: seededShortDescriptionForLessonContent({
+            unitTitle: unit.title,
+            contentTitle: c.title,
+            type: c.type,
+          }),
           ...(c.duration !== undefined ? { duration: c.duration } : {}),
         });
         await ctx.db.insert("unitContents", {
@@ -658,6 +723,10 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
           title: unit.test.title,
           url: "",
           contentCategoryId: assessCatId,
+          shortDescription: seededShortDescriptionForAssessment(
+            unit.test.title,
+            unit.test.description,
+          ),
           assessment: {
             description: unit.test.description,
             passingScore: unit.test.passingScore,
@@ -683,6 +752,10 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
         title: unit.assignment.title,
         url: "",
         contentCategoryId: assignCatId,
+        shortDescription: seededShortDescriptionForAssessment(
+          unit.assignment.title,
+          unit.assignment.description,
+        ),
         assessment: {
           description: unit.assignment.description,
           passingScore: unit.assignment.passingScore,
@@ -746,6 +819,32 @@ async function landLeaseCurriculumAlreadySeeded(ctx: MutationCtx) {
     (l) => l.name === CURRICULUM_MARKER && l.companyId === undefined,
   );
 }
+
+/**
+ * Admin: fill `contentItems.shortDescription` when missing (e.g. rows created before this field existed).
+ * Safe to re-run; skips rows that already have non-empty text.
+ * Run: `npx convex run seed:backfillContentShortDescriptions`
+ */
+export const backfillContentShortDescriptions = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrCreator(ctx);
+    let patched = 0;
+    for (const row of await ctx.db.query("contentItems").collect()) {
+      if (!isLive(row)) {
+        continue;
+      }
+      if (row.shortDescription?.trim()) {
+        continue;
+      }
+      await ctx.db.patch(row._id, {
+        shortDescription: shortDescriptionFromContentRow(row),
+      });
+      patched += 1;
+    }
+    return { ok: true as const, patched };
+  },
+});
 
 /**
  * Dummy certifications, units, lessons (video/slideshow/link), and quizzes for land lease managers.

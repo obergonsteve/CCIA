@@ -12,11 +12,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "convex/react";
 import { format } from "date-fns";
+import { trainingBoardDrawerChrome } from "@/lib/training-board-drawer-chrome";
 import { cn } from "@/lib/utils";
 
 export type AdminTrainingStatsTarget =
   | { kind: "unit"; unitId: Id<"units"> }
-  | { kind: "certification"; levelId: Id<"certificationLevels"> };
+  | { kind: "certification"; levelId: Id<"certificationLevels"> }
+  | { kind: "content"; contentId: Id<"contentItems"> };
 
 function WeeklyBars({
   labels,
@@ -77,32 +79,49 @@ export function AdminTrainingStatsSheet({
       ? { levelId: target.levelId }
       : "skip",
   );
+  const contentStats = useQuery(
+    api.adminStats.contentStatsAdmin,
+    open && target?.kind === "content"
+      ? { contentId: target.contentId }
+      : "skip",
+  );
 
   const loading =
     open &&
     target &&
     ((target.kind === "unit" && unitStats === undefined) ||
-      (target.kind === "certification" && certStats === undefined));
+      (target.kind === "certification" && certStats === undefined) ||
+      (target.kind === "content" && contentStats === undefined));
 
   const empty =
     open &&
     target &&
     ((target.kind === "unit" && unitStats === null) ||
-      (target.kind === "certification" && certStats === null));
+      (target.kind === "certification" && certStats === null) ||
+      (target.kind === "content" && contentStats === null));
+
+  const chrome = trainingBoardDrawerChrome(open ? target?.kind : null);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full gap-0 overflow-y-auto p-0 sm:max-w-lg"
+        className={cn(
+          "w-full gap-0 overflow-y-auto p-0 sm:max-w-lg",
+          chrome.sheet,
+        )}
       >
-        <SheetHeader className="border-b border-border px-4 py-3 text-left">
+        <SheetHeader
+          className={cn("border-b px-4 py-3 text-left", chrome.header)}
+        >
           <SheetTitle className="pr-10">
             {target?.kind === "unit"
               ? "Unit analytics"
               : target?.kind === "certification"
                 ? "Certification analytics"
-                : "Training analytics"}
+                : target?.kind === "content"
+                  ? "Content analytics"
+                  : "Training analytics"}
           </SheetTitle>
           <SheetDescription>
             Starts, completions, and learner rows from Convex progress tables.
@@ -110,7 +129,7 @@ export function AdminTrainingStatsSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="px-4 py-3">
+        <div className={cn("px-4 py-3", chrome.body)}>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : empty ? (
@@ -257,6 +276,172 @@ export function AdminTrainingStatsSheet({
                             </td>
                             <td className="whitespace-nowrap px-2 py-1.5 align-top tabular-nums text-muted-foreground">
                               {format(row.lastAccessed, "d MMM yy")}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : target?.kind === "content" && contentStats ? (
+            <Tabs defaultValue="overview" className="gap-3">
+              <TabsList variant="line" className="w-full min-w-0">
+                <TabsTrigger value="overview" className="flex-1 text-xs">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="learners" className="flex-1 text-xs">
+                  By learner
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="overview" className="mt-0 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {contentStats.title}
+                  </h3>
+                  <p className="mt-0.5 text-xs capitalize text-muted-foreground">
+                    {contentStats.contentType.replace(/_/g, " ")}
+                  </p>
+                  <dl className="mt-2 grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
+                    <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                      <dt className="text-muted-foreground">Learners</dt>
+                      <dd className="text-base font-semibold tabular-nums">
+                        {contentStats.uniqueLearners}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                      <dt className="text-muted-foreground">Progress rows</dt>
+                      <dd className="text-base font-semibold tabular-nums">
+                        {contentStats.progressRows}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                      <dt className="text-muted-foreground">Done / passed</dt>
+                      <dd className="text-base font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                        {contentStats.completedOrPassed}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                      <dt className="text-muted-foreground">Failed</dt>
+                      <dd className="text-base font-semibold tabular-nums text-destructive">
+                        {contentStats.failedOutcome}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div>
+                  <h4 className="mb-1 text-xs font-medium text-muted-foreground">
+                    Event log — starts
+                  </h4>
+                  <WeeklyBars
+                    labels={contentStats.weekLabels}
+                    values={contentStats.eventStartsWeekly}
+                    colorClass="bg-purple-500/80 dark:bg-purple-400/80"
+                  />
+                </div>
+                <div>
+                  <h4 className="mb-1 text-xs font-medium text-muted-foreground">
+                    Event log — completes
+                  </h4>
+                  <WeeklyBars
+                    labels={contentStats.weekLabels}
+                    values={contentStats.eventCompletesWeekly}
+                    colorClass="bg-brand-sky/90 dark:bg-brand-sky/80"
+                  />
+                </div>
+                <div>
+                  <h4 className="mb-1 text-xs font-medium text-muted-foreground">
+                    Assessment attempts (events)
+                  </h4>
+                  <WeeklyBars
+                    labels={contentStats.weekLabels}
+                    values={contentStats.assessmentAttemptsWeekly}
+                    colorClass="bg-amber-600/80 dark:bg-amber-500/75"
+                  />
+                </div>
+                <div>
+                  <h4 className="mb-1 text-xs font-medium text-muted-foreground">
+                    Latest step — started
+                  </h4>
+                  <WeeklyBars
+                    labels={contentStats.weekLabels}
+                    values={contentStats.userContentStartedWeekly}
+                    colorClass="bg-muted-foreground/50"
+                  />
+                </div>
+                <div>
+                  <h4 className="mb-1 text-xs font-medium text-muted-foreground">
+                    Latest step — completed
+                  </h4>
+                  <WeeklyBars
+                    labels={contentStats.weekLabels}
+                    values={contentStats.userContentCompletedWeekly}
+                    colorClass="bg-brand-gold/90 dark:bg-brand-gold/75"
+                  />
+                </div>
+                {(contentStats.contentType === "test" ||
+                  contentStats.contentType === "assignment") && (
+                  <div>
+                    <h4 className="mb-1 text-xs font-medium text-muted-foreground">
+                      Test / assignment submits
+                    </h4>
+                    <WeeklyBars
+                      labels={contentStats.weekLabels}
+                      values={contentStats.testResultsWeekly}
+                      colorClass="bg-teal-600/80 dark:bg-teal-500/75"
+                    />
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="learners" className="mt-0">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  One row per learner × unit where this content appears on a
+                  path. Same learner may appear multiple times on different
+                  units.
+                </p>
+                <div className="max-h-[min(55vh,420px)] overflow-auto rounded-md border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+                      <tr className="border-b">
+                        <th className="px-2 py-1.5 font-medium">Learner</th>
+                        <th className="px-2 py-1.5 font-medium">Unit</th>
+                        <th className="px-2 py-1.5 font-medium">Outcome</th>
+                        <th className="px-2 py-1.5 font-medium">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contentStats.learners.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-2 py-4 text-center text-muted-foreground"
+                          >
+                            No progress on this content yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        contentStats.learners.map((row) => (
+                          <tr
+                            key={`${row.userId}-${row.unitId}`}
+                            className="border-b border-border/60 last:border-0"
+                          >
+                            <td className="max-w-[8rem] px-2 py-1.5 align-top">
+                              <div className="truncate font-medium">
+                                {row.name}
+                              </div>
+                              <div className="truncate text-[10px] text-muted-foreground">
+                                {row.email}
+                              </div>
+                            </td>
+                            <td className="max-w-[7rem] truncate px-2 py-1.5 align-top text-muted-foreground">
+                              {row.unitTitle}
+                            </td>
+                            <td className="whitespace-nowrap px-2 py-1.5 align-top">
+                              {row.outcome ?? "—"}
+                            </td>
+                            <td className="px-2 py-1.5 align-top tabular-nums text-muted-foreground">
+                              {row.score != null ? row.score : "—"}
                             </td>
                           </tr>
                         ))

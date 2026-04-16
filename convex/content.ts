@@ -165,6 +165,7 @@ export const create = mutation({
     duration: v.optional(v.number()),
     assessment: v.optional(assessmentPayloadValidator),
     workshopSessionId: v.optional(v.id("workshopSessions")),
+    shortDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
@@ -174,8 +175,14 @@ export const create = mutation({
       contentCategoryId,
       code: codeRaw,
       workshopSessionId,
+      shortDescription: shortDescriptionRaw,
       ...rest
     } = args;
+    const shortDescription =
+      shortDescriptionRaw !== undefined &&
+      String(shortDescriptionRaw).trim() !== ""
+        ? String(shortDescriptionRaw).trim()
+        : undefined;
     const code =
       codeRaw !== undefined && String(codeRaw).trim() !== ""
         ? normalizeEntityCode(codeRaw)
@@ -194,6 +201,7 @@ export const create = mutation({
         ...rest,
         code,
         ...categoryFields,
+        ...(shortDescription ? { shortDescription } : {}),
         assessment,
       });
     }
@@ -207,6 +215,7 @@ export const create = mutation({
         ...rest,
         code,
         ...categoryFields,
+        ...(shortDescription ? { shortDescription } : {}),
         workshopSessionId,
       });
     }
@@ -215,6 +224,7 @@ export const create = mutation({
       ...rest,
       code,
       ...categoryFields,
+      ...(shortDescription ? { shortDescription } : {}),
     });
   },
 });
@@ -235,6 +245,7 @@ export const update = mutation({
     workshopSessionId: v.optional(
       v.union(v.id("workshopSessions"), v.null()),
     ),
+    shortDescription: v.optional(v.string()),
   },
   handler: async (ctx, {
     contentId,
@@ -243,6 +254,7 @@ export const update = mutation({
     contentCategoryId,
     code,
     workshopSessionId,
+    shortDescription: shortDescriptionRaw,
     ...fields
   }) => {
     await requireAdminOrCreator(ctx);
@@ -260,12 +272,19 @@ export const update = mutation({
               contentCategoryId === null ? undefined : contentCategoryId,
           }
         : {};
+    const shortDescExtras =
+      shortDescriptionRaw !== undefined
+        ? {
+            shortDescription: String(shortDescriptionRaw).trim(),
+          }
+        : {};
     if (isAssessmentType(type)) {
       if (!assessment) {
         throw new Error("test and assignment content requires assessment data");
       }
       await ctx.db.patch(contentId, {
         ...fields,
+        ...shortDescExtras,
         code: normalizedCode,
         ...cat,
         type,
@@ -285,6 +304,7 @@ export const update = mutation({
     await assertValidWorkshopSessionRef(ctx, nextWorkshopSessionId, type);
     await ctx.db.patch(contentId, {
       ...fields,
+      ...shortDescExtras,
       code: normalizedCode,
       ...cat,
       type,

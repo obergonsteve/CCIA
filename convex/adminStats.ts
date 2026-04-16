@@ -224,3 +224,124 @@ export const certificationStatsAdmin = query({
     };
   },
 });
+
+export const contentStatsAdmin = query({
+  args: { contentId: v.id("contentItems") },
+  handler: async (ctx, { contentId }) => {
+    await requireAdminOrCreator(ctx);
+    const item = await ctx.db.get(contentId);
+    if (!isLive(item)) {
+      return null;
+    }
+    const now = Date.now();
+    const labels = weekLabels(now);
+
+    const ucpRows = await ctx.db
+      .query("userContentProgress")
+      .withIndex("by_content", (q) => q.eq("contentId", contentId))
+      .collect();
+
+    const events = await ctx.db
+      .query("contentProgressEvents")
+      .withIndex("by_content", (q) => q.eq("contentId", contentId))
+      .collect();
+
+    const eventStartsWeekly = Array.from({ length: WEEKS }, () => 0);
+    const eventCompletesWeekly = Array.from({ length: WEEKS }, () => 0);
+    const assessmentAttemptsWeekly = Array.from({ length: WEEKS }, () => 0);
+    for (const e of events) {
+      if (e.kind === "start") {
+        bumpWeekBucket(now, e.at, eventStartsWeekly);
+      } else if (e.kind === "complete") {
+        bumpWeekBucket(now, e.at, eventCompletesWeekly);
+      } else if (e.kind === "assessment_attempt") {
+        bumpWeekBucket(now, e.at, assessmentAttemptsWeekly);
+      }
+    }
+
+    const ucpStartedWeekly = Array.from({ length: WEEKS }, () => 0);
+    const ucpCompletedWeekly = Array.from({ length: WEEKS }, () => 0);
+    for (const r of ucpRows) {
+      bumpWeekBucket(now, r.startedAt, ucpStartedWeekly);
+      bumpWeekBucket(now, r.completedAt, ucpCompletedWeekly);
+    }
+
+    const testResultsWeekly = Array.from({ length: WEEKS }, () => 0);
+    if (item.type === "test" || item.type === "assignment") {
+      const results = await ctx.db
+        .query("testResults")
+        .withIndex("by_assessment_content", (q) =>
+          q.eq("assessmentContentId", contentId),
+        )
+        .collect();
+      for (const tr of results) {
+        bumpWeekBucket(now, tr.completedAt, testResultsWeekly);
+      }
+    }
+
+    const userSet = new Set<Id<"users">>();
+    for (const r of ucpRows) {
+      userSet.add(r.userId);
+    }
+
+    const failedOutcome = ucpRows.filter((r) => r.outcome === "failed").length;
+    const completedStep = ucpRows.filter(
+      (r) =>
+        r.completedAt != null &&
+        (r.outcome === "completed" || r.outcome === "passed"),
+    ).length;
+
+    const learners: {
+      userId: Id<"users">;
+      name: string;
+      email: string;
+      companyName: string | null;
+      unitId: Id<"units">;
+      unitTitle: string;
+      startedAt: number;
+      completedAt: number | null;
+      outcome: string | null;
+      score: number | null;
+    }[] = [];
+
+    for (const r of ucpRows) {
+      const u = await ctx.db.get(r.userId);
+      const unitDoc = await ctx.db.get(r.unitId);
+      if (!u) {
+        continue;
+      }
+      const company = u.companyId ? await ctx.db.get(u.companyId) : null;
+      learners.push({
+        userId: r.userId,
+        name: u.name,
+        email: u.email,
+        companyName: company?.name ?? null,
+        unitId: r.unitId,
+        unitTitle: isLive(unitDoc) ? unitDoc.title : "(unit)",
+        startedAt: r.startedAt,
+        completedAt: r.completedAt ?? null,
+        outcome: r.outcome ?? null,
+        score: r.score ?? null,
+      });
+    }
+    learners.sort((a, b) => b.startedAt - a.startedAt);
+
+    return {
+      kind: "content" as const,
+      title: item.title,
+      contentType: item.type,
+      uniqueLearners: userSet.size,
+      progressRows: ucpRows.length,
+      completedOrPassed: completedStep,
+      failedOutcome,
+      weekLabels: labels,
+      eventStartsWeekly,
+      eventCompletesWeekly,
+      assessmentAttemptsWeekly,
+      userContentStartedWeekly: ucpStartedWeekly,
+      userContentCompletedWeekly: ucpCompletedWeekly,
+      testResultsWeekly,
+      learners,
+    };
+  },
+});

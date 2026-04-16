@@ -11,6 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -81,6 +89,7 @@ import {
   effectiveCertificationTier,
   type CertificationTierKey,
 } from "@/lib/certificationTier";
+import { trainingBoardDrawerChrome } from "@/lib/training-board-drawer-chrome";
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
@@ -100,6 +109,10 @@ import {
 
 /** Radix Select sentinel — no category on entity. */
 const CATEGORY_SELECT_NONE = "__none__" as const;
+
+const EDIT_CERT_DRAWER_CHROME = trainingBoardDrawerChrome("certification");
+const EDIT_CONTENT_DRAWER_CHROME = trainingBoardDrawerChrome("content");
+const EDIT_UNIT_DRAWER_CHROME = trainingBoardDrawerChrome("unit");
 
 function toScheduleLocalInputValue(ms: number): string {
   const d = new Date(ms);
@@ -676,6 +689,11 @@ export default function AdminCoursesClient() {
     setTrainingStatsOpen(true);
   }, []);
 
+  const openContentStats = useCallback((contentId: Id<"contentItems">) => {
+    setTrainingStatsTarget({ kind: "content", contentId });
+    setTrainingStatsOpen(true);
+  }, []);
+
   /** `null` = no day filter — centre column lists all live-workshop units (calendar “All”). */
   const [workshopPlannerDay, setWorkshopPlannerDay] = useState<Date | null>(
     () => null,
@@ -735,6 +753,8 @@ export default function AdminCoursesClient() {
     null,
   );
   const [editContentTitle, setEditContentTitle] = useState("");
+  const [editContentShortDescription, setEditContentShortDescription] =
+    useState("");
   const [editContentCode, setEditContentCode] = useState("");
   const [editContentUrl, setEditContentUrl] = useState("");
   const [editContentKind, setEditContentKind] = useState<
@@ -786,6 +806,7 @@ export default function AdminCoursesClient() {
   const [editUnitContentLinkId, setEditUnitContentLinkId] =
     useState<Id<"unitContents"> | null>(null);
   const [contentTitle, setContentTitle] = useState("");
+  const [contentShortDescription, setContentShortDescription] = useState("");
   const [contentLibraryCode, setContentLibraryCode] = useState("");
   const [newLibraryContentCategorySelect, setNewLibraryContentCategorySelect] =
     useState<string>(CATEGORY_SELECT_NONE);
@@ -2066,11 +2087,42 @@ export default function AdminCoursesClient() {
   ]);
 
   /**
-   * Calendar dots and “sessions on this day” must match what the centre column
-   * can list: same cert scope, delivery / category / search chips, plus the
-   * left-column timetable unit category. Otherwise a session (e.g. for a
-   * self-paced unit, or another cert) still produced a purple dot while
-   * “Workshop (0)” showed an empty day.
+   * Live-workshop units in the current centre scope (search + unit category
+   * chips only). Used for session dots/counts so they stay stable when the
+   * certifications tab forces the delivery pill to self-paced — otherwise the
+   * Timetable chip count dropped to 0 while off that tab.
+   */
+  const unitsInCertForWorkshopSessionsUi = useMemo(() => {
+    if (!unitsInCertListForUi?.length) {
+      return [];
+    }
+    return unitsInCertListForUi.filter(
+      (u) =>
+        (u.deliveryMode ?? "self_paced") === "live_workshop" &&
+        unitMatchesSearch(u) &&
+        unitMatchesCategoryChip(u),
+    );
+  }, [unitsInCertListForUi, unitMatchesSearch, unitMatchesCategoryChip]);
+
+  const allUnitsForWorkshopSessionsUi = useMemo(() => {
+    if (!allUnits?.length) {
+      return [];
+    }
+    return allUnits.filter(
+      (u) =>
+        (u.deliveryMode ?? "self_paced") === "live_workshop" &&
+        unitMatchesSearch(u) &&
+        unitMatchesCategoryChip(u),
+    );
+  }, [allUnits, unitMatchesSearch, unitMatchesCategoryChip]);
+
+  /**
+   * Calendar dots and “sessions on this day” must match live-workshop units the
+   * centre column would list under the same cert scope, search, and unit
+   * category chips, plus the left timetable unit-category filter. Uses
+   * {@link allUnitsForWorkshopSessionsUi} / {@link unitsInCertForWorkshopSessionsUi}
+   * (not the delivery pill) so counts stay correct when the certifications tab
+   * sets delivery to self-paced.
    */
   const workshopSessionIncludedInTimetableUi = useCallback(
     (workshopUnitId: Id<"units">) => {
@@ -2083,8 +2135,8 @@ export default function AdminCoursesClient() {
       }
       const inCentrePalette =
         filterCertId && !centreUnitsShowAll
-          ? unitsInCertVisibleForUi.some((x) => x._id === workshopUnitId)
-          : allUnitsVisibleForUi.some((x) => x._id === workshopUnitId);
+          ? unitsInCertForWorkshopSessionsUi.some((x) => x._id === workshopUnitId)
+          : allUnitsForWorkshopSessionsUi.some((x) => x._id === workshopUnitId);
       return inCentrePalette;
     },
     [
@@ -2092,8 +2144,8 @@ export default function AdminCoursesClient() {
       unitMatchesWorkshopTimetableCategory,
       filterCertId,
       centreUnitsShowAll,
-      unitsInCertVisibleForUi,
-      allUnitsVisibleForUi,
+      unitsInCertForWorkshopSessionsUi,
+      allUnitsForWorkshopSessionsUi,
     ],
   );
 
@@ -2459,32 +2511,51 @@ export default function AdminCoursesClient() {
                   strategy={verticalListSortingStrategy}
                 >
                   <ul className="space-y-1">
-                    {levelsVisibleForUi.map((l) => (
-                      <li key={l._id}>
-                        <LevelRowDroppable
-                          levelId={l._id}
-                          dropHighlight={dropHighlightLevelId === l._id}
-                        >
-                          <SortableLevelRow
-                            level={l}
-                            selected={filterCertId === l._id}
-                            disableDrag={certFilterActive}
-                            unitCount={
-                              allUnits === undefined
-                                ? undefined
-                                : (unitCountByLevelId.get(l._id) ?? 0)
-                            }
-                            onSelect={() => handleCertFilterToggle(l._id)}
-                            onEdit={() => openCertificationEditor(l._id)}
-                            onStats={() => openCertificationStats(l._id)}
-                            onDelete={() => {
-                              setCertDeleteId(l._id);
-                              setCertDeleteOpen(true);
-                            }}
-                          />
-                        </LevelRowDroppable>
-                      </li>
-                    ))}
+                    {levelsVisibleForUi.map((l) => {
+                      let certificationCategoryLabel: string | undefined;
+                      if (l.certificationCategoryId) {
+                        const meta = certCategoryMetaById.get(
+                          l.certificationCategoryId,
+                        );
+                        if (meta) {
+                          const code = meta.shortCode.trim();
+                          certificationCategoryLabel =
+                            code.length > 0 ? code : undefined;
+                        }
+                      } else {
+                        certificationCategoryLabel =
+                          l.certificationCategory?.trim() || undefined;
+                      }
+                      return (
+                        <li key={l._id}>
+                          <LevelRowDroppable
+                            levelId={l._id}
+                            dropHighlight={dropHighlightLevelId === l._id}
+                          >
+                            <SortableLevelRow
+                              level={l}
+                              selected={filterCertId === l._id}
+                              disableDrag={certFilterActive}
+                              certificationCategoryLabel={
+                                certificationCategoryLabel
+                              }
+                              unitCount={
+                                allUnits === undefined
+                                  ? undefined
+                                  : (unitCountByLevelId.get(l._id) ?? 0)
+                              }
+                              onSelect={() => handleCertFilterToggle(l._id)}
+                              onEdit={() => openCertificationEditor(l._id)}
+                              onStats={() => openCertificationStats(l._id)}
+                              onDelete={() => {
+                                setCertDeleteId(l._id);
+                                setCertDeleteOpen(true);
+                              }}
+                            />
+                          </LevelRowDroppable>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </SortableContext>
               )}
@@ -3102,6 +3173,9 @@ export default function AdminCoursesClient() {
                                 setEditContentId(item._id);
                                 setEditUnitContentLinkId(item.unitContentId);
                                 setEditContentTitle(item.title);
+                                setEditContentShortDescription(
+                                  item.shortDescription ?? "",
+                                );
                                 setEditContentCode(
                                   item.code?.trim() ||
                                     suggestEntityCodeFromLabel(item.title),
@@ -3134,6 +3208,7 @@ export default function AdminCoursesClient() {
                                 );
                                 setEditContentOpen(true);
                               }}
+                              onStats={() => openContentStats(item._id)}
                               onDelete={() => {
                                 if (!selectedDetailUnitId) {
                                   return;
@@ -3200,6 +3275,9 @@ export default function AdminCoursesClient() {
                               setEditContentId(item._id);
                               setEditUnitContentLinkId(null);
                               setEditContentTitle(item.title);
+                              setEditContentShortDescription(
+                                item.shortDescription ?? "",
+                              );
                               setEditContentCode(
                                 item.code?.trim() ||
                                   suggestEntityCodeFromLabel(item.title),
@@ -3232,6 +3310,7 @@ export default function AdminCoursesClient() {
                               );
                               setEditContentOpen(true);
                             }}
+                            onStats={() => openContentStats(item._id)}
                             onDelete={() => {
                               setContentDeleteTarget({
                                 kind: "library",
@@ -3765,6 +3844,7 @@ export default function AdminCoursesClient() {
           if (!open) {
             setAddLibraryAssessment(null);
             setContentLibraryCode("");
+            setContentShortDescription("");
             setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
             return;
           }
@@ -3791,6 +3871,17 @@ export default function AdminCoursesClient() {
                 placeholder="Title"
                 value={contentTitle}
                 onChange={(e) => setContentTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="add-lib-short-desc">Short description (optional)</Label>
+              <Textarea
+                id="add-lib-short-desc"
+                placeholder="Shown under the title in the library list (first line only)"
+                value={contentShortDescription}
+                onChange={(e) => setContentShortDescription(e.target.value)}
+                className="min-h-[52px] resize-y text-sm"
+                rows={2}
               />
             </div>
             <div className="space-y-1">
@@ -4076,6 +4167,12 @@ export default function AdminCoursesClient() {
                         ? { code: contentLibraryCode.trim() }
                         : {}),
                       url: "",
+                      ...(contentShortDescription.trim()
+                        ? {
+                            shortDescription:
+                              contentShortDescription.trim(),
+                          }
+                        : {}),
                       contentCategoryId:
                         newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
                           ? undefined
@@ -4108,6 +4205,12 @@ export default function AdminCoursesClient() {
                         ? { code: contentLibraryCode.trim() }
                         : {}),
                       url: contentUrl.trim() || "#",
+                      ...(contentShortDescription.trim()
+                        ? {
+                            shortDescription:
+                              contentShortDescription.trim(),
+                          }
+                        : {}),
                       contentCategoryId:
                         newLibraryContentCategorySelect === CATEGORY_SELECT_NONE
                           ? undefined
@@ -4124,6 +4227,7 @@ export default function AdminCoursesClient() {
                     }
                   }
                   setContentTitle("");
+                  setContentShortDescription("");
                   setContentLibraryCode("");
                   setNewLibraryContentCategorySelect(CATEGORY_SELECT_NONE);
                   setContentUrl("");
@@ -4140,7 +4244,7 @@ export default function AdminCoursesClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <Sheet
         open={certDetailsOpen}
         onOpenChange={(o) => {
           setCertDetailsOpen(o);
@@ -4149,16 +4253,34 @@ export default function AdminCoursesClient() {
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Edit certification</DialogTitle>
-            <DialogDescription>
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl",
+            EDIT_CERT_DRAWER_CHROME.sheet,
+          )}
+        >
+          <SheetHeader
+            className={cn(
+              "shrink-0 border-b px-4 py-3 text-left pr-12",
+              EDIT_CERT_DRAWER_CHROME.header,
+            )}
+          >
+            <SheetTitle>Edit certification</SheetTitle>
+            <SheetDescription className="text-pretty pr-2">
               Catalog fields and company scope. Click the certification in the
               list (not the pencil) to filter the centre to its units.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           {editCertId && selectedCert ? (
-            <div className="space-y-4">
+            <>
+              <div
+                className={cn(
+                  "min-h-0 flex-1 overflow-y-auto px-4 py-3",
+                  EDIT_CERT_DRAWER_CHROME.body,
+                )}
+              >
+                <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1 sm:col-span-2">
                   <Label htmlFor="cert-name">Name</Label>
@@ -4315,7 +4437,9 @@ export default function AdminCoursesClient() {
                   </Select>
                 </div>
               </div>
-              <DialogFooter className="gap-2 sm:gap-0">
+                </div>
+              </div>
+              <SheetFooter className="flex shrink-0 flex-row flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
                 <Button
                   type="button"
                   variant="outline"
@@ -4368,13 +4492,13 @@ export default function AdminCoursesClient() {
                 >
                   Save
                 </Button>
-              </DialogFooter>
-            </div>
+              </SheetFooter>
+            </>
           ) : null}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog
+      <Sheet
         open={editContentOpen}
         onOpenChange={(o) => {
           setEditContentOpen(o);
@@ -4383,26 +4507,57 @@ export default function AdminCoursesClient() {
             setEditContentStorageId(null);
             setEditUnitContentLinkId(null);
             setEditContentAssessment(null);
+            setEditContentShortDescription("");
             setEditContentCode("");
             setEditContentCategorySelect(CATEGORY_SELECT_NONE);
           }
         }}
       >
-        <DialogContent className="max-h-[min(90dvh,800px)] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit content</DialogTitle>
-            <DialogDescription>
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl",
+            EDIT_CONTENT_DRAWER_CHROME.sheet,
+          )}
+        >
+          <SheetHeader
+            className={cn(
+              "shrink-0 border-b px-4 py-3 text-left pr-12",
+              EDIT_CONTENT_DRAWER_CHROME.header,
+            )}
+          >
+            <SheetTitle>Edit content</SheetTitle>
+            <SheetDescription className="break-words pr-2">
               Fields depend on content type. Change type to switch between URL
               resources and tests/assignments.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
+            </SheetDescription>
+          </SheetHeader>
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3",
+              EDIT_CONTENT_DRAWER_CHROME.body,
+            )}
+          >
+          <div className="min-w-0 space-y-3">
             <div className="space-y-1">
               <Label htmlFor="ec-title">Title</Label>
               <Input
                 id="ec-title"
                 value={editContentTitle}
                 onChange={(e) => setEditContentTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ec-short-desc">Short description</Label>
+              <Textarea
+                id="ec-short-desc"
+                placeholder="Shown under the title in the library list (first line only)"
+                value={editContentShortDescription}
+                onChange={(e) =>
+                  setEditContentShortDescription(e.target.value)
+                }
+                className="min-h-[52px] resize-y text-sm"
+                rows={2}
               />
             </div>
             <div className="space-y-1">
@@ -4516,7 +4671,7 @@ export default function AdminCoursesClient() {
                   placeholder="Learner-facing intro (shown before questions)"
                   value={editContentUrl}
                   onChange={(e) => setEditContentUrl(e.target.value)}
-                  className="min-h-[72px]"
+                  className="min-h-[72px] min-w-0 break-words"
                 />
               </div>
             ) : urlFieldForContentKind(editContentKind) ? (
@@ -4531,7 +4686,7 @@ export default function AdminCoursesClient() {
                   }
                   value={editContentUrl}
                   onChange={(e) => setEditContentUrl(e.target.value)}
-                  className="min-h-[72px]"
+                  className="min-h-[72px] min-w-0 break-all font-mono text-xs leading-relaxed sm:text-sm"
                 />
               </div>
             ) : null}
@@ -4662,7 +4817,9 @@ export default function AdminCoursesClient() {
                 onChange={(e) => setEditContentOrder(e.target.value)}
               />
             </div>
-            <DialogFooter className="gap-2 sm:gap-0">
+          </div>
+          </div>
+          <SheetFooter className="flex shrink-0 flex-row flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
               <Button
                 type="button"
                 variant="outline"
@@ -4717,6 +4874,7 @@ export default function AdminCoursesClient() {
                         code: editContentCode.trim(),
                         url: "",
                         type: editContentKind,
+                        shortDescription: editContentShortDescription.trim(),
                         contentCategoryId:
                           editContentCategorySelect === CATEGORY_SELECT_NONE
                             ? null
@@ -4737,6 +4895,7 @@ export default function AdminCoursesClient() {
                         code: editContentCode.trim(),
                         url: editContentUrl.trim() || "#",
                         type: editContentKind,
+                        shortDescription: editContentShortDescription.trim(),
                         contentCategoryId:
                           editContentCategorySelect === CATEGORY_SELECT_NONE
                             ? null
@@ -4766,12 +4925,11 @@ export default function AdminCoursesClient() {
               >
                 Save
               </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog
+      <Sheet
         open={editUnitOpen}
         onOpenChange={(open) => {
           setEditUnitOpen(open);
@@ -4780,10 +4938,27 @@ export default function AdminCoursesClient() {
           }
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit unit</DialogTitle>
-          </DialogHeader>
+        <SheetContent
+          side="right"
+          className={cn(
+            "flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg",
+            EDIT_UNIT_DRAWER_CHROME.sheet,
+          )}
+        >
+          <SheetHeader
+            className={cn(
+              "shrink-0 border-b px-4 py-3 text-left pr-12",
+              EDIT_UNIT_DRAWER_CHROME.header,
+            )}
+          >
+            <SheetTitle>Edit unit</SheetTitle>
+          </SheetHeader>
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto px-4 py-3",
+              EDIT_UNIT_DRAWER_CHROME.body,
+            )}
+          >
           <div className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="edit-unit-title">Title</Label>
@@ -4917,7 +5092,18 @@ export default function AdminCoursesClient() {
                 onChange={(e) => setEditUnitDesc(e.target.value)}
               />
             </div>
+          </div>
+          </div>
+          <SheetFooter className="flex shrink-0 flex-row flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
             <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEditUnitOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
               onClick={async () => {
                 if (!editUnitId) {
                   return;
@@ -4946,9 +5132,9 @@ export default function AdminCoursesClient() {
             >
               Save
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <Dialog
         open={certDeleteOpen}
@@ -5312,6 +5498,7 @@ export default function AdminCoursesClient() {
                       setEditContentStorageId(null);
                       setEditUnitContentLinkId(null);
                       setEditContentAssessment(null);
+                      setEditContentShortDescription("");
                     }
                     toast.success("Deleted from library");
                     setContentDeleteTarget(null);

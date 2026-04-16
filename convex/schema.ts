@@ -166,6 +166,8 @@ export default defineSchema({
       v.literal("workshop_session"),
     ),
     title: v.string(),
+    /** Optional; first line shown under the title in the admin content library list. */
+    shortDescription: v.optional(v.string()),
     contentCategoryId: v.optional(v.id("contentCategories")),
     /** Pre–FK era; strip via `migrateLegacyCategories.adminMigrateLegacyCategoryStrings`. */
     contentCategory: v.optional(v.string()),
@@ -346,7 +348,8 @@ export default defineSchema({
   })
     .index("by_user_unit", ["userId", "unitId"])
     .index("by_user_unit_content", ["userId", "unitId", "contentId"])
-    .index("by_unit", ["unitId"]),
+    .index("by_unit", ["unitId"])
+    .index("by_content", ["contentId"]),
 
   /** Append-only audit trail for starts, completions, and assessment attempts. */
   contentProgressEvents: defineTable({
@@ -366,7 +369,8 @@ export default defineSchema({
     passed: v.optional(v.boolean()),
   })
     .index("by_user_unit", ["userId", "unitId"])
-    .index("by_unit", ["unitId"]),
+    .index("by_unit", ["unitId"])
+    .index("by_content", ["contentId"]),
 
   /** Legacy tab assessment: one row per user × assignment when used as a sequential step. */
   userAssignmentProgress: defineTable({

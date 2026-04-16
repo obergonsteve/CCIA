@@ -316,7 +316,7 @@ export function DraggableUnitPaletteItem({
               </span>
             ) : null}
             {showDesc ? (
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              <span className="mt-0.5 block truncate text-[11px] leading-snug text-muted-foreground">
                 {descText}
               </span>
             ) : null}
@@ -333,7 +333,7 @@ export function DraggableUnitPaletteItem({
               </span>
             ) : null}
             {showDesc ? (
-              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+              <span className="mt-0.5 block truncate text-[11px] leading-snug text-muted-foreground">
                 {descText}
               </span>
             ) : null}
@@ -359,7 +359,7 @@ export function DraggableUnitPaletteItem({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-none"
+                      className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         onStats();
@@ -369,7 +369,7 @@ export function DraggableUnitPaletteItem({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="left">
-                    Stats — starts, completions, learners
+                    Analytics — starts, completions, learners
                   </TooltipContent>
                 </Tooltip>
               ) : null}
@@ -464,6 +464,14 @@ export function libraryContentDisplayTitle(raw: string): string {
   return rest.length > 0 ? rest : trimmed;
 }
 
+/** First non-empty line of `shortDescription` for compact list UI. */
+export function contentShortDescriptionFirstLine(
+  shortDescription: string | undefined,
+): string | null {
+  const line = shortDescription?.split(/\r?\n/)[0]?.trim();
+  return line && line.length > 0 ? line : null;
+}
+
 function contentLibrarySubtitle(item: Doc<"contentItems">): string {
   const typeLabel =
     item.type === "video"
@@ -508,6 +516,7 @@ export function ContentLibraryDragRow({
   contentCategoryShortCode,
   onEdit,
   onDelete,
+  onStats,
 }: {
   item: Doc<"contentItems">;
   /** Highlights the row (e.g. item open in the edit dialog). */
@@ -516,6 +525,7 @@ export function ContentLibraryDragRow({
   contentCategoryShortCode?: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  onStats?: () => void;
 }) {
   const paletteDragDisabled = Boolean(inSelectedUnit);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -524,7 +534,8 @@ export function ContentLibraryDragRow({
   });
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
-  const hasActions = onEdit != null || onDelete != null;
+  const shortLine = contentShortDescriptionFirstLine(item.shortDescription);
+  const hasActions = onEdit != null || onDelete != null || onStats != null;
   return (
     <div
       ref={setNodeRef}
@@ -569,6 +580,11 @@ export function ContentLibraryDragRow({
             {contentCategoryShortCode.trim()}
           </div>
         ) : null}
+        {shortLine ? (
+          <div className="mt-0.5 line-clamp-1 break-words text-[11px] leading-snug text-muted-foreground">
+            {shortLine}
+          </div>
+        ) : null}
         <div className="mt-0.5 truncate text-xs text-muted-foreground">
           {subtitle}
         </div>
@@ -582,6 +598,28 @@ export function ContentLibraryDragRow({
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
+          {onStats ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                  title="Analytics — engagement for this content"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStats();
+                  }}
+                >
+                  <BarChart3 className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                Analytics — starts, completions, learners
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           {onEdit ? (
             <Button
               type="button"
@@ -633,6 +671,7 @@ export function SortableUnitContentRow({
   contentCategoryShortCode,
   onEdit,
   onDelete,
+  onStats,
 }: {
   item: UnitAttachedContentRow;
   selected?: boolean;
@@ -641,6 +680,7 @@ export function SortableUnitContentRow({
   contentCategoryShortCode?: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  onStats?: () => void;
 }) {
   const {
     attributes,
@@ -657,7 +697,7 @@ export function SortableUnitContentRow({
   };
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
-  const hasActions = onEdit != null || onDelete != null;
+  const hasActions = onEdit != null || onDelete != null || onStats != null;
   return (
     <div
       ref={setNodeRef}
@@ -708,6 +748,28 @@ export function SortableUnitContentRow({
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
+          {onStats ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                  title="Analytics — engagement for this content"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStats();
+                  }}
+                >
+                  <BarChart3 className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                Analytics — starts, completions, learners
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           {onEdit ? (
             <Button
               type="button"
@@ -897,6 +959,8 @@ export function SortableLevelRow({
   unitCount,
   /** When true (e.g. search filter on), row is not a drag reorder source. */
   disableDrag,
+  /** Category short code from `certificationCategories` (or legacy chip string); shown instead of entity `code`. */
+  certificationCategoryLabel,
   onSelect,
   onEdit,
   onDelete,
@@ -907,6 +971,7 @@ export function SortableLevelRow({
   /** Number of units in this certification; omit while loading. */
   unitCount?: number;
   disableDrag?: boolean;
+  certificationCategoryLabel?: string;
   onSelect: () => void;
   onEdit?: () => void;
   onDelete: () => void;
@@ -928,12 +993,16 @@ export function SortableLevelRow({
     opacity: isDragging ? 0.85 : 1,
   };
 
-  const short =
+  const shortSource =
     level.summary?.trim() ||
     level.tagline?.trim() ||
     (level.description?.trim() && level.description !== "—"
-      ? level.description
+      ? level.description.trim()
       : "");
+  /** List row: first line only; CSS ellipsis if still too wide. */
+  const short = shortSource
+    ? shortSource.split(/\r?\n/)[0]!.trim()
+    : "";
   const showShort = Boolean(short);
 
   const unitChipBtn =
@@ -977,20 +1046,23 @@ export function SortableLevelRow({
           <GripHorizontal className="h-3.5 w-3.5" />
         </button>
       )}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-0 py-1.5">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-0 py-1.5">
         <button
           type="button"
-          className="min-w-0 text-left leading-tight"
+          className="min-w-0 w-full max-w-full text-left leading-tight"
           onClick={onSelect}
         >
           <span className="block truncate text-sm font-medium">{level.name}</span>
-          {level.code?.trim() ? (
-            <span className="mt-0.5 block truncate font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
-              {level.code.trim()}
+          {certificationCategoryLabel?.trim() ? (
+            <span className="mt-0.5 block truncate text-[10px] font-medium uppercase tracking-wide text-brand-lime/90 dark:text-brand-lime/85">
+              {certificationCategoryLabel.trim()}
             </span>
           ) : null}
           {showShort ? (
-            <span className="mt-0.5 block line-clamp-2 text-[11px] text-muted-foreground">
+            <span
+              className="mt-0.5 block min-w-0 w-full max-w-full truncate text-[11px] text-muted-foreground"
+              title={shortSource}
+            >
               {short}
             </span>
           ) : null}
@@ -1038,19 +1110,25 @@ export function SortableLevelRow({
         )}
       >
         {onStats ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 rounded-none"
-            title="Stats — starts, completions, learners"
-            onClick={(e) => {
-              e.stopPropagation();
-              onStats();
-            }}
-          >
-            <BarChart3 className="h-3 w-3" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStats();
+                }}
+              >
+                <BarChart3 className="h-3 w-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              Analytics — starts, completions, learners
+            </TooltipContent>
+          </Tooltip>
         ) : null}
         {onEdit ? (
           <Button
@@ -1219,8 +1297,7 @@ export function SortableUnitRow({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-none"
-                title="Stats — starts, completions, learners"
+                className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStats();
@@ -1230,7 +1307,7 @@ export function SortableUnitRow({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
-              Stats — starts, completions, learners
+              Analytics — starts, completions, learners
             </TooltipContent>
           </Tooltip>
         ) : null}
