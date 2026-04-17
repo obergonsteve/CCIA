@@ -31,14 +31,14 @@ function WeeklyBars({
 }) {
   const max = Math.max(1, ...values);
   return (
-    <div className="flex h-28 items-end gap-0.5 sm:gap-1">
+    <div className="flex h-28 items-stretch gap-0.5 sm:gap-1">
       {values.map((v, i) => (
         <div
           key={i}
-          className="flex min-w-0 flex-1 flex-col items-center gap-1"
+          className="flex h-full min-w-0 flex-1 flex-col items-center gap-1"
         >
           <div
-            className="flex w-full flex-1 flex-col justify-end"
+            className="flex w-full min-h-0 flex-1 flex-col justify-end"
             title={`${labels[i] ?? ""}: ${v}`}
           >
             <div
@@ -49,7 +49,7 @@ function WeeklyBars({
               style={{ height: `${Math.max(6, (v / max) * 100)}%` }}
             />
           </div>
-          <span className="max-w-full truncate text-[9px] text-muted-foreground">
+          <span className="max-w-full shrink-0 truncate text-[9px] text-muted-foreground">
             {labels[i]}
           </span>
         </div>

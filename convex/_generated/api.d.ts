@@ -34,6 +34,8 @@ import type * as migrateLegacyCategories from "../migrateLegacyCategories.js";
 import type * as prerequisites from "../prerequisites.js";
 import type * as progress from "../progress.js";
 import type * as seed from "../seed.js";
+import type * as seedAnalytics from "../seedAnalytics.js";
+import type * as seedAnalyticsDiag from "../seedAnalyticsDiag.js";
 import type * as unitCategories from "../unitCategories.js";
 import type * as units from "../units.js";
 import type * as users from "../users.js";
@@ -76,6 +78,8 @@ declare const fullApi: ApiFromModules<{
   prerequisites: typeof prerequisites;
   progress: typeof progress;
   seed: typeof seed;
+  seedAnalytics: typeof seedAnalytics;
+  seedAnalyticsDiag: typeof seedAnalyticsDiag;
   unitCategories: typeof unitCategories;
   units: typeof units;
   users: typeof users;
