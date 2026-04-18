@@ -137,7 +137,17 @@ export default function AdminUsersClient() {
   }, [selectedCompany]);
 
   return (
-    <div className="space-y-6">
+    <div
+      className={cn(
+        "space-y-6",
+        "[&_[data-slot=input]]:bg-white/55",
+        "[&_[data-slot=textarea]]:bg-white/55",
+        "[&_[data-slot=select-trigger]]:bg-white/55",
+        "dark:[&_[data-slot=input]]:bg-white/[0.04]",
+        "dark:[&_[data-slot=textarea]]:bg-white/[0.04]",
+        "dark:[&_[data-slot=select-trigger]]:bg-white/[0.04]",
+      )}
+    >
       <div>
         <p className="text-muted-foreground">
           Companies and people — select a company to edit its profile and manage
@@ -323,7 +333,17 @@ export default function AdminUsersClient() {
                       }
                     >
                       <SelectTrigger id="co-status">
-                        <SelectValue />
+                        <SelectValue>
+                          {(v: unknown) => {
+                            const s =
+                              typeof v === "string" && v
+                                ? v
+                                : coDetailStatus;
+                            return s
+                              ? s.charAt(0).toUpperCase() + s.slice(1)
+                              : "";
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="active">Active</SelectItem>
