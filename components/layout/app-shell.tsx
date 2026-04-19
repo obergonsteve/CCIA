@@ -21,7 +21,7 @@ import {
   primaryNavIconClass,
   primarySidebarNav,
 } from "@/lib/sidebar-nav";
-import { SITE_APP_NAME, SITE_FOOTER_APP, SITE_ORG_NAME } from "@/lib/site-brand";
+import { SITE_APP_NAME, SITE_FOOTER_APP } from "@/lib/site-brand";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -49,14 +49,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
         aria-hidden
       />
-      <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-2 px-3 py-2 sm:px-4">
-        <div className="min-w-0 flex-1">
+      <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 py-1 text-card-foreground sm:px-4 dark:border-white/10 dark:bg-white/[0.07] dark:text-foreground">
+        <div className="flex min-w-0 flex-1 items-center justify-start">
           <Image
-            src="/lllia-logo.png"
+            src="/LLLIA_logo.png"
             alt={SITE_APP_NAME}
-            width={260}
-            height={56}
-            className="h-9 w-auto max-h-9 max-w-[min(100%,11rem)] shrink-0 object-contain object-left sm:h-10 sm:max-h-10"
+            width={138}
+            height={137}
+            unoptimized
+            className="size-[2.1rem] shrink-0 object-contain object-left"
             priority
           />
         </div>
@@ -64,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0 text-sidebar-foreground hover:bg-white/10"
+          className="h-9 w-9 shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
           aria-label="Collapse navigation"
           onClick={() => setNavOpen(false)}
         >
@@ -207,7 +208,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-white/10 bg-sidebar px-3 py-2 sm:px-4 text-sidebar-foreground">
+        <header className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-1 text-card-foreground sm:px-4 dark:border-white/10 dark:bg-white/[0.07] dark:text-foreground">
           <div
             className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
             aria-hidden
@@ -216,7 +217,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0 text-sidebar-foreground hover:bg-white/10"
+            className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
             aria-label={navOpen ? "Toggle navigation" : "Open navigation"}
             aria-expanded={navOpen}
             aria-controls="app-sidebar-nav"
@@ -226,23 +227,18 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <Image
-              src="/lllia-logo.png"
-              alt=""
-              width={260}
-              height={56}
-              aria-hidden
-              className="h-10 w-auto max-h-10 max-w-[min(100%,10rem)] shrink-0 object-contain object-left sm:h-11 sm:max-h-11"
+              src="/LLLIA_trans.png"
+              alt={SITE_APP_NAME}
+              width={632}
+              height={186}
+              className="h-[60px] w-auto max-h-[60px] max-w-full shrink-0 object-contain object-left"
               priority
             />
-            <span className="min-w-0 flex-1 truncate font-semibold text-white">
-              {SITE_ORG_NAME}{" "}
-              <span className="font-semibold text-brand-sky">Training</span>
-            </span>
           </div>
           <Button
             size="icon"
             variant="ghost"
-            className="ml-auto shrink-0 text-sidebar-foreground hover:bg-white/10"
+            className="ml-auto shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
             onClick={() =>
               setTheme(resolvedTheme === "dark" ? "light" : "dark")
             }

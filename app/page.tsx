@@ -28,7 +28,7 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <Image
-              src="/lllia-logo.png"
+              src="/LLLIA_trans.png"
               alt={SITE_APP_NAME}
               width={260}
               height={56}
