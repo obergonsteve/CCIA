@@ -3429,8 +3429,12 @@ export default function AdminCoursesClient() {
                 }
                 const { unitId, levelId } = pendingAddUnitToCert;
                 try {
-                  await addUnitToLevel({ levelId, unitId });
-                  toast.success("Unit added to certification");
+                  const result = await addUnitToLevel({ levelId, unitId });
+                  if (result?.alreadyPresent) {
+                    toast("Already in this certification");
+                  } else {
+                    toast.success("Unit added to certification");
+                  }
                   setPendingAddUnitToCert(null);
                 } catch (err) {
                   toast.error(

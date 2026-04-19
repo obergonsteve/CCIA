@@ -52,7 +52,7 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
             className="pointer-events-none absolute inset-x-0 top-8 mx-auto h-40 max-w-lg rounded-full bg-gradient-to-r from-brand-lime/15 via-brand-gold/12 to-brand-sky/15 blur-3xl"
             aria-hidden
           />
-          <p className="relative text-sm font-medium text-brand-gold uppercase tracking-wide drop-shadow-sm">
+          <p className="relative text-sm font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-gold)_76%,black)] drop-shadow-sm dark:text-[color-mix(in_oklab,var(--brand-gold)_74%,black)]">
             Operator training — Australia
           </p>
           <h1 className="relative text-3xl md:text-5xl font-bold tracking-tight text-balance bg-gradient-to-br from-brand-lime via-brand-gold to-brand-sky bg-clip-text text-transparent">

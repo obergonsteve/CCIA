@@ -234,7 +234,7 @@ export const addUnitToLevel = mutation({
       )
       .unique();
     if (existing) {
-      throw new Error("This unit is already in this certification");
+      return { id: existing._id, alreadyPresent: true as const };
     }
     const inLevel = await ctx.db
       .query("certificationUnits")
@@ -244,11 +244,12 @@ export const addUnitToLevel = mutation({
       inLevel.length === 0
         ? 0
         : Math.max(...inLevel.map((r) => r.order)) + 1;
-    return await ctx.db.insert("certificationUnits", {
+    const id = await ctx.db.insert("certificationUnits", {
       levelId,
       unitId,
       order: nextOrder,
     });
+    return { id, alreadyPresent: false as const };
   },
 });
 
