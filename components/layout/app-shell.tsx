@@ -21,6 +21,7 @@ import {
   primaryNavIconClass,
   primarySidebarNav,
 } from "@/lib/sidebar-nav";
+import { SITE_APP_NAME, SITE_FOOTER_APP, SITE_ORG_NAME } from "@/lib/site-brand";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -51,11 +52,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-2 px-3 py-2 sm:px-4">
         <div className="min-w-0 flex-1">
           <Image
-            src="/ccia-logo.png"
-            alt="CCIA Land Lease Training"
-            width={160}
-            height={46}
-            className="h-9 w-auto max-h-9 max-w-full shrink-0 object-contain object-left sm:h-10 sm:max-h-10"
+            src="/lllia-logo.png"
+            alt={SITE_APP_NAME}
+            width={260}
+            height={56}
+            className="h-9 w-auto max-h-9 max-w-[min(100%,11rem)] shrink-0 object-contain object-left sm:h-10 sm:max-h-10"
             priority
           />
         </div>
@@ -225,16 +226,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <Image
-              src="/ccia-logo.png"
+              src="/lllia-logo.png"
               alt=""
-              width={160}
-              height={46}
+              width={260}
+              height={56}
               aria-hidden
-              className="h-10 w-auto max-h-10 shrink-0 object-contain object-left sm:h-11 sm:max-h-11"
+              className="h-10 w-auto max-h-10 max-w-[min(100%,10rem)] shrink-0 object-contain object-left sm:h-11 sm:max-h-11"
               priority
             />
             <span className="min-w-0 flex-1 truncate font-semibold text-white">
-              CCIA Land Lease{" "}
+              {SITE_ORG_NAME}{" "}
               <span className="font-semibold text-brand-sky">Training</span>
             </span>
           </div>
@@ -273,8 +274,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {children}
           </main>
           <footer className="shrink-0 border-t border-border/60 text-center text-xs text-muted-foreground py-3 px-4">
-            CCIA Land Lease Division Training — Residential land lease communities
-            (Australia).
+            {SITE_FOOTER_APP}
           </footer>
         </div>
       </div>

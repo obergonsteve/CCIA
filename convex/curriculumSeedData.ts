@@ -111,7 +111,7 @@ export const LAND_LEASE_CURRICULUM: SeedCourse[] = [
           },
           {
             type: "link",
-            title: "CCIA land lease resources",
+            title: "Land lease resources",
             url: "https://www.ccia.com.au/",
             order: 2,
           },

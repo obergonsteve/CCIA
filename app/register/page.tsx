@@ -1,4 +1,5 @@
 import { buttonVariants } from "@/components/ui/button";
+import { SITE_ORG_NAME } from "@/lib/site-brand";
 import Link from "next/link";
 import { RegisterForm } from "./register-form";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,8 @@ export default async function RegisterPage({ params, searchParams }: PageProps) 
             Create <span className="text-brand-sky dark:text-brand-sky/95">account</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Your company must be provisioned by CCIA before you can register.
+            Your company must be provisioned by {SITE_ORG_NAME} before you can
+            register.
           </p>
         </div>
         <RegisterForm />

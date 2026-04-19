@@ -31,7 +31,7 @@ export function PwaInstallPrompt() {
   return (
     <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 flex flex-wrap items-center gap-2 text-sm">
       <span className="text-foreground">
-        Install the CCIA Training app for quicker access on site.
+        Install the Land Lease Living Training app for quicker access on site.
       </span>
       <Button
         size="sm"

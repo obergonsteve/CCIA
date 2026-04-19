@@ -18,10 +18,11 @@ import { isLive } from "./lib/softDelete";
 const HASH_STEVE = "$2b$10$q9aiw4mBWZLc.OKxISlyeuQydcRVExVRFIX611C1V.1V0QStXkNn2";
 const HASH_GILL = "$2b$10$y7dUJPgoY/l.QKIT1VtPY.Z31O7SKHS5zBbdq4lv81bGntZQrCTpG";
 
-const CCIA_COMPANY_NAME = "CCIA";
+/** Primary org company row — matches public branding (Land Lease Living). */
+const PRIMARY_ORG_COMPANY_NAME = "Land Lease Living";
 
 const OPERATOR_COMPANIES = [
-  CCIA_COMPANY_NAME,
+  PRIMARY_ORG_COMPANY_NAME,
   "Greenfield Land Lease Communities",
   "Riverside Community Operators",
   "Peninsula Land Lease Ltd",
@@ -146,7 +147,7 @@ function shortDescriptionFromContentRow(row: Doc<"contentItems">): string {
 }
 
 /**
- * Idempotent: creates community-operator companies (including CCIA) and two admin users.
+ * Idempotent: creates community-operator companies (including primary org) and two admin users.
  * Run once: `npx convex run seed:seedCommunityOperatorsAndAdmins` (no auth required).
  * Re-run safely: updates password hashes and roles for the two emails if rows already exist.
  */
@@ -164,7 +165,7 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
       }));
     companyByName.set(name, id);
   }
-  const cciaId = companyByName.get(CCIA_COMPANY_NAME)!;
+  const primaryOrgId = companyByName.get(PRIMARY_ORG_COMPANY_NAME)!;
 
   const admins = [
     {
@@ -190,14 +191,14 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
         passwordHash: a.passwordHash,
         name: a.name,
         role: "admin",
-        companyId: cciaId,
+        companyId: primaryOrgId,
       });
     } else {
       await ctx.db.insert("users", {
         email,
         name: a.name,
         passwordHash: a.passwordHash,
-        companyId: cciaId,
+        companyId: primaryOrgId,
         role: "admin",
       });
     }

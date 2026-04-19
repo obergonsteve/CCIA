@@ -1,6 +1,6 @@
-# CCIA — Land lease training portal
+# Land Lease Living — operator training portal
 
-CCIA Land Lease Division operator training (Next.js app).
+Land Lease Living, Industry Association NSW — residential land lease community operator training (Next.js app).
 
 ## Run it on your machine
 
@@ -66,7 +66,7 @@ Check locally: `git rev-parse --show-toplevel` — that must match how Vercel is
 
 A Vercel **404** (`text/plain`, `x-vercel-error: NOT_FOUND`) means that **project** has **no** working production deployment — not a Next.js routing bug.
 
-A **200** can still be wrong: check the HTML. This app’s home page should show **“CCIA Land Lease Division”** and lucide **Award** branding (see `app/page.tsx` on GitHub). If production shows something else, the Vercel project is **not** deploying **`obergonsteve/CCIA`** (wrong repo, fork, or Git disconnected).
+A **200** can still be wrong: check the HTML. This app’s home page should show **Land Lease Living** branding and the **Land Lease Living** logo (see `app/page.tsx` on GitHub). If production shows something else, the Vercel project is **not** deploying **`obergonsteve/CCIA`** (wrong repo, fork, or Git disconnected).
 
 Fix in the dashboard:
 

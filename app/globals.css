@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* CCIA brand palette (logo) — use with bg-brand-* / text-brand-* */
+  /* Land Lease Living brand palette (logo) — use with bg-brand-* / text-brand-* */
   --color-brand-lime: var(--brand-lime);
   --color-brand-gold: var(--brand-gold);
   --color-brand-sky: var(--brand-sky);
@@ -55,11 +55,11 @@
 }
 
 :root {
-  /* Logo-accurate hex — Caravan & Camping Industry Association */
-  --brand-lime: #9bc353;
-  --brand-gold: #f6b24b;
-  --brand-sky: #57b3e6;
-  --brand-charcoal: #2c2c2c;
+  /* Logo-accurate hex — Land Lease Living (wave green, roof red, wave blue) */
+  --brand-lime: #8ca35b;
+  --brand-gold: #b34e4d;
+  --brand-sky: #4488bb;
+  --brand-charcoal: #222222;
 
   /* Deeper “paper” so cards and brand colours read clearly */
   --background: oklch(0.9 0.022 98);
@@ -68,36 +68,36 @@
   --card-foreground: oklch(0.24 0.025 145);
   --popover: oklch(0.945 0.018 98);
   --popover-foreground: oklch(0.24 0.025 145);
-  /* Primary actions = sky — lime & gold show via secondary + explicit utilities */
-  --primary: oklch(0.7 0.12 232);
-  --primary-foreground: oklch(0.99 0.01 232);
-  /* Secondary fills = gold */
-  --secondary: oklch(0.88 0.09 88);
-  --secondary-foreground: oklch(0.28 0.1 75);
+  /* Primary actions = brand blue */
+  --primary: oklch(0.58 0.1 240);
+  --primary-foreground: oklch(0.99 0.01 240);
+  /* Secondary fills = terracotta wash */
+  --secondary: oklch(0.9 0.05 35);
+  --secondary-foreground: oklch(0.3 0.12 28);
   --muted: oklch(0.86 0.02 100);
   --muted-foreground: oklch(0.42 0.03 200);
-  /* Accent = lime wash for highlights / selection alt */
-  --accent: oklch(0.9 0.08 128);
-  --accent-foreground: oklch(0.28 0.09 145);
+  /* Accent = olive wash for highlights / selection alt */
+  --accent: oklch(0.92 0.06 125);
+  --accent-foreground: oklch(0.28 0.08 125);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.82 0.025 100);
   --input: oklch(0.82 0.025 100);
-  --ring: oklch(0.66 0.11 232);
-  --chart-1: oklch(0.68 0.11 232);
-  --chart-2: oklch(0.76 0.14 128);
-  --chart-3: oklch(0.8 0.14 78);
+  --ring: oklch(0.58 0.1 240);
+  --chart-1: oklch(0.58 0.1 240);
+  --chart-2: oklch(0.68 0.09 125);
+  --chart-3: oklch(0.55 0.12 28);
   --chart-4: oklch(0.52 0.04 145);
   --chart-5: oklch(0.35 0.02 145);
   --radius: 0.625rem;
   /* Charcoal chrome — tri-colour nav states applied in AppShell */
   --sidebar: oklch(0.32 0.018 145);
   --sidebar-foreground: oklch(0.96 0.012 95);
-  --sidebar-primary: oklch(0.78 0.14 128);
-  --sidebar-primary-foreground: oklch(0.22 0.04 145);
-  --sidebar-accent: oklch(0.4 0.07 85);
-  --sidebar-accent-foreground: oklch(0.98 0.02 90);
+  --sidebar-primary: oklch(0.78 0.12 125);
+  --sidebar-primary-foreground: oklch(0.22 0.05 125);
+  --sidebar-accent: oklch(0.42 0.09 28);
+  --sidebar-accent-foreground: oklch(0.98 0.02 95);
   --sidebar-border: oklch(1 0 0 / 14%);
-  --sidebar-ring: oklch(0.72 0.11 232);
+  --sidebar-ring: oklch(0.58 0.1 240);
 }
 
 .dark {
@@ -107,31 +107,31 @@
   --card-foreground: oklch(0.96 0.012 95);
   --popover: oklch(0.22 0.025 255);
   --popover-foreground: oklch(0.96 0.012 95);
-  --primary: oklch(0.74 0.12 232);
-  --primary-foreground: oklch(0.98 0.01 232);
-  --secondary: oklch(0.38 0.09 78);
+  --primary: oklch(0.68 0.1 240);
+  --primary-foreground: oklch(0.98 0.01 240);
+  --secondary: oklch(0.36 0.08 28);
   --secondary-foreground: oklch(0.98 0.03 95);
   --muted: oklch(0.28 0.025 255);
   --muted-foreground: oklch(0.68 0.04 220);
-  --accent: oklch(0.32 0.08 128);
-  --accent-foreground: oklch(0.94 0.05 128);
+  --accent: oklch(0.32 0.07 125);
+  --accent-foreground: oklch(0.94 0.05 125);
   --destructive: oklch(0.65 0.2 22);
   --border: oklch(1 0 0 / 11%);
   --input: oklch(1 0 0 / 13%);
-  --ring: oklch(0.72 0.12 232);
-  --chart-1: oklch(0.72 0.12 232);
-  --chart-2: oklch(0.8 0.14 128);
-  --chart-3: oklch(0.82 0.14 78);
+  --ring: oklch(0.68 0.1 240);
+  --chart-1: oklch(0.68 0.1 240);
+  --chart-2: oklch(0.72 0.1 125);
+  --chart-3: oklch(0.62 0.1 28);
   --chart-4: oklch(0.65 0.05 200);
   --chart-5: oklch(0.45 0.03 145);
   --sidebar: oklch(0.14 0.02 260);
   --sidebar-foreground: oklch(0.96 0.012 95);
-  --sidebar-primary: oklch(0.82 0.14 128);
-  --sidebar-primary-foreground: oklch(0.2 0.04 145);
-  --sidebar-accent: oklch(0.36 0.08 85);
-  --sidebar-accent-foreground: oklch(0.98 0.02 90);
+  --sidebar-primary: oklch(0.82 0.11 125);
+  --sidebar-primary-foreground: oklch(0.2 0.05 125);
+  --sidebar-accent: oklch(0.36 0.08 28);
+  --sidebar-accent-foreground: oklch(0.98 0.02 95);
   --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.72 0.12 232);
+  --sidebar-ring: oklch(0.68 0.1 240);
 }
 
 @layer base {
@@ -143,17 +143,17 @@
     background-image:
       radial-gradient(
         ellipse 120% 80% at 0% -20%,
-        oklch(0.78 0.12 128 / 0.09),
+        oklch(0.72 0.09 125 / 0.1),
         transparent 55%
       ),
       radial-gradient(
         ellipse 100% 70% at 100% 0%,
-        oklch(0.72 0.11 232 / 0.08),
+        oklch(0.58 0.1 240 / 0.09),
         transparent 50%
       ),
       radial-gradient(
         ellipse 80% 50% at 50% 100%,
-        oklch(0.82 0.12 78 / 0.07),
+        oklch(0.55 0.09 30 / 0.07),
         transparent 45%
       );
   }
@@ -161,17 +161,17 @@
     background-image:
       radial-gradient(
         ellipse 110% 70% at 0% 0%,
-        oklch(0.65 0.1 128 / 0.14),
+        oklch(0.58 0.09 125 / 0.16),
         transparent 55%
       ),
       radial-gradient(
         ellipse 90% 60% at 100% 20%,
-        oklch(0.58 0.1 232 / 0.12),
+        oklch(0.52 0.09 240 / 0.14),
         transparent 50%
       ),
       radial-gradient(
         ellipse 70% 45% at 50% 100%,
-        oklch(0.62 0.1 78 / 0.1),
+        oklch(0.5 0.08 30 / 0.12),
         transparent 45%
       );
   }

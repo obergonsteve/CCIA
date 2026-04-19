@@ -1,6 +1,11 @@
 import { ConvexClientProvider } from "@/components/convex-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  SITE_APP_NAME,
+  SITE_META_DESCRIPTION,
+  SITE_PWA_SHORT_NAME,
+} from "@/lib/site-brand";
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
@@ -20,21 +25,20 @@ const fontMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "CCIA Land Lease Training",
-    template: "%s | CCIA Land Lease Training",
+    default: SITE_APP_NAME,
+    template: `%s | ${SITE_APP_NAME}`,
   },
-  description:
-    "Training for residential land lease community operators — CCIA Land Lease Division (Australia).",
+  description: SITE_META_DESCRIPTION,
   appleWebApp: {
     capable: true,
-    title: "CCIA Training",
+    title: SITE_PWA_SHORT_NAME,
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#9bc353" },
-    { media: "(prefers-color-scheme: dark)", color: "#2c2c2c" },
+    { media: "(prefers-color-scheme: light)", color: "#8ca35b" },
+    { media: "(prefers-color-scheme: dark)", color: "#222222" },
   ],
 };
 

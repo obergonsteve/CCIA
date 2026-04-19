@@ -1,15 +1,19 @@
 import type { MetadataRoute } from "next";
+import {
+  SITE_APP_NAME,
+  SITE_META_DESCRIPTION,
+  SITE_PWA_SHORT_NAME,
+} from "@/lib/site-brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "CCIA Land Lease Training",
-    short_name: "CCIA Training",
-    description:
-      "Training for residential land lease community operators (Australia).",
+    name: SITE_APP_NAME,
+    short_name: SITE_PWA_SHORT_NAME,
+    description: SITE_META_DESCRIPTION,
     start_url: "/",
     display: "standalone",
     background_color: "#faf9f5",
-    theme_color: "#9bc353",
+    theme_color: "#8ca35b",
     orientation: "portrait-primary",
     icons: [
       {

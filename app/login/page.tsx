@@ -1,4 +1,5 @@
 import { buttonVariants } from "@/components/ui/button";
+import { SITE_ORG_NAME } from "@/lib/site-brand";
 import Link from "next/link";
 import { LoginForm } from "./login-form";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,7 @@ export default async function LoginPage({ params, searchParams }: PageProps) {
       <div className="relative w-full max-w-md space-y-6 rounded-2xl border-2 border-brand-gold/55 bg-card/90 p-6 shadow-lg backdrop-blur-sm dark:border-brand-gold/50 dark:bg-card/80 sm:p-8">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            CCIA Land Lease{" "}
+            {SITE_ORG_NAME}{" "}
             <span className="text-brand-sky dark:text-brand-sky/95">Training</span>
           </h1>
           <p className="text-sm text-muted-foreground">

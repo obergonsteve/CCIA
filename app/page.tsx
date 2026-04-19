@@ -5,7 +5,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Award, BookOpen, Shield, Tablet } from "lucide-react";
+import { SITE_APP_NAME, SITE_FOOTER_PUBLIC } from "@/lib/site-brand";
+import { BookOpen, Shield, Tablet } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -24,13 +26,15 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
           aria-hidden
         />
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-semibold">
-            <Award className="h-7 w-7 shrink-0 text-brand-lime" />
-            <span>
-              CCIA{" "}
-              <span className="text-brand-sky">Land Lease</span>{" "}
-              <span className="text-brand-gold">Division</span>
-            </span>
+          <div className="flex min-w-0 items-center gap-3">
+            <Image
+              src="/lllia-logo.png"
+              alt={SITE_APP_NAME}
+              width={260}
+              height={56}
+              className="h-10 w-auto max-w-[min(100%,14rem)] shrink-0 object-contain object-left sm:h-11"
+              priority
+            />
           </div>
           <div className="flex gap-2">
             <Link
@@ -52,7 +56,7 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
             className="pointer-events-none absolute inset-x-0 top-8 mx-auto h-40 max-w-lg rounded-full bg-gradient-to-r from-brand-lime/15 via-brand-gold/12 to-brand-sky/15 blur-3xl"
             aria-hidden
           />
-          <p className="relative text-sm font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-gold)_76%,black)] drop-shadow-sm dark:text-[color-mix(in_oklab,var(--brand-gold)_74%,black)]">
+          <p className="relative text-sm font-medium uppercase tracking-wide text-[color-mix(in_oklab,var(--brand-sky)_74%,black)] drop-shadow-sm dark:text-[color-mix(in_oklab,var(--brand-sky)_72%,black)]">
             Operator training — Australia
           </p>
           <h1 className="relative text-3xl md:text-5xl font-bold tracking-tight text-balance bg-gradient-to-br from-brand-lime via-brand-gold to-brand-sky bg-clip-text text-transparent">
@@ -114,8 +118,7 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
       </main>
 
       <footer className="border-t py-6 text-center text-xs text-muted-foreground px-4">
-        CCIA Land Lease Division Training — Caravan & Camping Industry
-        Association (Australia).
+        {SITE_FOOTER_PUBLIC}
       </footer>
     </div>
   );
