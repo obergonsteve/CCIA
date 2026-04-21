@@ -717,8 +717,9 @@ export const listUpcomingSessionsForWorkshopUnit = query({
 });
 
 /**
- * Session to drive the embedded live room on a workshop unit: earliest upcoming
- * registration for this unit, else the most recently ended one (chat-only context).
+ * Session to drive the embedded live room on a workshop unit: earliest **upcoming**
+ * registration for this unit that has `externalJoinUrl` when any do; otherwise
+ * earliest upcoming overall; else the most recently ended one (chat-only context).
  */
 export const myRegisteredSessionForLiveWorkshopUnit = query({
   args: {
@@ -784,6 +785,18 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
     rows.sort((a, b) => a.session.startsAt - b.session.startsAt);
     const upcoming = rows.filter((r) => r.session.endsAt >= now);
     if (upcoming.length > 0) {
+      // Prefer the chronologically earliest upcoming row that already has an
+      // `externalJoinUrl` (e.g. Microsoft Teams join). Otherwise learners who are
+      // registered for both an older in-app run and a newer Graph-backed session
+      // would keep seeing the older row on the unit page while `/workshops` shows the
+      // session that actually carries the Teams link.
+      const withJoin = upcoming.filter((r) =>
+        Boolean(r.session.externalJoinUrl?.trim()),
+      );
+      if (withJoin.length > 0) {
+        withJoin.sort((a, b) => a.session.startsAt - b.session.startsAt);
+        return withJoin[0]!;
+      }
       return upcoming[0]!;
     }
     rows.sort((a, b) => b.session.endsAt - a.session.endsAt);

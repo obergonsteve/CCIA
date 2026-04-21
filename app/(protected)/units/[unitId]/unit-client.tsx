@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Circle,
   CircleDashed,
+  ExternalLink,
   Lock,
   MonitorPlay,
   Route,
@@ -24,7 +25,10 @@ import Link from "next/link";
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { isMicrosoftTeamsSession } from "@/lib/workshopConference";
+import {
+  isMicrosoftTeamsSession,
+  unitPageShouldRenderJoinInTeamsStrip,
+} from "@/lib/workshopConference";
 import { cn } from "@/lib/utils";
 import { LiveWorkshopRoomPanel } from "@/components/workshop/live-workshop-room-panel";
 import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
@@ -232,13 +236,80 @@ function LegacyAssignmentStepBlock({
   );
 }
 
+/**
+ * **Join in Teams** on the unit page only (not inside {@link LiveWorkshopRoomPanel}),
+ * between the unit header and the webinar / Teams blocks.
+ *
+ * Uses {@link unitPageShouldRenderJoinInTeamsStrip} (Graph sync markers, `aka.ms`,
+ * `teamsLastSyncAt`, etc.) so the strip still shows when `conferenceProvider` is
+ * `livekit` but the session row is Teams-backed.
+ */
+function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"> }) {
+  const recordJoin = useMutation(api.workshops.recordTeamsJoin);
+  const now = Date.now();
+  if (!unitPageShouldRenderJoinInTeamsStrip(session, now)) {
+    return null;
+  }
+  const raw = session.externalJoinUrl!.trim();
+  return (
+    <section
+      className="rounded-xl border border-purple-500/40 bg-purple-500/[0.1] px-4 py-3 shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/35 dark:bg-purple-500/[0.14]"
+      aria-label="Microsoft Teams webinar"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          className="inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22"
+          onClick={() => {
+            const target = raw.startsWith("/")
+              ? `${window.location.origin}${raw}`
+              : raw;
+            void (async () => {
+              try {
+                await recordJoin({ sessionId: session._id });
+              } catch {
+                /* still open Teams */
+              }
+              window.open(target, "_blank", "noopener,noreferrer");
+            })();
+          }}
+        >
+          Join in Teams
+          <ExternalLink
+            className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
+            aria-hidden
+          />
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** Own Convex subscription so the strip is not tied to parent `liveWorkshopSession` timing. */
+function UnitJoinInTeamsStripLoader({
+  unitId,
+  workshopSessionId,
+}: {
+  unitId: Id<"units">;
+  workshopSessionId?: Id<"workshopSessions">;
+}) {
+  const row = useQuery(api.workshops.myRegisteredSessionForLiveWorkshopUnit, {
+    workshopUnitId: unitId,
+    ...(workshopSessionId != null ? { workshopSessionId } : {}),
+  });
+  if (row === undefined || row === null || !row.session) {
+    return null;
+  }
+  return <JoinInTeamsWorkshopStrip session={row.session} />;
+}
+
 /** Microsoft Teams workshop: join in a separate window (no embedded LiveKit). */
 function TeamsWorkshopJoinSection({
   session,
 }: {
   session: Doc<"workshopSessions">;
 }) {
-  const recordJoin = useMutation(api.workshops.recordTeamsJoin);
   const recordLeave = useMutation(api.workshops.recordTeamsLeave);
   const url = session.externalJoinUrl?.trim();
   return (
@@ -274,22 +345,6 @@ function TeamsWorkshopJoinSection({
           </p>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              className="bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500"
-              onClick={() => {
-                void (async () => {
-                  try {
-                    await recordJoin({ sessionId: session._id });
-                  } catch {
-                    /* still open Teams */
-                  }
-                  window.open(url, "_blank", "noopener,noreferrer");
-                })();
-              }}
-            >
-              Join in Teams
-            </Button>
             <Button
               type="button"
               variant="outline"
@@ -494,6 +549,13 @@ export default function UnitClient({
           </span>
         </div>
       </div>
+
+      {isLiveWorkshopUnit ? (
+        <UnitJoinInTeamsStripLoader
+          unitId={unitId}
+          workshopSessionId={workshopSessionId}
+        />
+      ) : null}
 
       {isLiveWorkshopUnit && !teamsOnlyRegistered ? (
         <LiveWorkshopRoomPanel

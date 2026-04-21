@@ -416,10 +416,12 @@ function OpenCertPathSessionCard({
   session,
   now,
   onRegister,
+  onTeamsJoinTracked,
 }: {
   session: WorkshopBrowseRow;
   now: number;
   onRegister: () => void;
+  onTeamsJoinTracked: (sessionId: Id<"workshopSessions">) => Promise<void>;
 }) {
   return (
     <Card
@@ -465,18 +467,43 @@ function OpenCertPathSessionCard({
           <span className="truncate">Open webinar unit</span>
         </Link>
         {session.externalJoinUrl ? (
-          <Link
-            href={session.externalJoinUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "inline-flex gap-1 text-sky-800 hover:bg-sky-500/15 hover:text-sky-950 dark:text-sky-200 dark:hover:bg-sky-500/20 dark:hover:text-sky-50",
-            )}
-          >
-            Join link
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
+          isMicrosoftTeamsSession(session) ? (
+            <Button
+              type="button"
+              size="sm"
+              className="inline-flex gap-1.5 border-sky-600/35 bg-sky-600/15 text-sky-950 hover:bg-sky-600/25 dark:border-sky-400/30 dark:bg-sky-500/20 dark:text-sky-50 dark:hover:bg-sky-500/30"
+              onClick={() => {
+                const u = session.externalJoinUrl?.trim();
+                if (!u) {
+                  return;
+                }
+                void (async () => {
+                  try {
+                    await onTeamsJoinTracked(session._id);
+                  } catch {
+                    /* still open Teams */
+                  }
+                  window.open(u, "_blank", "noopener,noreferrer");
+                })();
+              }}
+            >
+              Join in Teams
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            </Button>
+          ) : (
+            <Link
+              href={session.externalJoinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "inline-flex gap-1 text-sky-800 hover:bg-sky-500/15 hover:text-sky-950 dark:text-sky-200 dark:hover:bg-sky-500/20 dark:hover:text-sky-50",
+              )}
+            >
+              Join link
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          )
         ) : null}
       </CardContent>
     </Card>
@@ -492,6 +519,7 @@ function RegisteredCertPathWorkshopCard({
   now,
   onUnregister,
   onTeamsJoinTracked,
+  certPathLevelId,
 }: {
   session: Doc<"workshopSessions">;
   workshopTitle: string;
@@ -500,7 +528,13 @@ function RegisteredCertPathWorkshopCard({
   now: number;
   onUnregister: () => void;
   onTeamsJoinTracked: (sessionId: Id<"workshopSessions">) => Promise<void>;
+  certPathLevelId: Id<"certificationLevels"> | null;
 }) {
+  const openWebinarUnitHref =
+    certPathLevelId != null
+      ? `/units/${session.workshopUnitId}?level=${certPathLevelId}`
+      : `/units/${session.workshopUnitId}`;
+
   return (
     <Card
       size="sm"
@@ -511,7 +545,7 @@ function RegisteredCertPathWorkshopCard({
     >
       <CardHeader className="gap-0.5 py-1.5">
         <Link
-          href={`/units/${session.workshopUnitId}`}
+          href={openWebinarUnitHref}
           className={cn(
             "group flex w-full min-w-0 max-w-full flex-col gap-0 rounded-md outline-none transition-colors",
             "hover:bg-purple-200/90 focus-visible:bg-purple-200/90 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/85 dark:focus-visible:bg-purple-900/85",
@@ -547,28 +581,45 @@ function RegisteredCertPathWorkshopCard({
         ) : null}
         {session.externalJoinUrl && !past ? (
           isMicrosoftTeamsSession(session) ? (
-            <Button
-              type="button"
-              size="sm"
-              className="inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22"
-              onClick={() => {
-                const u = session.externalJoinUrl?.trim();
-                if (!u) {
-                  return;
-                }
-                void (async () => {
-                  try {
-                    await onTeamsJoinTracked(session._id);
-                  } catch {
-                    /* still open Teams */
+            <>
+              <Button
+                type="button"
+                size="sm"
+                className="inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22"
+                onClick={() => {
+                  const u = session.externalJoinUrl?.trim();
+                  if (!u) {
+                    return;
                   }
-                  window.open(u, "_blank", "noopener,noreferrer");
-                })();
-              }}
-            >
-              Join in Teams
-              <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
-            </Button>
+                  void (async () => {
+                    try {
+                      await onTeamsJoinTracked(session._id);
+                    } catch {
+                      /* still open Teams */
+                    }
+                    window.open(u, "_blank", "noopener,noreferrer");
+                  })();
+                }}
+              >
+                Join in Teams
+                <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
+              </Button>
+              <Link
+                href={openWebinarUnitHref}
+                title="Open webinar unit — live session (video, chat, screen share)"
+                aria-label={`Open webinar unit: ${workshopTitle}`}
+                className={cn(
+                  buttonVariants({ variant: "secondary", size: "sm" }),
+                  "max-w-full rounded-full border-purple-500/35 bg-purple-500/10 px-3 font-medium text-purple-950 shadow-sm hover:bg-purple-500/18 dark:border-purple-400/40 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/24",
+                )}
+              >
+                <Video
+                  className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
+                  aria-hidden
+                />
+                <span className="truncate">Open webinar unit</span>
+              </Link>
+            </>
           ) : (
             <Link
               href={session.externalJoinUrl}
@@ -585,7 +636,7 @@ function RegisteredCertPathWorkshopCard({
           )
         ) : !past ? (
           <Link
-            href={`/units/${session.workshopUnitId}`}
+            href={openWebinarUnitHref}
             title="Open webinar unit — live session (video, chat, screen share)"
             aria-label={`Open webinar unit: ${workshopTitle}`}
             className={cn(
@@ -932,6 +983,7 @@ export default function WorkshopsClient() {
                           workshopUnitCode={workshopUnitCode}
                           past={past}
                           now={now}
+                          certPathLevelId={filterLevelId}
                           onTeamsJoinTracked={async (sessionId) => {
                             await recordTeamsJoin({ sessionId });
                           }}
@@ -997,6 +1049,9 @@ export default function WorkshopsClient() {
                       <OpenCertPathSessionCard
                         session={s}
                         now={now}
+                        onTeamsJoinTracked={async (sessionId) => {
+                          await recordTeamsJoin({ sessionId });
+                        }}
                         onRegister={() => {
                           void (async () => {
                             try {
