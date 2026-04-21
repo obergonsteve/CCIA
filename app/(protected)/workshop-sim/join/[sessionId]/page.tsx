@@ -1,5 +1,6 @@
 "use client";
 
+import { LiveWorkshopRoomPanel } from "@/components/workshop/live-workshop-room-panel";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
@@ -53,7 +54,7 @@ export default function WorkshopSimJoinPage({
     session.externalJoinUrl?.includes("/workshop-sim/join/") === true;
 
   return (
-    <div className="mx-auto max-w-lg p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 md:p-8">
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
@@ -76,8 +77,8 @@ export default function WorkshopSimJoinPage({
           {isSim ? (
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-950 dark:text-amber-100">
               In a real deployment, this screen would be replaced by Microsoft
-              Teams. Your testers still use <strong>Join in Teams</strong> on
-              the unit page so join time is recorded.
+              Teams. Below is the same LiveKit webinar panel as on the unit page
+              so you can start a session and use chat as a rehearsal.
             </p>
           ) : null}
           <Link
@@ -88,6 +89,15 @@ export default function WorkshopSimJoinPage({
           </Link>
         </CardContent>
       </Card>
+
+      {isSim ? (
+        <LiveWorkshopRoomPanel
+          unitId={session.workshopUnitId}
+          workshopSessionId={sessionId}
+          defaultOpen
+          bodyDomId={`workshop-sim-live-room-${sessionId}`}
+        />
+      ) : null}
     </div>
   );
 }

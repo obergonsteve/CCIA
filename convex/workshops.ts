@@ -761,6 +761,13 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
         if (reg) {
           return { session: focused, registration: reg };
         }
+        const user = await ctx.db.get(userId);
+        const isLiveHost =
+          user != null &&
+          (user.role === "admin" || user.role === "content_creator");
+        if (isLiveHost) {
+          return { session: focused, registration: null };
+        }
       }
     }
     const rows: Row[] = [];

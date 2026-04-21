@@ -30,6 +30,17 @@ function isNorm01(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
 }
 
+async function isWorkshopLiveHost(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+): Promise<boolean> {
+  const user = await ctx.db.get(userId);
+  return (
+    user != null &&
+    (user.role === "admin" || user.role === "content_creator")
+  );
+}
+
 function validateStrokePayload(d: unknown): boolean {
   if (!d || typeof d !== "object") return false;
   const o = d as { v?: unknown; t?: unknown };
@@ -183,7 +194,11 @@ export const listWorkshopWhiteboardStrokes = query({
       return [];
     }
     const archived = session.endsAt < Date.now();
-    if (!archived && session.whiteboardVisible === false) {
+    if (
+      !archived &&
+      session.whiteboardVisible === false &&
+      !(await isWorkshopLiveHost(ctx, userId))
+    ) {
       return [];
     }
     const rows = await ctx.db
@@ -211,7 +226,13 @@ export const addWorkshopWhiteboardStroke = mutation({
     const userId = await requireUserId(ctx);
     await assertLiveWorkshopGate(ctx, userId, workshopSessionId);
     const session = await ctx.db.get(workshopSessionId);
-    if (!session || session.whiteboardVisible === false) {
+    if (!session) {
+      throw new Error("Session is not available.");
+    }
+    if (
+      session.whiteboardVisible === false &&
+      !(await isWorkshopLiveHost(ctx, userId))
+    ) {
       throw new Error("The whiteboard is hidden by the host.");
     }
     if (!validateStrokePayload(strokeData)) {
@@ -240,7 +261,13 @@ export const addWorkshopWhiteboardStrokesBatch = mutation({
     const userId = await requireUserId(ctx);
     await assertLiveWorkshopGate(ctx, userId, workshopSessionId);
     const session = await ctx.db.get(workshopSessionId);
-    if (!session || session.whiteboardVisible === false) {
+    if (!session) {
+      throw new Error("Session is not available.");
+    }
+    if (
+      session.whiteboardVisible === false &&
+      !(await isWorkshopLiveHost(ctx, userId))
+    ) {
       throw new Error("The whiteboard is hidden by the host.");
     }
     if (strokes.length === 0) {
@@ -316,7 +343,13 @@ export const undoMyLastWorkshopWhiteboardStroke = mutation({
     const userId = await requireUserId(ctx);
     await assertLiveWorkshopGate(ctx, userId, workshopSessionId);
     const session = await ctx.db.get(workshopSessionId);
-    if (!session || session.whiteboardVisible === false) {
+    if (!session) {
+      throw new Error("Session is not available.");
+    }
+    if (
+      session.whiteboardVisible === false &&
+      !(await isWorkshopLiveHost(ctx, userId))
+    ) {
       throw new Error("The whiteboard is hidden by the host.");
     }
     const strokes = await ctx.db
@@ -342,7 +375,13 @@ export const clearMyWorkshopWhiteboardStrokes = mutation({
     const userId = await requireUserId(ctx);
     await assertLiveWorkshopGate(ctx, userId, workshopSessionId);
     const session = await ctx.db.get(workshopSessionId);
-    if (!session || session.whiteboardVisible === false) {
+    if (!session) {
+      throw new Error("Session is not available.");
+    }
+    if (
+      session.whiteboardVisible === false &&
+      !(await isWorkshopLiveHost(ctx, userId))
+    ) {
       throw new Error("The whiteboard is hidden by the host.");
     }
     const strokes = await ctx.db

@@ -148,6 +148,8 @@ export function WorkshopLivePanel({
   const [chatEmojiStripOpen, setChatEmojiStripOpen] = useState(false);
   const [chatEmojiStripExpanded, setChatEmojiStripExpanded] = useState(false);
   const [chatSectionExpanded, setChatSectionExpanded] = useState(false);
+  /** Host only: whether the whiteboard strip is open on *this* screen (does not affect attendees). */
+  const [hostWhiteboardPanelOpen, setHostWhiteboardPanelOpen] = useState(true);
   const chatSectionId = "workshop-session-chat-panel";
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -173,11 +175,49 @@ export function WorkshopLivePanel({
       ? liveFlags.liveRoomOpenedAt != null
       : session?.liveRoomOpenedAt != null,
   );
-  /** Show unless host explicitly hid it (`false`). Matches GritHub: board is part of the live session by default. */
-  const whiteboardLive =
-    liveFlags != null
-      ? liveFlags.whiteboardVisible !== false
-      : session?.whiteboardVisible !== false;
+  /**
+   * Show unless host explicitly hid it (`false`). Default-on when the field is
+   * omitted. Prefer `liveFlags` when it carries a boolean, but if Convex still
+   * yields `undefined` for `whiteboardVisible` on that object, fall back to
+   * `session` so a patch to `false` is not masked (undefined !== false is true).
+   */
+  const whiteboardLive = (() => {
+    const fromFlags = liveFlags?.whiteboardVisible;
+    const fromSession = session?.whiteboardVisible;
+    const effective =
+      fromFlags !== undefined ? fromFlags : fromSession;
+    return effective !== false;
+  })();
+
+  const workshopSessionIdForWhiteboard = session?._id;
+
+  const onHostShareWhiteboard = useCallback(async () => {
+    if (workshopSessionIdForWhiteboard == null) return;
+    try {
+      await setWhiteboardVisible({
+        workshopSessionId: workshopSessionIdForWhiteboard,
+        visible: true,
+      });
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not update whiteboard.",
+      );
+    }
+  }, [workshopSessionIdForWhiteboard, setWhiteboardVisible]);
+
+  const onHostUnshareWhiteboard = useCallback(async () => {
+    if (workshopSessionIdForWhiteboard == null) return;
+    try {
+      await setWhiteboardVisible({
+        workshopSessionId: workshopSessionIdForWhiteboard,
+        visible: false,
+      });
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not update whiteboard.",
+      );
+    }
+  }, [workshopSessionIdForWhiteboard, setWhiteboardVisible]);
 
   const onHostEndCallForEveryone = useCallback(async () => {
     if (!session) {
@@ -291,58 +331,17 @@ export function WorkshopLivePanel({
     format(new Date(sessionDoc.startsAt), "PPp");
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1 text-sm">
-        <p className="font-medium text-foreground">Your session</p>
-        <p className="text-muted-foreground">{title}</p>
-        {sessionEnded ? (
-          <p className="text-muted-foreground">
-            This session has ended. You can still read chat; the live room is
-            closed.
-          </p>
-        ) : null}
-        {isLiveHost &&
-        liveRoomStarted &&
-        !sessionEnded &&
-        liveKitCredentials ? (
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Button
-              type="button"
-              size="sm"
-              title={
-                whiteboardLive
-                  ? "Stop showing the whiteboard to everyone in the room"
-                  : "Show the whiteboard to everyone in the room"
-              }
-              variant={whiteboardLive ? "default" : "outline"}
-              className={
-                whiteboardLive
-                  ? "h-8 bg-cyan-600 text-white hover:bg-cyan-700"
-                  : "h-8"
-              }
-              onClick={async () => {
-                if (!session) return;
-                try {
-                  await setWhiteboardVisible({
-                    workshopSessionId: session._id,
-                    visible: !whiteboardLive,
-                  });
-                } catch (e) {
-                  toast.error(
-                    e instanceof Error ? e.message : "Could not update whiteboard.",
-                  );
-                }
-              }}
-            >
-              {whiteboardLive ? "Hide whiteboard" : "Share whiteboard"}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
+    <div className="flex min-w-0 flex-col gap-4">
+      {/*
+        LiveKit first in DOM, session row second, with flex-col-reverse so the
+        session + whiteboard toolbar still appears *above* the video. When layers
+        overlap (absolute/fixed descendants), the later DOM sibling wins hit
+        testing — so Share/Unshare/Show/Hide stay clickable.
+      */}
+      <div className="flex min-w-0 flex-col-reverse gap-4">
       <div
         className={cn(
-          "flex min-w-0 flex-col rounded-lg border border-blue-500/40 bg-blue-950/[0.07] ring-1 ring-blue-600/25 dark:border-blue-800/65 dark:bg-blue-950/55 dark:ring-blue-800/45",
+          "relative flex min-w-0 flex-col overflow-hidden rounded-lg border border-blue-500/40 bg-blue-950/[0.07] ring-1 ring-blue-600/25 dark:border-blue-800/65 dark:bg-blue-950/55 dark:ring-blue-800/45",
           liveKitCredentials ? "p-2" : "p-4",
           !liveKitCredentials && !joining && "items-center justify-center gap-4 text-center",
         )}
@@ -357,7 +356,9 @@ export function WorkshopLivePanel({
               live room (same gate as LiveKit). Not shown until connected so we only
               expose ink to registered attendees who are actually in the call.
             */}
-            {liveRoomStarted && whiteboardLive ? (
+            {liveRoomStarted &&
+            ((isLiveHost && hostWhiteboardPanelOpen) ||
+              (!isLiveHost && whiteboardLive)) ? (
               <div className="mb-2 min-h-0 w-full shrink-0 px-0.5 pt-0.5">
                 <WorkshopWhiteboard
                   workshopSessionId={sessionDoc._id}
@@ -369,9 +370,31 @@ export function WorkshopLivePanel({
                   )}
                 />
               </div>
-            ) : liveRoomStarted && !whiteboardLive ? (
+            ) : liveRoomStarted &&
+              whiteboardLive &&
+              isLiveHost &&
+              !hostWhiteboardPanelOpen ? (
               <p className="mb-2 shrink-0 rounded-md border border-slate-300/80 bg-slate-100/90 px-3 py-2 text-center text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">
-                Whiteboard is off for everyone in this room.
+                Whiteboard is still shared with attendees — use{" "}
+                <span className="font-medium text-foreground">Show</span>{" "}
+                above to open it on your screen.
+              </p>
+            ) : liveRoomStarted &&
+              !whiteboardLive &&
+              isLiveHost &&
+              !hostWhiteboardPanelOpen ? (
+              <p className="mb-2 shrink-0 rounded-md border border-slate-300/80 bg-slate-100/90 px-3 py-2 text-center text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">
+                Whiteboard is not shared with attendees — use{" "}
+                <span className="font-medium text-foreground">
+                  Share with attendees
+                </span>{" "}
+                above when you are ready, or{" "}
+                <span className="font-medium text-foreground">Show</span> to open
+                it on your screen only.
+              </p>
+            ) : liveRoomStarted && !whiteboardLive && !isLiveHost ? (
+              <p className="mb-2 shrink-0 rounded-md border border-slate-300/80 bg-slate-100/90 px-3 py-2 text-center text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">
+                Whiteboard is off for all attendees in this session.
               </p>
             ) : null}
             <LiveKitRoom
@@ -448,6 +471,77 @@ export function WorkshopLivePanel({
             )}
           </div>
         )}
+      </div>
+
+      <div className="relative min-w-0 shrink-0 space-y-1 text-sm">
+        <p className="font-medium text-foreground">Your session</p>
+        <p className="text-muted-foreground">{title}</p>
+        {sessionEnded ? (
+          <p className="text-muted-foreground">
+            This session has ended. You can still read chat; the live room is
+            closed.
+          </p>
+        ) : null}
+        {isLiveHost &&
+        liveRoomStarted &&
+        !sessionEnded &&
+        liveKitCredentials ? (
+          <div
+            role="group"
+            aria-labelledby="workshop-host-whiteboard-heading"
+            className="mt-2 rounded-lg border border-purple-500/25 bg-purple-500/[0.06] px-3 py-2.5 dark:border-purple-400/20 dark:bg-purple-500/[0.09]"
+          >
+            <p
+              id="workshop-host-whiteboard-heading"
+              className="mb-2 text-sm font-medium text-foreground"
+            >
+              Whiteboard
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8"
+                title="Show or hide the whiteboard on your screen only — does not change whether attendees see it (use Share / Unshare for that)."
+                aria-label={
+                  hostWhiteboardPanelOpen
+                    ? "Hide whiteboard on my screen"
+                    : "Show whiteboard on my screen"
+                }
+                onClick={() => setHostWhiteboardPanelOpen((v) => !v)}
+              >
+                {hostWhiteboardPanelOpen ? "Hide" : "Show"}
+              </Button>
+              {whiteboardLive ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-orange-600 bg-orange-600 text-white hover:border-orange-700 hover:bg-orange-700 hover:text-white dark:border-orange-500 dark:bg-orange-600 dark:hover:border-orange-600 dark:hover:bg-orange-700"
+                  title="Unshare — stop sending the live whiteboard to all attendees in this session."
+                  aria-label="Unshare whiteboard with attendees"
+                  onClick={() => void onHostUnshareWhiteboard()}
+                >
+                  Unshare with attendees
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  title="Share — make the live whiteboard visible to all attendees who have joined this session."
+                  aria-label="Share whiteboard with attendees"
+                  onClick={() => void onHostShareWhiteboard()}
+                >
+                  Share with attendees
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
       </div>
 
       <div className="min-w-0">
