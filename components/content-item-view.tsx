@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseSlideshowUrls } from "@/lib/slideshow";
 import { cn } from "@/lib/utils";
+import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
+import { isMicrosoftTeamsSession } from "@/lib/workshopConference";
 import { useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
@@ -64,6 +66,8 @@ export function ContentItemView({
       : "skip",
   );
   const registerWorkshop = useMutation(api.workshops.registerForSession);
+  const recordTeamsJoin = useMutation(api.workshops.recordTeamsJoin);
+  const recordTeamsLeave = useMutation(api.workshops.recordTeamsLeave);
   const lastAssessmentResult = useQuery(
     api.progress.myResultsForAssessmentContent,
     unitId && isAssessment && item.assessment
@@ -365,24 +369,91 @@ export function ContentItemView({
                       Register for session
                     </Button>
                   )}
-                  {workshopSessionDetail?.session.externalJoinUrl ? (
-                    <Link
-                      href={workshopSessionDetail.session.externalJoinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        buttonVariants({ variant: "ghost", size: "sm" }),
-                        "inline-flex gap-1",
-                      )}
+                  {workshopSessionDetail?.session.externalJoinUrl &&
+                  workshopRegistered ? (
+                    isMicrosoftTeamsSession(workshopSessionDetail.session) ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="inline-flex gap-1"
+                        disabled={!unitId || locked}
+                        onClick={() => {
+                          const u =
+                            workshopSessionDetail.session.externalJoinUrl?.trim();
+                          if (!u || !workshopSessionId) {
+                            return;
+                          }
+                          void (async () => {
+                            try {
+                              await recordTeamsJoin({
+                                sessionId: workshopSessionId,
+                              });
+                            } catch {
+                              /* still open Teams */
+                            }
+                            window.open(u, "_blank", "noopener,noreferrer");
+                          })();
+                        }}
+                      >
+                        Join in Teams
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : (
+                      <Link
+                        href={workshopSessionDetail.session.externalJoinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          buttonVariants({ variant: "ghost", size: "sm" }),
+                          "inline-flex gap-1",
+                        )}
+                      >
+                        Join link
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    )
+                  ) : null}
+                  {workshopRegistered &&
+                  workshopSessionId &&
+                  isMicrosoftTeamsSession(workshopSessionDetail?.session) ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!unitId || locked}
+                      onClick={() => {
+                        void recordTeamsLeave({
+                          sessionId: workshopSessionId,
+                        }).catch(() => {});
+                      }}
                     >
-                      Join link
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
+                      Record leave
+                    </Button>
                   ) : null}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  LiveKit room will replace the join link in a future update.
+                  {isMicrosoftTeamsSession(workshopSessionDetail?.session)
+                    ? "Video and screen sharing run in Microsoft Teams. Use Join in Teams when you are ready."
+                    : "Embedded LiveKit opens on the unit page when the host starts the room."}
+                  {workshopRegistration?.teamsFirstJoinedAt != null ? (
+                    <span className="mt-1 block text-[11px]">
+                      First join recorded from this app:{" "}
+                      {new Date(
+                        workshopRegistration.teamsFirstJoinedAt,
+                      ).toLocaleString()}
+                    </span>
+                  ) : null}
                 </p>
+                {workshopSessionId &&
+                workshopRegistered &&
+                isMicrosoftTeamsSession(workshopSessionDetail?.session) ? (
+                  <WorkshopSyncTracePanel
+                    sessionId={workshopSessionId}
+                    className="mt-2"
+                    defaultOpen
+                  />
+                ) : null}
               </>
             )}
           </div>

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { requireAdminOrCreator, requireUserId, userCanAccessLevel } from "./lib/auth";
 import { effectiveCertificationTier } from "./lib/certTier";
@@ -12,11 +13,18 @@ import {
   collectLevelIdsForUnit,
   userCanAccessWorkshopSession,
 } from "./lib/workshopUnitLevels";
+import { isWorkshopGraphSyncDisabled } from "./lib/workshopGraphKillSwitch";
+import { insertWorkshopSyncLog } from "./lib/workshopSyncLog";
 import { collectLiveWorkshopUnitIdsOnLearnerCertPaths } from "./certifications";
 
 const sessionStatusValidator = v.union(
   v.literal("scheduled"),
   v.literal("cancelled"),
+);
+
+const conferenceProviderValidator = v.union(
+  v.literal("livekit"),
+  v.literal("microsoft_teams"),
 );
 
 export const listSessionsAdmin = query({
@@ -82,6 +90,8 @@ export const createSession = mutation({
     titleOverride: v.optional(v.string()),
     capacity: v.optional(v.number()),
     externalJoinUrl: v.optional(v.string()),
+    conferenceProvider: v.optional(conferenceProviderValidator),
+    timeZone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
@@ -92,7 +102,12 @@ export const createSession = mutation({
     if (args.endsAt <= args.startsAt) {
       throw new Error("End time must be after start time");
     }
-    return await ctx.db.insert("workshopSessions", {
+    const conferenceProvider = args.conferenceProvider;
+    const timeZone =
+      args.timeZone != null && args.timeZone.trim() !== ""
+        ? args.timeZone.trim()
+        : undefined;
+    const sessionId = await ctx.db.insert("workshopSessions", {
       workshopUnitId: args.workshopUnitId,
       startsAt: args.startsAt,
       endsAt: args.endsAt,
@@ -100,7 +115,34 @@ export const createSession = mutation({
       capacity: args.capacity,
       status: "scheduled",
       externalJoinUrl: args.externalJoinUrl,
+      ...(conferenceProvider != null ? { conferenceProvider } : {}),
+      ...(timeZone != null ? { timeZone } : {}),
     });
+    if (conferenceProvider === "microsoft_teams") {
+      if (isWorkshopGraphSyncDisabled()) {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "warn",
+          message:
+            "WORKSHOP_GRAPH_DISABLED: Graph meeting create skipped. Set external join URL manually (Teams) or turn the flag off in Convex env.",
+        });
+      } else {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "info",
+          message:
+            "Admin: session saved as Microsoft Teams (Graph). Queued job createTeamsMeetingForSession.",
+        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.workshopMicrosoftTeams.createTeamsMeetingForSession,
+          { sessionId },
+        );
+      }
+    }
+    return sessionId;
   },
 });
 
@@ -113,9 +155,21 @@ export const updateSession = mutation({
     capacity: v.optional(v.union(v.number(), v.null())),
     status: sessionStatusValidator,
     externalJoinUrl: v.optional(v.union(v.string(), v.null())),
+    conferenceProvider: v.optional(
+      v.union(conferenceProviderValidator, v.null()),
+    ),
+    timeZone: v.optional(v.union(v.string(), v.null())),
   },
-  handler: async (ctx, { sessionId, capacity, externalJoinUrl, ...rest }) => {
+  handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
+    const {
+      sessionId,
+      capacity,
+      externalJoinUrl,
+      conferenceProvider,
+      timeZone,
+      ...rest
+    } = args;
     const row = await ctx.db.get(sessionId);
     if (!row) {
       throw new Error("Session not found");
@@ -134,7 +188,63 @@ export const updateSession = mutation({
               externalJoinUrl === null ? undefined : externalJoinUrl,
           }
         : {}),
+      ...(conferenceProvider !== undefined
+        ? {
+            conferenceProvider:
+              conferenceProvider === null ? undefined : conferenceProvider,
+          }
+        : {}),
+      ...(timeZone !== undefined
+        ? {
+            timeZone:
+              timeZone === null || timeZone.trim() === ""
+                ? undefined
+                : timeZone.trim(),
+          }
+        : {}),
     });
+    const next = await ctx.db.get(sessionId);
+    if (
+      next &&
+      next.conferenceProvider === "microsoft_teams" &&
+      next.status === "scheduled"
+    ) {
+      if (isWorkshopGraphSyncDisabled()) {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "warn",
+          message:
+            "WORKSHOP_GRAPH_DISABLED: Graph create/update skipped after session save.",
+        });
+      } else if (!next.teamsGraphEventId) {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "info",
+          message:
+            "Admin: session updated (Teams). No Graph event id yet — queued createTeamsMeetingForSession.",
+        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.workshopMicrosoftTeams.createTeamsMeetingForSession,
+          { sessionId },
+        );
+      } else {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "info",
+          message:
+            "Admin: session updated (Teams). Queued job updateTeamsMeetingForSession (PATCH event).",
+        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.workshopMicrosoftTeams.updateTeamsMeetingForSession,
+          { sessionId },
+        );
+      }
+    }
   },
 });
 
@@ -200,6 +310,13 @@ export const deleteSessionsForWorkshopUnitOnLocalDay = mutation({
           q.eq("workshopSessionId", session._id),
         )
         .collect();
+      const syncLogs = await ctx.db
+        .query("workshopSessionSyncLogs")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const log of syncLogs) {
+        await ctx.db.delete(log._id);
+      }
       for (const c of linkedContent) {
         if (!isLive(c)) {
           continue;
@@ -770,7 +887,80 @@ export const registerForSession = mutation({
       registeredAt: Date.now(),
     });
     await syncUnitsContainingWorkshopSession(ctx, userId, sessionId);
+    if (session.conferenceProvider === "microsoft_teams") {
+      if (isWorkshopGraphSyncDisabled()) {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "warn",
+          message: `WORKSHOP_GRAPH_DISABLED: skipped Graph attendee sync for userId=${userId}.`,
+        });
+      } else {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "info",
+          message: `Learner registered in app (userId=${userId}). Queued addGraphAttendeeForWorkshopRegistration (Graph + optional Resend).`,
+        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.workshopMicrosoftTeams.addGraphAttendeeForWorkshopRegistration,
+          { sessionId, userId, attempt: 0 },
+        );
+      }
+    }
     return { ok: true as const };
+  },
+});
+
+export const workshopSessionSyncTrace = query({
+  args: {
+    sessionId: v.id("workshopSessions"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { sessionId, limit: limitArg }) => {
+    const userId = await requireUserId(ctx);
+    const limit = Math.min(Math.max(limitArg ?? 60, 1), 120);
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.conferenceProvider !== "microsoft_teams") {
+      return [];
+    }
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      return [];
+    }
+    let allowed = false;
+    if (user.role === "admin") {
+      allowed = true;
+    } else if (user.role === "content_creator") {
+      allowed = await userCanAccessWorkshopSession(
+        ctx,
+        session.workshopUnitId,
+      );
+    } else {
+      const reg = await ctx.db
+        .query("workshopRegistrations")
+        .withIndex("by_session_and_user", (q) =>
+          q.eq("sessionId", sessionId).eq("userId", userId),
+        )
+        .unique();
+      allowed = reg != null;
+    }
+    if (!allowed) {
+      return [];
+    }
+    const rows = await ctx.db
+      .query("workshopSessionSyncLogs")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+    rows.sort((a, b) => a.at - b.at);
+    return rows.slice(-limit).map((r) => ({
+      _id: r._id,
+      at: r.at,
+      source: r.source,
+      level: r.level,
+      message: r.message,
+    }));
   },
 });
 
@@ -812,7 +1002,62 @@ export const registrationStatus = query({
         q.eq("sessionId", sessionId).eq("userId", userId),
       )
       .unique();
-    return { registered: reg != null };
+    return {
+      registered: reg != null,
+      teamsFirstJoinedAt: reg?.teamsFirstJoinedAt,
+      teamsLastLeftAt: reg?.teamsLastLeftAt,
+    };
+  },
+});
+
+/** Teams workshops: record first join from the PWA (best-effort). */
+export const recordTeamsJoin = mutation({
+  args: { sessionId: v.id("workshopSessions") },
+  handler: async (ctx, { sessionId }) => {
+    const userId = await requireUserId(ctx);
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.conferenceProvider !== "microsoft_teams") {
+      throw new Error("Not a Microsoft Teams workshop session.");
+    }
+    const reg = await ctx.db
+      .query("workshopRegistrations")
+      .withIndex("by_session_and_user", (q) =>
+        q.eq("sessionId", sessionId).eq("userId", userId),
+      )
+      .unique();
+    if (!reg) {
+      throw new Error("You are not registered for this session.");
+    }
+    const now = Date.now();
+    await ctx.db.patch(reg._id, {
+      teamsFirstJoinedAt: reg.teamsFirstJoinedAt ?? now,
+    });
+    return { ok: true as const };
+  },
+});
+
+/** Teams workshops: record leave signal from the PWA. */
+export const recordTeamsLeave = mutation({
+  args: { sessionId: v.id("workshopSessions") },
+  handler: async (ctx, { sessionId }) => {
+    const userId = await requireUserId(ctx);
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.conferenceProvider !== "microsoft_teams") {
+      throw new Error("Not a Microsoft Teams workshop session.");
+    }
+    const reg = await ctx.db
+      .query("workshopRegistrations")
+      .withIndex("by_session_and_user", (q) =>
+        q.eq("sessionId", sessionId).eq("userId", userId),
+      )
+      .unique();
+    if (!reg) {
+      throw new Error("You are not registered for this session.");
+    }
+    await ctx.db.patch(reg._id, {
+      teamsLastLeftAt: Date.now(),
+    });
+    return { ok: true as const };
   },
 });
 

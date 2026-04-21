@@ -11,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
 import { cn } from "@/lib/utils";
+import { isMicrosoftTeamsSession } from "@/lib/workshopConference";
 import {
   parseLocalInput,
   toLocalInputValue,
@@ -26,6 +28,8 @@ export type WorkshopSessionSaveArgs = {
   status: "scheduled" | "cancelled";
   capacity: number | null;
   externalJoinUrl: string | null;
+  conferenceProvider: "livekit" | "microsoft_teams";
+  timeZone: string | null;
 };
 
 export function WorkshopSessionEditRow({
@@ -51,6 +55,12 @@ export function WorkshopSessionEditRow({
     session.capacity != null ? String(session.capacity) : "",
   );
   const [externalUrl, setExternalUrl] = useState(session.externalJoinUrl ?? "");
+  const [conferenceProvider, setConferenceProvider] = useState<
+    "livekit" | "microsoft_teams"
+  >(session.conferenceProvider ?? "livekit");
+  const [timeZone, setTimeZone] = useState(
+    session.timeZone ?? "Australia/Sydney",
+  );
 
   useEffect(() => {
     setStartsLocal(toLocalInputValue(session.startsAt));
@@ -58,6 +68,8 @@ export function WorkshopSessionEditRow({
     setStatus(session.status);
     setCapacity(session.capacity != null ? String(session.capacity) : "");
     setExternalUrl(session.externalJoinUrl ?? "");
+    setConferenceProvider(session.conferenceProvider ?? "livekit");
+    setTimeZone(session.timeZone ?? "Australia/Sydney");
   }, [
     session._id,
     session.startsAt,
@@ -65,6 +77,8 @@ export function WorkshopSessionEditRow({
     session.status,
     session.capacity,
     session.externalJoinUrl,
+    session.conferenceProvider,
+    session.timeZone,
   ]);
 
   return (
@@ -126,17 +140,84 @@ export function WorkshopSessionEditRow({
           className={compact ? "h-8 text-xs" : undefined}
         />
       </div>
+      <div className="space-y-1">
+        <Label className={compact ? "text-[11px]" : "text-xs"}>
+          Conference
+        </Label>
+        <Select
+          value={conferenceProvider}
+          onValueChange={(v) =>
+            setConferenceProvider(
+              (v ?? "livekit") as "livekit" | "microsoft_teams",
+            )
+          }
+        >
+          <SelectTrigger className={compact ? "h-8 text-xs" : undefined}>
+            <SelectValue>
+              {conferenceProvider === "microsoft_teams"
+                ? "Microsoft Teams (Graph)"
+                : "Embedded LiveKit"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="livekit" label="Embedded LiveKit">
+              Embedded LiveKit
+            </SelectItem>
+            <SelectItem value="microsoft_teams" label="Microsoft Teams (Graph)">
+              Microsoft Teams (Graph)
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {isMicrosoftTeamsSession({ conferenceProvider }) ? (
+        <div className="space-y-1">
+          <Label className={compact ? "text-[11px]" : "text-xs"}>
+            IANA time zone
+          </Label>
+          <Input
+            value={timeZone}
+            onChange={(e) => setTimeZone(e.target.value)}
+            placeholder="Australia/Sydney"
+            className={compact ? "h-8 text-xs" : undefined}
+          />
+        </div>
+      ) : null}
       <div className="space-y-1 sm:col-span-2">
         <Label className={compact ? "text-[11px]" : "text-xs"}>
-          External URL
+          External join URL (optional override)
         </Label>
         <Input
           value={externalUrl}
           onChange={(e) => setExternalUrl(e.target.value)}
-          placeholder="https://…"
+          placeholder="Manual Teams link if Graph is not used"
           className={compact ? "h-8 text-xs" : undefined}
         />
       </div>
+      {isMicrosoftTeamsSession(session) ? (
+        <div className="space-y-0.5 sm:col-span-2 text-[11px] text-muted-foreground">
+          {session.teamsGraphEventId ? (
+            <p>Teams event synced (Graph id present).</p>
+          ) : (
+            <p>Teams meeting: creation runs shortly after save when using Graph.</p>
+          )}
+          {session.teamsLastSyncAt != null ? (
+            <p>
+              Last Graph sync:{" "}
+              {new Date(session.teamsLastSyncAt).toLocaleString()}
+            </p>
+          ) : null}
+          {session.teamsLastError ? (
+            <p className="text-destructive [overflow-wrap:anywhere]">
+              Graph error: {session.teamsLastError}
+            </p>
+          ) : null}
+          <WorkshopSyncTracePanel
+            sessionId={session._id}
+            className="sm:col-span-2"
+            defaultOpen
+          />
+        </div>
+      ) : null}
       <div className="sm:col-span-2">
         <Button
           type="button"
@@ -164,6 +245,8 @@ export function WorkshopSessionEditRow({
                 status,
                 capacity: capacityArg,
                 externalJoinUrl: externalUrl.trim() || null,
+                conferenceProvider,
+                timeZone: timeZone.trim() || null,
               });
               toast.success("Session updated");
             } catch (e) {

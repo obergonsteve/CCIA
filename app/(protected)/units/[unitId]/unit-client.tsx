@@ -28,8 +28,10 @@ import {
   liveWorkshopSessionStatus,
   liveWorkshopStatusBadgeClass,
 } from "@/lib/workshopSessionLiveStatus";
+import { isMicrosoftTeamsSession } from "@/lib/workshopConference";
 import { cn } from "@/lib/utils";
 import { WorkshopLivePanel } from "@/components/grithub-live-port/workshop-live-panel";
+import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
 
 function unitStepPathHref(
   unitId: Id<"units">,
@@ -234,6 +236,81 @@ function LegacyAssignmentStepBlock({
   );
 }
 
+/** Microsoft Teams workshop: join in a separate window (no embedded LiveKit). */
+function TeamsWorkshopJoinSection({
+  session,
+}: {
+  session: Doc<"workshopSessions">;
+}) {
+  const recordJoin = useMutation(api.workshops.recordTeamsJoin);
+  const recordLeave = useMutation(api.workshops.recordTeamsLeave);
+  const url = session.externalJoinUrl?.trim();
+  return (
+    <section
+      className="rounded-xl border border-teal-500/35 bg-teal-500/[0.12] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-teal-400/30 dark:bg-teal-500/[0.14]"
+      aria-label="Teams workshop"
+    >
+      <div className="flex flex-col gap-3 border-b border-teal-500/30 px-4 py-3 dark:border-teal-400/22">
+        <div className="flex items-center gap-2">
+          <MonitorPlay
+            className="h-5 w-5 shrink-0 text-teal-700 dark:text-teal-300"
+            aria-hidden
+          />
+          <span className="font-heading font-semibold text-foreground">
+            Workshop (Microsoft Teams)
+          </span>
+        </div>
+        {session.teamsLastError ? (
+          <p className="text-xs text-destructive [overflow-wrap:anywhere]">
+            Calendar sync issue: {session.teamsLastError}
+          </p>
+        ) : null}
+        {!url ? (
+          <p className="text-xs text-muted-foreground">
+            Teams join link is provisioning. Save the session in admin with Graph
+            env configured, or refresh in a moment.
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              className="bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    await recordJoin({ sessionId: session._id });
+                  } catch {
+                    /* still open Teams */
+                  }
+                  window.open(url, "_blank", "noopener,noreferrer");
+                })();
+              }}
+            >
+              Join in Teams
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-teal-600/50 text-teal-900 hover:bg-teal-500/10 dark:border-teal-400/40 dark:text-teal-50"
+              onClick={() => {
+                void recordLeave({ sessionId: session._id }).catch(() => {});
+              }}
+            >
+              Record leave
+            </Button>
+          </div>
+        )}
+        <WorkshopSyncTracePanel
+          sessionId={session._id}
+          className="mt-2 border-t-0"
+          defaultOpen={false}
+        />
+      </div>
+    </section>
+  );
+}
+
 /** LiveKit room, screen share, and session chat (ported from GritHub Brainstorm). */
 function LiveWorkshopRoomPanel({
   unitId,
@@ -346,6 +423,17 @@ export default function UnitClient({
       : undefined;
 
   const unit = useQuery(api.units.get, { unitId });
+  const liveWorkshopSession = useQuery(
+    api.workshops.myRegisteredSessionForLiveWorkshopUnit,
+    unit !== undefined &&
+      unit !== null &&
+      unit.deliveryMode === "live_workshop"
+      ? {
+          workshopUnitId: unitId,
+          ...(workshopSessionId != null ? { workshopSessionId } : {}),
+        }
+      : "skip",
+  );
   const items = useQuery(api.content.listByUnit, { unitId });
   const assignments = useQuery(api.assignments.listByUnit, { unitId });
   const roadmap = useQuery(api.contentProgress.roadmapForUnit, {
@@ -452,6 +540,10 @@ export default function UnitClient({
   }
 
   const isLiveWorkshopUnit = unit.deliveryMode === "live_workshop";
+  const teamsOnlyRegistered =
+    liveWorkshopSession != null &&
+    liveWorkshopSession.session != null &&
+    isMicrosoftTeamsSession(liveWorkshopSession.session);
 
   return (
     <div className="space-y-6">
@@ -493,12 +585,15 @@ export default function UnitClient({
         </div>
       </div>
 
-      {isLiveWorkshopUnit ? (
+      {isLiveWorkshopUnit && !teamsOnlyRegistered ? (
         <LiveWorkshopRoomPanel
           unitId={unitId}
           workshopSessionId={workshopSessionId}
           defaultOpen={workshopSessionId != null}
         />
+      ) : null}
+      {isLiveWorkshopUnit && teamsOnlyRegistered && liveWorkshopSession?.session ? (
+        <TeamsWorkshopJoinSection session={liveWorkshopSession.session} />
       ) : null}
 
       {lockedByPrereq && prereqStatus.prerequisites.length > 0 ? (

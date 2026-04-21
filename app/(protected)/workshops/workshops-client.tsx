@@ -11,7 +11,9 @@ import {
   liveWorkshopStatusBadgeClass,
   type LiveWorkshopSessionTimes,
 } from "@/lib/workshopSessionLiveStatus";
+import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
 import { cn } from "@/lib/utils";
+import { isMicrosoftTeamsSession } from "@/lib/workshopConference";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
@@ -489,6 +491,7 @@ function RegisteredCertPathWorkshopCard({
   past,
   now,
   onUnregister,
+  onTeamsJoinTracked,
 }: {
   session: Doc<"workshopSessions">;
   workshopTitle: string;
@@ -496,6 +499,7 @@ function RegisteredCertPathWorkshopCard({
   past: boolean;
   now: number;
   onUnregister: () => void;
+  onTeamsJoinTracked: (sessionId: Id<"workshopSessions">) => Promise<void>;
 }) {
   return (
     <Card
@@ -542,18 +546,43 @@ function RegisteredCertPathWorkshopCard({
           </Button>
         ) : null}
         {session.externalJoinUrl && !past ? (
-          <Link
-            href={session.externalJoinUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              buttonVariants({ variant: "secondary", size: "sm" }),
-              "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
-            )}
-          >
-            Open join link
-            <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
-          </Link>
+          isMicrosoftTeamsSession(session) ? (
+            <Button
+              type="button"
+              size="sm"
+              className="inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22"
+              onClick={() => {
+                const u = session.externalJoinUrl?.trim();
+                if (!u) {
+                  return;
+                }
+                void (async () => {
+                  try {
+                    await onTeamsJoinTracked(session._id);
+                  } catch {
+                    /* still open Teams */
+                  }
+                  window.open(u, "_blank", "noopener,noreferrer");
+                })();
+              }}
+            >
+              Join in Teams
+              <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
+            </Button>
+          ) : (
+            <Link
+              href={session.externalJoinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                buttonVariants({ variant: "secondary", size: "sm" }),
+                "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
+              )}
+            >
+              Open join link
+              <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
+            </Link>
+          )
         ) : !past ? (
           <Link
             href={`/units/${session.workshopUnitId}`}
@@ -570,6 +599,13 @@ function RegisteredCertPathWorkshopCard({
             />
             <span className="truncate">Open workshop unit</span>
           </Link>
+        ) : null}
+        {isMicrosoftTeamsSession(session) ? (
+          <WorkshopSyncTracePanel
+            sessionId={session._id}
+            className="mt-1 w-full"
+            defaultOpen={false}
+          />
         ) : null}
       </CardContent>
     </Card>
@@ -656,6 +692,7 @@ export default function WorkshopsClient() {
   );
   const register = useMutation(api.workshops.registerForSession);
   const unregister = useMutation(api.workshops.unregisterFromSession);
+  const recordTeamsJoin = useMutation(api.workshops.recordTeamsJoin);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -895,6 +932,9 @@ export default function WorkshopsClient() {
                           workshopUnitCode={workshopUnitCode}
                           past={past}
                           now={now}
+                          onTeamsJoinTracked={async (sessionId) => {
+                            await recordTeamsJoin({ sessionId });
+                          }}
                           onUnregister={() => {
                             void (async () => {
                               try {

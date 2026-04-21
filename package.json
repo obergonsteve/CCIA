@@ -5,12 +5,18 @@
   "scripts": {
     "postinstall": "node scripts/fix-workbox-tsconfigs.mjs && node scripts/fix-next-themes-react19.mjs",
     "convex:dev": "node scripts/convex-with-local-env.cjs dev",
+    "convex:dashboard": "node scripts/convex-with-local-env.cjs dashboard",
+    "verify:graph": "node scripts/verify-graph-convex.mjs",
+    "verify:graph:probe": "node scripts/verify-graph-convex.mjs --probe",
     "convex:push": "node scripts/convex-with-local-env.cjs dev --once",
     "seed:dev": "node scripts/convex-with-local-env.cjs run seed:seedCommunityOperatorsAndAdmins",
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration:graph-resend": "vitest run convex/lib/integration.graphResend.test.ts"
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.20",
@@ -55,6 +61,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

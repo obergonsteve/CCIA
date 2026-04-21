@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
         aria-hidden
       />
-      <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 py-1 text-card-foreground sm:px-4 dark:border-white/10 dark:bg-white/[0.07] dark:text-foreground">
+      <div className="flex min-h-[72px] shrink-0 items-center justify-between gap-2 border-b border-sidebar-border bg-sidebar px-3 py-1 text-sidebar-foreground sm:px-4">
         <div className="flex min-w-0 flex-1 items-center justify-start">
           <Image
             src="/LLLIA_logo.png"
@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+          className="h-9 w-9 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground"
           aria-label="Collapse navigation"
           onClick={() => setNavOpen(false)}
         >

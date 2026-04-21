@@ -212,8 +212,25 @@ export default defineSchema({
     titleOverride: v.optional(v.string()),
     capacity: v.optional(v.number()),
     status: v.union(v.literal("scheduled"), v.literal("cancelled")),
+    /**
+     * `livekit` (default when unset) = embedded LiveKit room in the PWA.
+     * `microsoft_teams` = Graph-backed Teams meeting; join link in `externalJoinUrl`.
+     */
+    conferenceProvider: v.optional(
+      v.union(v.literal("livekit"), v.literal("microsoft_teams")),
+    ),
+    /** IANA zone used when building Graph `start`/`end` (e.g. Australia/Sydney). */
+    timeZone: v.optional(v.string()),
     /** Until LiveKit: optional link opened in a new tab. */
     externalJoinUrl: v.optional(v.string()),
+    /** Microsoft Graph calendar event id (organizer mailbox). */
+    teamsGraphEventId: v.optional(v.string()),
+    /** Graph online meeting id when returned separately from the event. */
+    teamsOnlineMeetingId: v.optional(v.string()),
+    /** Graph user id used as `/users/{id}/events` organizer for this session. */
+    teamsOrganizerId: v.optional(v.string()),
+    teamsLastSyncAt: v.optional(v.number()),
+    teamsLastError: v.optional(v.string()),
     /** Set when an admin/content host opens the live room; learners need this before LiveKit. */
     liveRoomOpenedAt: v.optional(v.number()),
     /** Host toggles Convex whiteboard panel visibility for this session. */
@@ -226,10 +243,29 @@ export default defineSchema({
     userId: v.id("users"),
     sessionId: v.id("workshopSessions"),
     registeredAt: v.number(),
+    /** Teams path: first time user opened join from the PWA (best-effort). */
+    teamsFirstJoinedAt: v.optional(v.number()),
+    /** Teams path: last “leave” signal from the PWA. */
+    teamsLastLeftAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_session", ["sessionId"])
     .index("by_session_and_user", ["sessionId", "userId"]),
+
+  /**
+   * Debug trace for Microsoft Graph / Resend workshop sync (admin + registered learners).
+   */
+  workshopSessionSyncLogs: defineTable({
+    sessionId: v.id("workshopSessions"),
+    at: v.number(),
+    source: v.union(
+      v.literal("graph"),
+      v.literal("resend"),
+      v.literal("system"),
+    ),
+    level: v.union(v.literal("info"), v.literal("warn"), v.literal("error")),
+    message: v.string(),
+  }).index("by_session", ["sessionId"]),
 
   /** Text chat during an embedded LiveKit workshop (registered learners only). */
   workshopSessionChatMessages: defineTable({

@@ -77,6 +77,7 @@ import {
   type AdminTrainingStatsTarget,
 } from "@/components/admin/admin-training-stats-sheet";
 import { WorkshopSessionEditRow } from "@/components/admin/workshop-session-edit-row";
+import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
 import {
   WorkshopPlannerCalendar,
   WORKSHOP_CAL_DAY_PREFIX,
@@ -737,6 +738,12 @@ export default function AdminCoursesClient() {
   const [scheduleEndsLocal, setScheduleEndsLocal] = useState("");
   const [scheduleCapacity, setScheduleCapacity] = useState("");
   const [scheduleExternalUrl, setScheduleExternalUrl] = useState("");
+  const [scheduleConferenceProvider, setScheduleConferenceProvider] = useState<
+    "livekit" | "microsoft_teams"
+  >("livekit");
+  const [scheduleTimeZone, setScheduleTimeZone] = useState("Australia/Sydney");
+  const [scheduleTraceSessionId, setScheduleTraceSessionId] =
+    useState<Id<"workshopSessions"> | null>(null);
   const [trainingStatsOpen, setTrainingStatsOpen] = useState(false);
   const [trainingStatsTarget, setTrainingStatsTarget] =
     useState<AdminTrainingStatsTarget | null>(null);
@@ -1711,6 +1718,9 @@ export default function AdminCoursesClient() {
           setScheduleEndsLocal(toScheduleLocalInputValue(endD.getTime()));
           setScheduleCapacity("");
           setScheduleExternalUrl("");
+          setScheduleConferenceProvider("livekit");
+          setScheduleTimeZone("Australia/Sydney");
+          setScheduleTraceSessionId(null);
           setScheduleWorkshopOpen(true);
           return;
         }
@@ -5169,7 +5179,18 @@ export default function AdminCoursesClient() {
                         <WorkshopSessionEditRow
                           compact
                           session={s}
-                          onSave={(args) => updateWorkshopSession(args)}
+                          onSave={(args) =>
+                            updateWorkshopSession({
+                              sessionId: args.sessionId,
+                              startsAt: args.startsAt,
+                              endsAt: args.endsAt,
+                              status: args.status,
+                              capacity: args.capacity,
+                              externalJoinUrl: args.externalJoinUrl,
+                              conferenceProvider: args.conferenceProvider,
+                              timeZone: args.timeZone,
+                            })
+                          }
                         />
                       </li>
                     ))}
@@ -5612,10 +5633,11 @@ export default function AdminCoursesClient() {
         onOpenChange={(open) => {
           if (!open) {
             setScheduleWorkshopOpen(false);
+            setScheduleTraceSessionId(null);
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Schedule workshop session</DialogTitle>
             <DialogDescription>
@@ -5667,20 +5689,77 @@ export default function AdminCoursesClient() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="sched-ws-url">External join URL (optional)</Label>
+              <Label htmlFor="sched-ws-conf">Conference</Label>
+              <Select
+                value={scheduleConferenceProvider}
+                onValueChange={(v) =>
+                  setScheduleConferenceProvider(
+                    (v ?? "livekit") as "livekit" | "microsoft_teams",
+                  )
+                }
+              >
+                <SelectTrigger id="sched-ws-conf">
+                  <SelectValue>
+                    {scheduleConferenceProvider === "microsoft_teams"
+                      ? "Microsoft Teams (Graph)"
+                      : "Embedded LiveKit"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="livekit">Embedded LiveKit</SelectItem>
+                  <SelectItem value="microsoft_teams">
+                    Microsoft Teams (Graph)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {scheduleConferenceProvider === "microsoft_teams" ? (
+              <div className="space-y-1">
+                <Label htmlFor="sched-ws-tz">IANA time zone</Label>
+                <Input
+                  id="sched-ws-tz"
+                  value={scheduleTimeZone}
+                  onChange={(e) => setScheduleTimeZone(e.target.value)}
+                  placeholder="Australia/Sydney"
+                />
+              </div>
+            ) : null}
+            <div className="space-y-1">
+              <Label htmlFor="sched-ws-url">
+                External join URL (optional override)
+              </Label>
               <Input
                 id="sched-ws-url"
-                placeholder="https://…"
+                placeholder="Manual Teams link if Graph is not used"
                 value={scheduleExternalUrl}
                 onChange={(e) => setScheduleExternalUrl(e.target.value)}
               />
             </div>
+            {scheduleConferenceProvider === "microsoft_teams" ? (
+              <div className="space-y-1.5">
+                {scheduleTraceSessionId ? (
+                  <WorkshopSyncTracePanel
+                    sessionId={scheduleTraceSessionId}
+                    defaultOpen
+                  />
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    After you create a Teams session, a live debug trace appears
+                    here (Graph + Resend). Leave this dialog open to watch it
+                    update.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setScheduleWorkshopOpen(false)}
+              onClick={() => {
+                setScheduleTraceSessionId(null);
+                setScheduleWorkshopOpen(false);
+              }}
             >
               Cancel
             </Button>
@@ -5701,16 +5780,27 @@ export default function AdminCoursesClient() {
                     toast.error("Capacity must be a positive number");
                     return;
                   }
-                  await createWorkshopSession({
+                  const newSessionId = await createWorkshopSession({
                     workshopUnitId: scheduleWorkshopUnitId,
                     startsAt,
                     endsAt,
                     titleOverride: scheduleTitleOverride.trim() || undefined,
                     capacity: cap,
                     externalJoinUrl: scheduleExternalUrl.trim() || undefined,
+                    ...(scheduleConferenceProvider === "microsoft_teams"
+                      ? {
+                          conferenceProvider: "microsoft_teams" as const,
+                          timeZone:
+                            scheduleTimeZone.trim() || "Australia/Sydney",
+                        }
+                      : {}),
                   });
                   toast.success("Session created");
-                  setScheduleWorkshopOpen(false);
+                  if (scheduleConferenceProvider === "microsoft_teams") {
+                    setScheduleTraceSessionId(newSessionId);
+                  } else {
+                    setScheduleWorkshopOpen(false);
+                  }
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed");
                 }
