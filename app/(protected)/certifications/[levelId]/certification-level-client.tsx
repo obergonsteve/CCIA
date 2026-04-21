@@ -337,7 +337,7 @@ export default function CertificationLevelClient({
                         "border-border/70 bg-background/60 text-muted-foreground dark:bg-background/40",
                     )}
                   >
-                    {isWorkshop ? "Live workshop" : "Self-paced"}
+                    {isWorkshop ? "Live webinar" : "Self-paced"}
                   </Badge>
                   <span className="flex items-start gap-2">
                     {u.completed ? (
@@ -398,8 +398,8 @@ export default function CertificationLevelClient({
                   )}
                 </div>
               );
-              const linkAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, ${isWorkshop ? "live workshop" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`;
-              const workshopOpenAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, live workshop${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}. Opens scheduled sessions for this unit.`;
+              const linkAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, ${isWorkshop ? "live webinar" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`;
+              const workshopOpenAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, live webinar${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}. Opens scheduled sessions for this unit.`;
               return (
                 <li
                   key={u.unitId}
@@ -531,12 +531,12 @@ export default function CertificationLevelClient({
               variant="outline"
               className="h-5 w-fit border-purple-500/50 bg-purple-500/10 px-2 py-0 text-[10px] font-bold uppercase tracking-wide text-purple-950 dark:border-purple-400/50 dark:bg-purple-500/15 dark:text-purple-100"
             >
-              Workshop unit
+              Webinar unit
             </Badge>
             <DialogTitle className="text-balance text-purple-950 dark:text-purple-50">
               {workshopPickerTitle ||
                 workshopPickerData?.unitTitle ||
-                "Workshop sessions"}
+                "Webinar sessions"}
             </DialogTitle>
             <DialogDescription className="text-purple-900/85 dark:text-purple-200/90">
               Register for one session below. To switch dates, unregister from
@@ -551,7 +551,7 @@ export default function CertificationLevelClient({
                     "h-8 border-purple-500/45 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/50 dark:text-purple-100 dark:hover:bg-purple-500/15",
                   )}
                 >
-                  Open workshop unit
+                  Open webinar unit
                 </Link>
               </div>
             ) : null}
@@ -563,7 +563,7 @@ export default function CertificationLevelClient({
               </p>
             ) : workshopPickerData === null ? (
               <p className="text-sm text-purple-900/70 dark:text-purple-200/80">
-                You cannot access sessions for this workshop.
+                You cannot access sessions for this webinar.
               </p>
             ) : workshopPickerData.sessions.length === 0 ? (
               <p className="text-sm text-purple-900/70 dark:text-purple-200/80">

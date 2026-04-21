@@ -179,6 +179,7 @@ export function WorkshopPlannerCalendar({
   dropHighlightDayMs,
   onViewMonthChange,
   className,
+  toolbarVariant = "default",
 }: {
   sessions: WorkshopPlannerSessionMarker[];
   /** `null` = no day filter (e.g. show all workshop units in Training Content centre column). */
@@ -192,6 +193,8 @@ export function WorkshopPlannerCalendar({
   onViewMonthChange?: (monthStart: Date) => void;
   /** Merged onto the root (e.g. `space-y-2` for a denser timetable column). */
   className?: string;
+  /** Stronger toolbar contrast on the admin Timetable purple wash (month nav + Today). */
+  toolbarVariant?: "default" | "purplePanel";
 }) {
   const [viewMonth, setViewMonth] = useState(() =>
     startOfMonth(startOfDay(selectedDay ?? new Date())),
@@ -226,6 +229,8 @@ export function WorkshopPlannerCalendar({
     });
   }, []);
 
+  const purpleToolbar = toolbarVariant === "purplePanel";
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -234,20 +239,33 @@ export function WorkshopPlannerCalendar({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0"
+            className={cn(
+              "h-8 w-8 shrink-0",
+              purpleToolbar &&
+                "text-foreground hover:bg-purple-500/18 dark:hover:bg-purple-400/14",
+            )}
             aria-label="Previous month"
             onClick={() => setViewMonth((m) => subMonths(m, 1))}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <p className="min-w-0 flex-1 text-center text-sm font-semibold tabular-nums sm:flex-none">
+          <p
+            className={cn(
+              "min-w-0 flex-1 text-center text-sm font-semibold tabular-nums sm:flex-none",
+              purpleToolbar && "text-purple-950 dark:text-purple-50",
+            )}
+          >
             {format(viewMonth, "MMMM yyyy")}
           </p>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0"
+            className={cn(
+              "h-8 w-8 shrink-0",
+              purpleToolbar &&
+                "text-foreground hover:bg-purple-500/18 dark:hover:bg-purple-400/14",
+            )}
             aria-label="Next month"
             onClick={() => setViewMonth((m) => addMonths(m, 1))}
           >
@@ -259,7 +277,11 @@ export function WorkshopPlannerCalendar({
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 text-xs"
+            className={cn(
+              "h-8 text-xs",
+              purpleToolbar &&
+                "border-purple-500/50 bg-[color-mix(in_oklab,purple_12%,var(--card))] text-foreground shadow-sm hover:border-purple-600 hover:bg-[color-mix(in_oklab,purple_20%,var(--card))] hover:text-foreground dark:border-purple-400/45 dark:bg-[color-mix(in_oklab,purple_10%,var(--card))] dark:hover:border-purple-300 dark:hover:bg-[color-mix(in_oklab,purple_18%,var(--card))]",
+            )}
             onClick={() => {
               const t = startOfDay(new Date());
               onSelectDay(t);
@@ -272,7 +294,12 @@ export function WorkshopPlannerCalendar({
       </div>
 
       <div
-        className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+        className={cn(
+          "grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide",
+          purpleToolbar
+            ? "text-purple-950/75 dark:text-purple-100/80"
+            : "text-muted-foreground",
+        )}
         aria-hidden
       >
         {weekShort.map((label, i) => (
@@ -285,7 +312,7 @@ export function WorkshopPlannerCalendar({
       <div
         className="grid grid-cols-7 gap-1"
         role="grid"
-        aria-label="Workshop dates"
+        aria-label="Webinar dates"
       >
         {gridDays.map((day) =>
           droppableDays ? (

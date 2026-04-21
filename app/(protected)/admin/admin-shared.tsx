@@ -430,7 +430,7 @@ export function DraggableUnitPaletteItem({
                         (deleteVariant === "unlink"
                           ? "Remove from certification"
                           : deleteVariant === "cancel"
-                            ? "Cancel workshop sessions on selected date"
+                            ? "Cancel webinar sessions on selected date"
                             : "Delete unit from system")
                       }
                       onClick={(e) => {
@@ -501,7 +501,7 @@ function contentLibrarySubtitle(item: Doc<"contentItems">): string {
             : item.type === "assignment"
               ? "Assignment"
               : item.type === "workshop_session"
-                ? "Live workshop"
+                ? "Live webinar"
                 : "Link";
   const parts: string[] = [typeLabel];
   if (item.duration != null && item.duration > 0) {

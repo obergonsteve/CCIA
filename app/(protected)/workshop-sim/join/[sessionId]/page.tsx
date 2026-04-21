@@ -41,7 +41,7 @@ export default function WorkshopSimJoinPage({
           href="/workshops"
           className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
         >
-          Back to workshops
+          Back to webinars
         </Link>
       </div>
     );
@@ -57,12 +57,12 @@ export default function WorkshopSimJoinPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            {isSim ? "Demo workshop (simulated Teams)" : "Workshop join"}
+            {isSim ? "Demo webinar (simulated Teams)" : "Webinar join"}
           </CardTitle>
           <CardDescription>
             {isSim
               ? "This is not a real Microsoft Teams call. It exists so you can rehearse scheduling, links, registration, and join/leave in the app."
-              : "Workshop session"}
+              : "Webinar session"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">

@@ -152,7 +152,7 @@ function LearnerWorkshopsPathCalendar({
     <div
       className="rounded-lg border-2 border-amber-500/45 bg-amber-500/[0.07] p-2 shadow-sm dark:border-amber-400/40 dark:bg-amber-500/[0.11]"
       role="region"
-      aria-label="Workshop calendar"
+      aria-label="Webinar calendar"
     >
       <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-500/25 pb-2 dark:border-amber-400/20">
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-1 sm:justify-start">
@@ -231,7 +231,7 @@ function LearnerWorkshopsPathCalendar({
 
       {!hasAnyMarker ? (
         <p className="pt-2 text-xs text-muted-foreground">
-          No workshops on your certification path to show on the calendar yet.
+          No webinars on your certification path to show on the calendar yet.
         </p>
       ) : null}
       <div
@@ -250,7 +250,7 @@ function LearnerWorkshopsPathCalendar({
       <div
         className="mt-0.5 grid grid-cols-7 gap-px"
         role="grid"
-        aria-label="Workshop dates by month"
+        aria-label="Webinar dates by month"
       >
         {gridDays.map((day) => {
           const dk = startOfDay(day).getTime();
@@ -451,8 +451,8 @@ function OpenCertPathSessionCard({
         </Button>
         <Link
           href={`/units/${session.workshopUnitId}`}
-          title="Open workshop unit — live session (video, chat, screen share)"
-          aria-label={`Open workshop unit: ${session.workshopTitle}`}
+          title="Open webinar unit — live session (video, chat, screen share)"
+          aria-label={`Open webinar unit: ${session.workshopTitle}`}
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
             "max-w-full rounded-full border-sky-500/35 bg-sky-500/10 px-3 font-medium text-sky-950 shadow-sm hover:bg-sky-500/18 dark:border-sky-400/40 dark:bg-sky-500/15 dark:text-sky-50 dark:hover:bg-sky-500/24",
@@ -462,7 +462,7 @@ function OpenCertPathSessionCard({
             className="h-3.5 w-3.5 text-sky-800 dark:text-sky-200"
             aria-hidden
           />
-          <span className="truncate">Open workshop unit</span>
+          <span className="truncate">Open webinar unit</span>
         </Link>
         {session.externalJoinUrl ? (
           <Link
@@ -516,7 +516,7 @@ function RegisteredCertPathWorkshopCard({
             "group flex w-full min-w-0 max-w-full flex-col gap-0 rounded-md outline-none transition-colors",
             "hover:bg-purple-200/90 focus-visible:bg-purple-200/90 focus-visible:ring-2 focus-visible:ring-purple-500/40 focus-visible:ring-offset-2 dark:hover:bg-purple-900/85 dark:focus-visible:bg-purple-900/85",
           )}
-          aria-label={`Open workshop unit: ${workshopTitle}`}
+          aria-label={`Open webinar unit: ${workshopTitle}`}
         >
           <CardTitle className="min-w-0 text-base font-medium leading-snug text-foreground underline-offset-4 group-hover:underline">
             <span className="block truncate">{workshopTitle}</span>
@@ -586,8 +586,8 @@ function RegisteredCertPathWorkshopCard({
         ) : !past ? (
           <Link
             href={`/units/${session.workshopUnitId}`}
-            title="Open workshop unit — live session (video, chat, screen share)"
-            aria-label={`Open workshop unit: ${workshopTitle}`}
+            title="Open webinar unit — live session (video, chat, screen share)"
+            aria-label={`Open webinar unit: ${workshopTitle}`}
             className={cn(
               buttonVariants({ variant: "secondary", size: "sm" }),
               "max-w-full rounded-full border-purple-500/35 bg-purple-500/10 px-3 font-medium text-purple-950 shadow-sm hover:bg-purple-500/18 dark:border-purple-400/40 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/24",
@@ -597,7 +597,7 @@ function RegisteredCertPathWorkshopCard({
               className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
               aria-hidden
             />
-            <span className="truncate">Open workshop unit</span>
+            <span className="truncate">Open webinar unit</span>
           </Link>
         ) : null}
         {isMicrosoftTeamsSession(session) ? (
@@ -649,8 +649,8 @@ function ClosedCertPathWorkshopCard({
       <CardContent className="flex flex-wrap gap-2 pb-2">
         <Link
           href={href}
-          title="Open workshop unit — session chat and whiteboard"
-          aria-label={`Open workshop unit: ${workshopTitle}`}
+          title="Open webinar unit — session chat and whiteboard"
+          aria-label={`Open webinar unit: ${workshopTitle}`}
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
             "inline-flex max-w-full gap-1.5 rounded-full border-slate-400/45 bg-slate-200/50 px-3 font-medium text-slate-900 shadow-sm hover:bg-slate-200/80 dark:border-slate-500/50 dark:bg-slate-800/60 dark:text-slate-50 dark:hover:bg-slate-800/85",
@@ -660,7 +660,7 @@ function ClosedCertPathWorkshopCard({
             className="h-3.5 w-3.5 shrink-0 text-slate-700 dark:text-slate-300"
             aria-hidden
           />
-          <span className="truncate">Open workshop unit</span>
+          <span className="truncate">Open webinar unit</span>
         </Link>
       </CardContent>
     </Card>
@@ -811,14 +811,14 @@ export default function WorkshopsClient() {
         <div
           className="flex flex-col gap-3 rounded-xl border border-purple-500/35 bg-purple-500/[0.06] px-4 py-3 dark:border-purple-400/30 dark:bg-purple-500/[0.08] sm:flex-row sm:items-start sm:justify-between"
           role="region"
-          aria-label="Filtered workshop unit"
+          aria-label="Filtered webinar unit"
         >
           <div className="min-w-0 space-y-1">
             <p className="text-sm font-semibold text-foreground">
               {filterUnit === undefined
-                ? "Loading this workshop…"
+                ? "Loading this webinar…"
                 : filterUnit === null
-                  ? "Workshop unit unavailable"
+                  ? "Webinar unit unavailable"
                   : filterUnit.title}
             </p>
             <p className="text-sm text-muted-foreground">
@@ -839,7 +839,7 @@ export default function WorkshopsClient() {
               nativeButton={false}
               render={<Link href="/workshops" />}
             >
-              All workshops
+              All webinars
             </Button>
             {filterLevelId ? (
               <Button
@@ -859,7 +859,7 @@ export default function WorkshopsClient() {
       <section
         id="workshop-upcoming-sessions"
         className="scroll-mt-24 space-y-3"
-        aria-label="Workshop sessions on your certifications"
+        aria-label="Webinar sessions on your certifications"
       >
         {!pathListsReady ? (
           <p className="text-sm text-purple-900/70 dark:text-purple-200/75">
@@ -1028,7 +1028,7 @@ export default function WorkshopsClient() {
               {!closedWorkshopsFiltered ||
               closedWorkshopsFiltered.length === 0 ? (
                 <p className="text-sm text-slate-800/80 dark:text-slate-100/85">
-                  No closed workshops on your path
+                  No closed webinars on your path
                   {filterUnitId ? " for this unit" : ""} yet.
                 </p>
               ) : (

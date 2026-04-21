@@ -9,6 +9,7 @@ import {
 } from "./lib/auth";
 import { userCanAccessUnit } from "./lib/auth";
 import { isLive } from "./lib/softDelete";
+import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
 import { LAND_LEASE_CURRICULUM, seedUnitKey } from "./curriculumSeedData";
 
 export type PrerequisiteItem = {
@@ -51,7 +52,7 @@ export const statusForUnit = query({
         .unique();
       prerequisites.push({
         unitId: u._id,
-        title: u.title,
+        title: webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode),
         levelId: levelId ?? null,
         levelName: level?.name ?? "Unit",
         completed: prog?.completed ?? false,
@@ -111,7 +112,9 @@ export const summariesForLevel = query({
         if (!isLive(pu)) {
           continue;
         }
-        titles.push(pu.title);
+        titles.push(
+          webinarizeForLiveWorkshopUnit(pu.title, pu.deliveryMode),
+        );
         const prog = await ctx.db
           .query("userProgress")
           .withIndex("by_user_unit", (q) =>

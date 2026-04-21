@@ -144,7 +144,7 @@ export function ContentItemView({
         : item.type === "assignment"
           ? "Assignment"
           : item.type === "workshop_session"
-            ? "Live workshop"
+            ? "Live webinar"
             : item.type;
 
   return (

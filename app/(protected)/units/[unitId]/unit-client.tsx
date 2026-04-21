@@ -248,7 +248,7 @@ function TeamsWorkshopJoinSection({
   return (
     <section
       className="rounded-xl border border-teal-500/35 bg-teal-500/[0.12] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-teal-400/30 dark:bg-teal-500/[0.14]"
-      aria-label="Teams workshop"
+      aria-label="Teams webinar"
     >
       <div className="flex flex-col gap-3 border-b border-teal-500/30 px-4 py-3 dark:border-teal-400/22">
         <div className="flex items-center gap-2">
@@ -257,7 +257,7 @@ function TeamsWorkshopJoinSection({
             aria-hidden
           />
           <span className="font-heading font-semibold text-foreground">
-            Workshop (Microsoft Teams)
+            Webinar (Microsoft Teams)
           </span>
         </div>
         {session.teamsGraphEventId?.startsWith("sim:") ? (
@@ -348,7 +348,7 @@ function LiveWorkshopRoomPanel({
       className={cn(
         "rounded-xl border border-purple-500/35 bg-purple-500/[0.13] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/30 dark:bg-purple-500/[0.16]",
       )}
-      aria-label="Workshop room"
+      aria-label="Webinar room"
     >
       <button
         type="button"
@@ -357,8 +357,8 @@ function LiveWorkshopRoomPanel({
         aria-controls={bodyId}
         aria-label={
           headerStatus != null
-            ? `Workshop — ${headerStatus.label}`
-            : "Workshop"
+            ? `Webinar — ${headerStatus.label}`
+            : "Webinar"
         }
         onClick={() => setOpen((v) => !v)}
       >
@@ -368,7 +368,7 @@ function LiveWorkshopRoomPanel({
             aria-hidden
           />
           <span className="font-heading font-semibold text-foreground">
-            Workshop
+            Webinar
           </span>
         </span>
         <span className="flex min-w-0 flex-1 justify-end">
@@ -567,7 +567,7 @@ export default function UnitClient({
                 : "border border-brand-gold/55 bg-brand-gold/[0.18] text-foreground shadow-sm shadow-brand-gold/10 dark:border-brand-gold/45 dark:bg-brand-gold/[0.14] dark:text-foreground",
             )}
           >
-            {isLiveWorkshopUnit ? "Workshop" : "Self-paced"}
+            {isLiveWorkshopUnit ? "Webinar" : "Self-paced"}
           </Badge>
         </div>
         {unit.code?.trim() ? (
@@ -643,7 +643,7 @@ export default function UnitClient({
           <div className="space-y-1.5 text-muted-foreground">
             <p>{sequentialBlockedMessage}</p>
             <p className="text-xs text-foreground/90">
-              You can still browse workshop sessions and register below; other
+              You can still browse webinar sessions and register below; other
               certification units stay in order.
             </p>
           </div>

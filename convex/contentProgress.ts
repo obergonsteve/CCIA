@@ -11,6 +11,7 @@ import { collectUnitsForLevel } from "./units";
 import { requireUserId, userCanAccessLevel, userCanAccessUnit } from "./lib/auth";
 import { getIncompletePrerequisites } from "./lib/prerequisites";
 import { isLive } from "./lib/softDelete";
+import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
 
 export type UnitStep =
   | {
@@ -540,7 +541,7 @@ export const roadmapForUnit = query({
     return {
       prerequisitesIncomplete: prereqs.map((u) => ({
         unitId: u._id,
-        title: u.title,
+        title: webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode),
       })),
       sequentialUnitBlocked,
       workshopSequentialBypass,
@@ -879,8 +880,11 @@ export const roadmapForCertification = query({
       out.push({
         unitId: unit._id,
         code: unit.code,
-        title: unit.title,
-        description: unit.description,
+        title: webinarizeForLiveWorkshopUnit(unit.title, unit.deliveryMode),
+        description: webinarizeForLiveWorkshopUnit(
+          unit.description,
+          unit.deliveryMode,
+        ),
         order: i,
         deliveryMode: unit.deliveryMode,
         workshopRegistration:
@@ -914,7 +918,9 @@ export const recordContentStart = mutation({
     const missing = await getIncompletePrerequisites(ctx, userId, unitId);
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
@@ -930,7 +936,7 @@ export const recordContentStart = mutation({
     const itemForKind = itemsForKind.find((c) => c._id === contentId);
     if (itemForKind?.type === "workshop_session") {
       throw new Error(
-        "Workshop steps are tracked via registration, not lesson start.",
+        "Webinar steps are tracked via registration, not lesson start.",
       );
     }
     const now = Date.now();
@@ -1002,7 +1008,9 @@ export const recordContentComplete = mutation({
     const missing = await getIncompletePrerequisites(ctx, userId, unitId);
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
@@ -1016,7 +1024,7 @@ export const recordContentComplete = mutation({
     }
     if (item.type === "workshop_session") {
       throw new Error(
-        "Register for the workshop session to complete this step.",
+        "Register for the webinar session to complete this step.",
       );
     }
     const steps = await getOrderedStepsForUnit(ctx, unitId);
@@ -1101,7 +1109,9 @@ export const reopenContentStep = mutation({
     const missing = await getIncompletePrerequisites(ctx, userId, unitId);
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
@@ -1116,7 +1126,7 @@ export const reopenContentStep = mutation({
     if (item.type === "workshop_session") {
       const sid = item.workshopSessionId;
       if (!sid) {
-        throw new Error("Invalid workshop step");
+        throw new Error("Invalid webinar step");
       }
       const reg = await ctx.db
         .query("workshopRegistrations")
@@ -1192,7 +1202,9 @@ export const recordLegacyAssignmentStart = mutation({
     const missing = await getIncompletePrerequisites(ctx, userId, unitId);
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     await assertSequentialUnitAccess(ctx, userId, levelId, unitId);

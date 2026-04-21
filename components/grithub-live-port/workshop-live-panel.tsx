@@ -76,7 +76,7 @@ export function WorkshopLivePanel({
   panelExpanded = true,
 }: {
   workshopUnitId: Id<"units">;
-  /** When set, load this registered session (e.g. `?session=` from Workshops → closed run). */
+  /** When set, load this registered session (e.g. `?session=` from Webinars → closed run). */
   workshopSessionId?: Id<"workshopSessions">;
   /** False when the unit page workshop section is collapsed — local mic/camera are muted/disabled. */
   panelExpanded?: boolean;
@@ -255,7 +255,7 @@ export function WorkshopLivePanel({
   if (sessionRow === undefined && liveKitCredentials === null) {
     return (
       <div className="animate-pulse rounded-lg bg-muted/60 px-4 py-8 text-center text-sm text-muted-foreground">
-        Loading workshop session…
+        Loading webinar session…
       </div>
     );
   }
@@ -271,7 +271,7 @@ export function WorkshopLivePanel({
           href="/workshops"
           className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
         >
-          Browse workshops
+          Browse webinars
         </Link>
       </div>
     );
@@ -280,7 +280,7 @@ export function WorkshopLivePanel({
   if (!session) {
     return (
       <p className="text-sm text-muted-foreground">
-        Unable to load this workshop session. Try refreshing the page.
+        Unable to load this webinar session. Try refreshing the page.
       </p>
     );
   }

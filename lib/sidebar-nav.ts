@@ -24,7 +24,7 @@ export const primarySidebarNav = [
   },
   {
     href: "/workshops",
-    label: "Workshops",
+    label: "Webinars",
     icon: CalendarDays,
     accent: "purple" as const,
   },
@@ -90,10 +90,10 @@ export function sidebarMainPageHeading(
   }
   if (pathname === "/workshops" || pathname.startsWith("/workshops/")) {
     return {
-      label: "Workshops",
+      label: "Webinars",
       icon: CalendarDays,
       iconClassName: "text-purple-600 dark:text-purple-400",
-      subheading: "Workshop units in your Certification Roadmap.",
+      subheading: "Webinar units in your Certification Roadmap.",
     };
   }
   if (pathname.startsWith("/admin/users")) {

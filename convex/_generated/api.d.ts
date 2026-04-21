@@ -30,6 +30,7 @@ import type * as lib_liveKitSanitize from "../lib/liveKitSanitize.js";
 import type * as lib_microsoftGraph from "../lib/microsoftGraph.js";
 import type * as lib_prerequisites from "../lib/prerequisites.js";
 import type * as lib_softDelete from "../lib/softDelete.js";
+import type * as lib_webinarDisplayText from "../lib/webinarDisplayText.js";
 import type * as lib_workshopGraphAttendees from "../lib/workshopGraphAttendees.js";
 import type * as lib_workshopGraphKillSwitch from "../lib/workshopGraphKillSwitch.js";
 import type * as lib_workshopSyncLog from "../lib/workshopSyncLog.js";
@@ -80,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   "lib/microsoftGraph": typeof lib_microsoftGraph;
   "lib/prerequisites": typeof lib_prerequisites;
   "lib/softDelete": typeof lib_softDelete;
+  "lib/webinarDisplayText": typeof lib_webinarDisplayText;
   "lib/workshopGraphAttendees": typeof lib_workshopGraphAttendees;
   "lib/workshopGraphKillSwitch": typeof lib_workshopGraphKillSwitch;
   "lib/workshopSyncLog": typeof lib_workshopSyncLog;

@@ -17,6 +17,7 @@ import { isWorkshopGraphSyncDisabled } from "./lib/workshopGraphKillSwitch";
 import { isWorkshopTeamsSimulationEnabled } from "./lib/workshopTeamsSimulation";
 import { insertWorkshopSyncLog } from "./lib/workshopSyncLog";
 import { collectLiveWorkshopUnitIdsOnLearnerCertPaths } from "./certifications";
+import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
 
 const sessionStatusValidator = v.union(
   v.literal("scheduled"),
@@ -45,7 +46,10 @@ export const listSessionsAdmin = query({
         .collect();
       out.push({
         ...s,
-        workshopTitle: u && isLive(u) ? u.title : "(removed unit)",
+        workshopTitle:
+          u && isLive(u)
+            ? webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode)
+            : "(removed unit)",
         registrationCount: regs.length,
       });
     }
@@ -98,7 +102,7 @@ export const createSession = mutation({
     await requireAdminOrCreator(ctx);
     const unit = await ctx.db.get(args.workshopUnitId);
     if (!isLive(unit) || unit.deliveryMode !== "live_workshop") {
-      throw new Error("Unit must exist and be a live workshop unit");
+      throw new Error("Unit must exist and be a live webinar unit");
     }
     if (args.endsAt <= args.startsAt) {
       throw new Error("End time must be after start time");
@@ -309,7 +313,7 @@ export const deleteSessionsForWorkshopUnitOnLocalDay = mutation({
     }
     const unit = await ctx.db.get(workshopUnitId);
     if (!isLive(unit) || unit.deliveryMode !== "live_workshop") {
-      throw new Error("Unit must be a live workshop unit");
+      throw new Error("Unit must be a live webinar unit");
     }
     const sessions = await ctx.db
       .query("workshopSessions")
@@ -458,7 +462,10 @@ export const listUpcomingForUser = query({
         s.capacity != null && s.capacity > 0 && regs.length >= s.capacity;
       out.push({
         ...s,
-        workshopTitle: u && isLive(u) ? u.title : "Workshop",
+        workshopTitle:
+          u && isLive(u)
+            ? webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode)
+            : "Webinar",
         tiers,
         registered,
         full,
@@ -538,7 +545,10 @@ export const listUpcomingOnMyCertificationPath = query({
         s.capacity != null && s.capacity > 0 && regs.length >= s.capacity;
       out.push({
         ...s,
-        workshopTitle: u && isLive(u) ? u.title : "Workshop",
+        workshopTitle:
+          u && isLive(u)
+            ? webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode)
+            : "Webinar",
         tiers,
         registered,
         full,
@@ -577,7 +587,10 @@ export const myRegistrations = query({
       out.push({
         registration: r,
         session,
-        workshopTitle: u && isLive(u) ? u.title : "Workshop",
+        workshopTitle:
+          u && isLive(u)
+            ? webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode)
+            : "Webinar",
         past: session.endsAt < now,
       });
     }
@@ -642,7 +655,10 @@ export const myRegistrationsOnCertificationPath = query({
       out.push({
         registration: r,
         session,
-        workshopTitle: u && isLive(u) ? u.title : "Workshop",
+        workshopTitle:
+          u && isLive(u)
+            ? webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode)
+            : "Webinar",
         workshopUnitCode:
           u && isLive(u) ? (u.code?.trim() ? u.code.trim() : null) : null,
         past: session.endsAt < now,
@@ -693,7 +709,10 @@ export const listUpcomingSessionsForWorkshopUnit = query({
         s.capacity != null && s.capacity > 0 && regs.length >= s.capacity;
       rows.push({ session: s, registered, full });
     }
-    return { unitTitle: unit.title, sessions: rows };
+    return {
+      unitTitle: webinarizeForLiveWorkshopUnit(unit.title, unit.deliveryMode),
+      sessions: rows,
+    };
   },
 });
 
@@ -879,7 +898,7 @@ export const setWorkshopWhiteboardVisible = mutation({
       throw new Error("Forbidden");
     }
     if (session.endsAt < Date.now()) {
-      throw new Error("This workshop session has ended.");
+      throw new Error("This webinar session has ended.");
     }
     if (session.liveRoomOpenedAt == null) {
       throw new Error("Start the live session before changing the whiteboard.");
@@ -1033,7 +1052,10 @@ export const getSessionForUser = query({
     const unit = await ctx.db.get(session.workshopUnitId);
     return {
       session,
-      workshopTitle: unit && isLive(unit) ? unit.title : "Workshop",
+      workshopTitle:
+        unit && isLive(unit)
+          ? webinarizeForLiveWorkshopUnit(unit.title, unit.deliveryMode)
+          : "Webinar",
     };
   },
 });
@@ -1071,7 +1093,7 @@ export const recordTeamsJoin = mutation({
     const userId = await requireUserId(ctx);
     const session = await ctx.db.get(sessionId);
     if (!session || session.conferenceProvider !== "microsoft_teams") {
-      throw new Error("Not a Microsoft Teams workshop session.");
+      throw new Error("Not a Microsoft Teams webinar session.");
     }
     const reg = await ctx.db
       .query("workshopRegistrations")
@@ -1097,7 +1119,7 @@ export const recordTeamsLeave = mutation({
     const userId = await requireUserId(ctx);
     const session = await ctx.db.get(sessionId);
     if (!session || session.conferenceProvider !== "microsoft_teams") {
-      throw new Error("Not a Microsoft Teams workshop session.");
+      throw new Error("Not a Microsoft Teams webinar session.");
     }
     const reg = await ctx.db
       .query("workshopRegistrations")

@@ -13,6 +13,7 @@ import {
 import { requireUserId } from "./lib/auth";
 import { userCanAccessUnit } from "./lib/auth";
 import { getIncompletePrerequisites } from "./lib/prerequisites";
+import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
 
 function normalize(s: string) {
   return s.trim().toLowerCase();
@@ -96,7 +97,9 @@ export const markUnitComplete = mutation({
     const missing = await getIncompletePrerequisites(ctx, userId, unitId);
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     const stepsOk = await unitStepsFullyDone(ctx, userId, unitId);
@@ -141,7 +144,9 @@ export const touchUnit = mutation({
     const missing = await getIncompletePrerequisites(ctx, userId, unitId);
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     const now = Date.now();
@@ -192,7 +197,9 @@ export const submitAssignment = mutation({
     );
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     const steps = await getOrderedStepsForUnit(ctx, assignment.unitId);
@@ -257,7 +264,9 @@ export const submitAssessmentContent = mutation({
     const missing = await getIncompletePrerequisites(ctx, userId, unitId);
     if (missing.length > 0) {
       throw new Error(
-        `Complete prerequisites first: ${missing.map((u) => u.title).join(", ")}`,
+        `Complete prerequisites first: ${missing
+          .map((u) => webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode))
+          .join(", ")}`,
       );
     }
     const itemsOnUnit = await collectContentInUnit(ctx, unitId);

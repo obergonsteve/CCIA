@@ -28,7 +28,7 @@ async function assertWorkshopSessionChatAccess(
   }
   const unit = await ctx.db.get(session.workshopUnitId);
   if (!unit || !isLive(unit) || unit.deliveryMode !== "live_workshop") {
-    throw new Error("Invalid workshop.");
+    throw new Error("Invalid webinar session.");
   }
   const canAccess = await userCanAccessWorkshopSession(
     ctx,

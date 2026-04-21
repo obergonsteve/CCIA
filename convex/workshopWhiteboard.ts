@@ -141,7 +141,7 @@ async function assertWorkshopWhiteboardReadAccess(
   }
   const unit = await ctx.db.get(session.workshopUnitId);
   if (!unit || !isLive(unit) || unit.deliveryMode !== "live_workshop") {
-    throw new Error("Invalid workshop.");
+    throw new Error("Invalid webinar session.");
   }
   const canAccess = await userCanAccessWorkshopSession(
     ctx,
@@ -291,7 +291,7 @@ export const clearWorkshopWhiteboardStrokes = mutation({
       throw new Error("Forbidden");
     }
     if (session.endsAt < Date.now()) {
-      throw new Error("This workshop session has ended.");
+      throw new Error("This webinar session has ended.");
     }
     if (session.liveRoomOpenedAt == null) {
       throw new Error("Start the live session first.");

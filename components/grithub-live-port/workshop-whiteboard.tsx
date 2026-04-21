@@ -1594,7 +1594,7 @@ export function WorkshopWhiteboard({
             </button>
             <button
               type="button"
-              title="Redo is not available on the workshop board (no redo stack yet)."
+              title="Redo is not available on the webinar board (no redo stack yet)."
               disabled
               className={cn(
                 toolbarSegBtn,

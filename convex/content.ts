@@ -140,15 +140,15 @@ async function assertValidWorkshopSessionRef(
     return;
   }
   if (!workshopSessionId) {
-    throw new Error("workshop_session content requires a linked session");
+    throw new Error("Live webinar content requires a linked session");
   }
   const session = await ctx.db.get(workshopSessionId);
   if (!session) {
-    throw new Error("Workshop session not found");
+    throw new Error("Webinar session not found");
   }
   const unit = await ctx.db.get(session.workshopUnitId);
   if (!isLive(unit) || unit.deliveryMode !== "live_workshop") {
-    throw new Error("Session must belong to a live workshop unit");
+    throw new Error("Session must belong to a live webinar unit");
   }
 }
 

@@ -96,7 +96,7 @@ export default function AdminDatabaseClient() {
                           .workshopUnitsInserted
                       : 0;
                   toast.success(
-                    `Seeded ${res.levelCount} levels, ${res.unitCount} units (${ws} live workshop), ${res.prerequisiteCount} prerequisite links`,
+                    `Seeded ${res.levelCount} levels, ${res.unitCount} units (${ws} live webinar), ${res.prerequisiteCount} prerequisite links`,
                   );
                 }
               } catch (e) {

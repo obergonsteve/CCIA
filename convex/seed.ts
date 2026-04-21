@@ -133,7 +133,7 @@ function shortDescriptionFromContentRow(row: Doc<"contentItems">): string {
     return seededShortDescriptionForAssessment(title, intro);
   }
   if (row.type === "workshop_session") {
-    return `${title} — register for a scheduled live workshop session.`;
+    return `${title} — register for a scheduled live webinar session.`;
   }
   const kind =
     row.type === "video"
@@ -434,11 +434,11 @@ type SeededWorkshopUnitSpec = {
 const SEEDED_WORKSHOP_UNIT_SPECS: SeededWorkshopUnitSpec[] = [
   {
     courseName: "Land Lease 101",
-    title: "Live community orientation workshop",
+    title: "Live community orientation webinar",
     description:
-      "Facilitated orientation: on-site expectations, resident touchpoints, and Q&A. Watch the short pre-record, review the checklist, register for a session via the workshop step, then submit the reflection.",
-    videoTitle: "Before you attend: how live workshops run",
-    linkTitle: "Workshop participant checklist",
+      "Facilitated orientation: on-site expectations, resident touchpoints, and Q&A. Watch the short pre-record, review the checklist, register for a session via the webinar step, then submit the reflection.",
+    videoTitle: "Before you attend: how live webinars run",
+    linkTitle: "Webinar participant checklist",
     linkUrl: "https://www.ccia.com.au/",
     sessionStepTitle: "Register for a scheduled orientation session",
     sessionStartIso: "2026-05-20T09:00:00+10:00",
@@ -447,10 +447,10 @@ const SEEDED_WORKSHOP_UNIT_SPECS: SeededWorkshopUnitSpec[] = [
   },
   {
     courseName: "Compliance & the Act",
-    title: "Compliance briefing (live workshop)",
+    title: "Compliance briefing (live webinar)",
     description:
       "Walkthrough of disclosure themes and common enquiries with a facilitator. Complete the pre-read, book a session, then confirm takeaways in the short assignment.",
-    videoTitle: "Pre-read: how compliance workshops are structured",
+    videoTitle: "Pre-read: how compliance webinars are structured",
     linkTitle: "National Cabinet — disclosure reform (context)",
     linkUrl: "https://www.nationalcabinet.gov.au/",
     sessionStepTitle: "Book a scheduled compliance briefing",
@@ -460,7 +460,7 @@ const SEEDED_WORKSHOP_UNIT_SPECS: SeededWorkshopUnitSpec[] = [
   },
   {
     courseName: "Site Safety & WHS",
-    title: "Site safety roundtable (live workshop)",
+    title: "Site safety roundtable (live webinar)",
     description:
       "Interactive session on hazard reporting, contractor controls, and incident escalation. Review the primer link, attend a scheduled roundtable, then complete the knowledge check.",
     videoTitle: "Safety culture — what we cover in the live roundtable",
@@ -563,8 +563,8 @@ async function insertSeededWorkshopUnits(
     });
     const liveWorkshopCatId = await getOrInsertContentCategory(
       ctx,
-      "Live workshops",
-      "Live workshops — scheduled sessions & registration",
+      "Live webinars",
+      "Live webinars — scheduled sessions & registration",
       opts.contentSort,
     );
     const sessionContentId = await ctx.db.insert("contentItems", {
@@ -596,16 +596,16 @@ async function insertSeededWorkshopUnits(
       url: "",
       contentCategoryId: assignCatId,
       shortDescription:
-        "Short reflection after the live workshop step to capture takeaways for your site file.",
+        "Short reflection after the live webinar step to capture takeaways for your site file.",
       assessment: {
         description:
-          "Short confirmation after you have used the workshop session step (register or mark complete as directed by your facilitator).",
+          "Short confirmation after you have used the webinar session step (register or mark complete as directed by your facilitator).",
         passingScore: 70,
         questions: [
           {
             id: `ws-${inserted}-reflect`,
             question:
-              "After the live workshop step, which statement best matches what you should do next?",
+              "After the live webinar step, which statement best matches what you should do next?",
             type: "multiple_choice",
             options: [
               "Ignore the session tile — it is optional decoration",

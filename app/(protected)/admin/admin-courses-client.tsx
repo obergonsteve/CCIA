@@ -337,7 +337,7 @@ function contentTypeItemToStringLabel(value: string | null): string {
     case "assignment":
       return "Assignment";
     case "workshop_session":
-      return "Live workshop";
+      return "Live webinar";
     default:
       return value?.trim() || "Link";
   }
@@ -538,24 +538,24 @@ function TrainingLeftTabChip({
             : "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]"
           : tone === "purple"
             ? cn(
-                "border-border/60 bg-muted text-muted-foreground dark:border-border/55 dark:bg-muted",
-                "hover:border-purple-600 hover:bg-[color-mix(in_oklab,purple_24%,var(--muted))] hover:text-foreground dark:hover:border-purple-400 dark:hover:bg-[color-mix(in_oklab,purple_20%,var(--muted))] dark:hover:text-foreground",
+                "border-purple-500/45 bg-[color-mix(in_oklab,purple_12%,var(--card))] text-foreground dark:border-purple-400/40 dark:bg-[color-mix(in_oklab,purple_10%,var(--card))]",
+                "hover:border-purple-600 hover:bg-[color-mix(in_oklab,purple_22%,var(--card))] dark:hover:border-purple-400 dark:hover:bg-[color-mix(in_oklab,purple_18%,var(--card))]",
               )
             : cn(
-                "border-border/60 bg-muted text-muted-foreground dark:border-border/55 dark:bg-muted",
-                "hover:border-brand-lime hover:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--muted))] hover:text-foreground dark:hover:border-brand-lime dark:hover:bg-[color-mix(in_oklab,var(--brand-lime)_20%,var(--muted))] dark:hover:text-foreground",
+                "border-brand-lime/50 bg-[color-mix(in_oklab,var(--brand-lime)_14%,var(--card))] text-foreground dark:border-brand-lime/45 dark:bg-[color-mix(in_oklab,var(--brand-lime)_12%,var(--card))]",
+                "hover:border-brand-lime hover:bg-[color-mix(in_oklab,var(--brand-lime)_26%,var(--card))] dark:hover:bg-[color-mix(in_oklab,var(--brand-lime)_22%,var(--card))]",
               ),
       )}
     >
       {label?.trim() ? (
-        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide">
           {label.trim()}
         </span>
       ) : null}
-      <span className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center">
+      <span className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center text-inherit">
         {trailing}
       </span>
-      <span className="shrink-0 tabular-nums rounded-md bg-background px-1.5 py-0.5 text-xs font-bold leading-none text-foreground dark:bg-muted">
+      <span className="shrink-0 tabular-nums rounded-md bg-background px-1.5 py-0.5 text-xs font-bold leading-none text-inherit dark:bg-card">
         {count === null ? "…" : count}
       </span>
     </button>
@@ -1700,7 +1700,7 @@ export default function AdminCoursesClient() {
             return;
           }
           if ((unitRow.deliveryMode ?? "self_paced") !== "live_workshop") {
-            toast.error("Only live workshop units can be scheduled on the calendar");
+            toast.error("Only live webinar units can be scheduled on the calendar");
             return;
           }
           if (!Number.isFinite(dayMs)) {
@@ -2357,7 +2357,7 @@ export default function AdminCoursesClient() {
       <div className="pb-2">
         <p className="-mt-2 mb-5 text-base leading-snug text-muted-foreground">
           Build Content and assemble into Units. Combine Units into
-          Certifications. Schedule live Workshop Units.
+          Certifications. Schedule live webinar units.
         </p>
         <p className="mx-auto mt-0 flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-md border border-[oklch(0.58_0.11_232/0.55)] bg-[oklch(0.97_0.038_96/0.84)] px-2.5 py-1 text-center text-sm leading-none text-[oklch(0.44_0.095_232)] dark:border-[oklch(0.55_0.095_232/0.45)] dark:bg-[oklch(0.34_0.048_92/0.82)] dark:text-[oklch(0.82_0.065_232)]">
           <GripHorizontal
@@ -2606,23 +2606,28 @@ export default function AdminCoursesClient() {
                 />
                 <Button
                   type="button"
-                  variant={
-                    workshopPlannerDay == null ? "secondary" : "outline"
-                  }
+                  variant="outline"
                   size="sm"
-                  className="mb-1 h-8 min-w-[8.75rem] shrink-0 self-center whitespace-nowrap px-4 text-sm"
+                  className={cn(
+                    "mb-1 h-8 min-w-[8.75rem] shrink-0 self-center whitespace-nowrap px-4 text-sm",
+                    "border-purple-500/50 bg-[color-mix(in_oklab,purple_14%,var(--card))] text-foreground shadow-sm",
+                    "hover:border-purple-600 hover:bg-[color-mix(in_oklab,purple_22%,var(--card))] hover:text-foreground",
+                    "dark:border-purple-400/45 dark:bg-[color-mix(in_oklab,purple_12%,var(--card))] dark:hover:border-purple-300 dark:hover:bg-[color-mix(in_oklab,purple_18%,var(--card))]",
+                    workshopPlannerDay == null &&
+                      "border-purple-600 bg-[color-mix(in_oklab,purple_26%,var(--card))] font-semibold dark:border-purple-300 dark:bg-[color-mix(in_oklab,purple_22%,var(--card))]",
+                  )}
                   aria-pressed={workshopPlannerDay == null}
-                  aria-label="All workshops — list every live workshop unit in the centre column (no day filter)"
-                  title="List all workshop units in the centre column (no day filter)"
+                  aria-label="All webinars — list every live webinar unit in the centre column (no day filter)"
+                  title="List all webinar units in the centre column (no day filter)"
                   onClick={() => handleWorkshopPlannerSelectDay(null)}
                 >
-                  All workshops
+                  All webinars
                 </Button>
                 <hr className="my-1.5 h-0 shrink-0 border-0 border-t-2 border-solid border-purple-500/45 dark:border-purple-400/40" />
                 <p className="mb-1 shrink-0 text-sm text-muted-foreground">
                   {workshopPlannerDay == null
-                    ? "Drag a workshop unit onto a date to schedule it."
-                    : "Select 'All workshops' to drag Workshop Units onto the calendar."}
+                    ? "Drag a webinar unit onto a date to schedule it."
+                    : "Select 'All webinars' to drag webinar units onto the calendar."}
                 </p>
                 <div className="min-h-0 flex-1 overflow-y-auto scrollbar-panel">
                   <WorkshopPlannerCalendar
@@ -2635,6 +2640,7 @@ export default function AdminCoursesClient() {
                       setWorkshopCalendarViewMonth(startOfMonth(m))
                     }
                     className="space-y-2"
+                    toolbarVariant="purplePanel"
                   />
                 </div>
               </TabsContent>
@@ -2657,11 +2663,11 @@ export default function AdminCoursesClient() {
               trailing={
                 <span className="min-w-0 truncate">
                   {trainingLeftTab === "workshops" && workshopPlannerDay != null
-                    ? `Workshops on ${format(workshopPlannerDay, "d MMM yyyy")}`
+                    ? `Webinars on ${format(workshopPlannerDay, "d MMM yyyy")}`
                     : trainingLeftTab === "workshops" && workshopPlannerDay == null
                       ? filterCertId && !centreUnitsShowAll
                         ? (filterCertName ?? "…")
-                        : "All workshop units"
+                        : "All webinar units"
                       : filterCertId && !centreUnitsShowAll
                         ? (filterCertName ?? "…")
                         : "All units"}
@@ -2763,9 +2769,9 @@ export default function AdminCoursesClient() {
                   )}
                   onClick={() => setUnitDeliveryFilter("live_workshop")}
                   aria-pressed={unitDeliveryFilter === "live_workshop"}
-                  title="Show live workshop units (scheduled sessions)"
+                  title="Show live webinar units (scheduled sessions)"
                 >
-                  <span className="min-w-0 truncate">Workshop</span>
+                  <span className="min-w-0 truncate">Webinar</span>
                   <span className="shrink-0 tabular-nums text-muted-foreground">
                     ({unitWorkshopCount})
                   </span>
@@ -2980,7 +2986,7 @@ export default function AdminCoursesClient() {
                               trainingLeftTab === "workshops" &&
                               workshopPlannerDay != null &&
                               (u.deliveryMode ?? "self_paced") === "live_workshop"
-                                ? "Cancel workshop sessions on selected date"
+                                ? "Cancel webinar sessions on selected date"
                                 : undefined
                             }
                             deleteTooltip={
@@ -3827,7 +3833,7 @@ export default function AdminCoursesClient() {
                 <SelectTrigger id="add-unit-delivery">
                   <SelectValue>
                     {newUnitDeliveryMode === "live_workshop"
-                      ? "Workshop"
+                      ? "Webinar"
                       : "Self-paced"}
                   </SelectValue>
                 </SelectTrigger>
@@ -3835,13 +3841,13 @@ export default function AdminCoursesClient() {
                   <SelectItem value="self_paced" label="Self-paced">
                     Self-paced
                   </SelectItem>
-                  <SelectItem value="live_workshop" label="Workshop">
-                    Workshop
+                  <SelectItem value="live_workshop" label="Webinar">
+                    Webinar
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
-                Self-paced: on-demand lessons. Workshop: scheduled live sessions
+                Self-paced: on-demand lessons. Webinar: scheduled live sessions
                 (Training Content → Timetable tab).
               </p>
             </div>
@@ -5137,7 +5143,7 @@ export default function AdminCoursesClient() {
                 <SelectTrigger id="edit-unit-delivery">
                   <SelectValue>
                     {editUnitDeliveryMode === "live_workshop"
-                      ? "Workshop"
+                      ? "Webinar"
                       : "Self-paced"}
                   </SelectValue>
                 </SelectTrigger>
@@ -5145,13 +5151,13 @@ export default function AdminCoursesClient() {
                   <SelectItem value="self_paced" label="Self-paced">
                     Self-paced
                   </SelectItem>
-                  <SelectItem value="live_workshop" label="Workshop">
-                    Workshop
+                  <SelectItem value="live_workshop" label="Webinar">
+                    Webinar
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
-                Self-paced: on-demand lessons. Workshop: scheduled live sessions
+                Self-paced: on-demand lessons. Webinar: scheduled live sessions
                 (Training Content → Timetable tab).
               </p>
             </div>
@@ -5167,7 +5173,7 @@ export default function AdminCoursesClient() {
                 ) : editUnitWorkshopSessions.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
                     No sessions yet. Open Training Content → Timetable tab and
-                    drag a workshop unit onto the calendar.
+                    drag a webinar unit onto the calendar.
                   </p>
                 ) : (
                   <ul className="max-h-[min(28rem,55vh)] space-y-3 overflow-y-auto pr-0.5 text-xs">
@@ -5386,7 +5392,7 @@ export default function AdminCoursesClient() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel workshop sessions on this date?</DialogTitle>
+            <DialogTitle>Cancel webinar sessions on this date?</DialogTitle>
             <DialogDescription>
               {unscheduleWorkshopUnitId && allUnits ? (
                 <>
@@ -5397,10 +5403,10 @@ export default function AdminCoursesClient() {
                   {workshopPlannerDay != null ? (
                     <>
                       {" "}
-                      — cancels every workshop session that starts on{" "}
+                      — cancels every webinar session that starts on{" "}
                       {format(workshopPlannerDay, "EEEE d MMMM yyyy")} in your
                       local timezone. Learner registrations for those sessions
-                      are cleared. Linked &ldquo;live workshop&rdquo; library
+                      are cleared. Linked &ldquo;live webinar&rdquo; library
                       items for those sessions are archived and detached from
                       units. The unit itself stays in Training Content.
                     </>
@@ -5639,12 +5645,12 @@ export default function AdminCoursesClient() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Schedule workshop session</DialogTitle>
+            <DialogTitle>Schedule webinar session</DialogTitle>
             <DialogDescription>
               {scheduleWorkshopUnitId && allUnits
                 ? (allUnits.find((u) => u._id === scheduleWorkshopUnitId)
-                    ?.title ?? "Workshop unit")
-                : "Workshop unit"}
+                    ?.title ?? "Webinar unit")
+                : "Webinar unit"}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">

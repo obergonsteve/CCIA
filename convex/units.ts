@@ -18,6 +18,7 @@ import {
   normalizeEntityCode,
   validateEntityCodeFormat,
 } from "./lib/entityCodes";
+import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
 
 /** Soft-delete a unit (no auth); used internally. */
@@ -134,7 +135,21 @@ export const get = query({
     if (!ok) {
       return null;
     }
-    return await ctx.db.get(unitId);
+    const row = await ctx.db.get(unitId);
+    if (!row) {
+      return null;
+    }
+    if (row.deliveryMode === "live_workshop") {
+      return {
+        ...row,
+        title: webinarizeForLiveWorkshopUnit(row.title, row.deliveryMode),
+        description: webinarizeForLiveWorkshopUnit(
+          row.description,
+          row.deliveryMode,
+        ),
+      };
+    }
+    return row;
   },
 });
 

@@ -6,6 +6,7 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { isLive } from "./lib/softDelete";
+import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
 import {
   fetchGraphAccessToken,
   formatGraphDateTime,
@@ -81,7 +82,7 @@ export const getTeamsSessionForCreate = internalQuery({
       titleOverride: session.titleOverride,
       timeZone: session.timeZone,
       teamsGraphEventId: session.teamsGraphEventId,
-      unitTitle: unit.title,
+      unitTitle: webinarizeForLiveWorkshopUnit(unit.title, unit.deliveryMode),
     };
   },
 });
@@ -127,7 +128,7 @@ export const getWorkshopUnitTitleInternal = internalQuery({
     if (!u || !isLive(u)) {
       return null;
     }
-    return u.title;
+    return webinarizeForLiveWorkshopUnit(u.title, u.deliveryMode);
   },
 });
 
@@ -327,7 +328,7 @@ export const createTeamsMeetingForSession = internalAction({
       const start = formatGraphDateTime(row.startsAt, tz);
       const end = formatGraphDateTime(row.endsAt, tz);
       const subject =
-        row.titleOverride?.trim() || `Workshop: ${row.unitTitle}`;
+        row.titleOverride?.trim() || `Webinar: ${row.unitTitle}`;
       const eventBase = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(env.organizerUserId)}/events`;
       const shellBody = {
         subject,
@@ -536,9 +537,9 @@ export const updateTeamsMeetingForSession = internalAction({
         (await ctx.runQuery(
           internal.workshopMicrosoftTeams.getWorkshopUnitTitleFromSession,
           { sessionId },
-        )) ?? "Workshop";
+        )) ?? "Webinar";
       const subject =
-        row.titleOverride?.trim() || `Workshop: ${unitTitle}`;
+        row.titleOverride?.trim() || `Webinar: ${unitTitle}`;
       const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(row.teamsOrganizerId)}/events/${encodeURIComponent(row.teamsGraphEventId)}`;
       const patchBody = {
         subject,
@@ -592,7 +593,7 @@ export const getWorkshopUnitTitleFromSession = internalQuery({
     if (!unit || !isLive(unit)) {
       return null;
     }
-    return unit.title;
+    return webinarizeForLiveWorkshopUnit(unit.title, unit.deliveryMode);
   },
 });
 
@@ -633,8 +634,8 @@ async function sendResendWorkshopConfirmation(params: {
     body: JSON.stringify({
       from,
       to: [to],
-      subject: `Workshop confirmed: ${workshopTitle}`,
-      html: `<p>Your workshop registration is confirmed.</p><p><strong>${escapeHtml(workshopTitle)}</strong></p><p><a href="${joinUrl}">Join in Microsoft Teams</a></p>`,
+      subject: `Webinar confirmed: ${workshopTitle}`,
+      html: `<p>Your webinar registration is confirmed.</p><p><strong>${escapeHtml(workshopTitle)}</strong></p><p><a href="${joinUrl}">Join in Microsoft Teams</a></p>`,
     }),
   });
   const body = await res.text();
@@ -645,12 +646,12 @@ async function sendResendWorkshopConfirmation(params: {
         body.includes("validation_error"));
     if (isResendTestRecipientLimit) {
       console.warn(
-        "[Resend] workshop confirmation not sent (test key / unverified domain):",
+        "[Resend] webinar confirmation not sent (test key / unverified domain):",
         res.status,
         body.slice(0, 400),
       );
     } else {
-      console.error("[Resend] workshop confirmation failed:", res.status, body);
+      console.error("[Resend] webinar confirmation failed:", res.status, body);
     }
     return { outcome: "failed", status: res.status, body: body.slice(0, 500) };
   }
@@ -741,7 +742,7 @@ export const addGraphAttendeeForWorkshopRegistration = internalAction({
         (await ctx.runQuery(
           internal.workshopMicrosoftTeams.getWorkshopUnitTitleFromSession,
           { sessionId },
-        )) ?? "Workshop";
+        )) ?? "Webinar";
       const resendResult = await sendResendWorkshopConfirmation({
         to: user.email.trim(),
         workshopTitle: unitTitle,
@@ -764,7 +765,7 @@ export const addGraphAttendeeForWorkshopRegistration = internalAction({
             sessionId,
             source: "resend",
             level: "info",
-            message: `Resend API accepted workshop confirmation email (HTTP ${resendResult.status}) to ${user.email}.`,
+            message: `Resend API accepted webinar confirmation email (HTTP ${resendResult.status}) to ${user.email}.`,
           },
         );
       } else {
@@ -853,7 +854,7 @@ export const addGraphAttendeeForWorkshopRegistration = internalAction({
         (await ctx.runQuery(
           internal.workshopMicrosoftTeams.getWorkshopUnitTitleFromSession,
           { sessionId },
-        )) ?? "Workshop";
+        )) ?? "Webinar";
       const resendResult = await sendResendWorkshopConfirmation({
         to: user.email.trim(),
         workshopTitle: unitTitle,
@@ -876,7 +877,7 @@ export const addGraphAttendeeForWorkshopRegistration = internalAction({
             sessionId,
             source: "resend",
             level: "info",
-            message: `Resend API accepted workshop confirmation email (HTTP ${resendResult.status}) to ${user.email}.`,
+            message: `Resend API accepted webinar confirmation email (HTTP ${resendResult.status}) to ${user.email}.`,
           },
         );
       } else {

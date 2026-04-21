@@ -26,7 +26,7 @@ export const verifyLiveKitAccessInternal = internalQuery({
     }
     const unit = await ctx.db.get(session.workshopUnitId);
     if (!unit || !isLive(unit) || unit.deliveryMode !== "live_workshop") {
-      return { ok: false as const, reason: "Invalid workshop unit." };
+      return { ok: false as const, reason: "Invalid webinar unit." };
     }
     const canAccess = await userCanAccessWorkshopSession(
       ctx,
@@ -35,7 +35,7 @@ export const verifyLiveKitAccessInternal = internalQuery({
     if (!canAccess) {
       return {
         ok: false as const,
-        reason: "You do not have access to this workshop.",
+        reason: "You do not have access to this webinar.",
       };
     }
     const user = await ctx.db.get(userId);
@@ -66,7 +66,7 @@ export const verifyLiveKitAccessInternal = internalQuery({
     if (session.endsAt < now) {
       return {
         ok: false as const,
-        reason: "This workshop session has ended.",
+        reason: "This webinar session has ended.",
       };
     }
     const participantName = liveKitParticipantDisplayFirstName(
@@ -114,7 +114,7 @@ export const verifyWorkshopLiveKitHostEndRoomInternal = internalQuery({
     }
     const unit = await ctx.db.get(session.workshopUnitId);
     if (!unit || !isLive(unit) || unit.deliveryMode !== "live_workshop") {
-      return { ok: false as const, reason: "Invalid workshop unit." };
+      return { ok: false as const, reason: "Invalid webinar unit." };
     }
     const canAccess = await userCanAccessWorkshopSession(
       ctx,
@@ -123,13 +123,13 @@ export const verifyWorkshopLiveKitHostEndRoomInternal = internalQuery({
     if (!canAccess) {
       return {
         ok: false as const,
-        reason: "You do not have access to this workshop.",
+        reason: "You do not have access to this webinar.",
       };
     }
     if (session.endsAt < Date.now()) {
       return {
         ok: false as const,
-        reason: "This workshop session has ended.",
+        reason: "This webinar session has ended.",
       };
     }
     if (session.liveRoomOpenedAt == null) {
