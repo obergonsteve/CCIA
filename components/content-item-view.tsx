@@ -423,9 +423,17 @@ export function ContentItemView({
                       size="sm"
                       disabled={!unitId || locked}
                       onClick={() => {
-                        void recordTeamsLeave({
-                          sessionId: workshopSessionId,
-                        }).catch(() => {});
+                        void recordTeamsLeave({ sessionId: workshopSessionId })
+                          .then(() => {
+                            toast.success("Leave time recorded for this webinar.");
+                          })
+                          .catch((e) => {
+                            toast.error(
+                              e instanceof Error
+                                ? e.message
+                                : "Could not record leave.",
+                            );
+                          });
                       }}
                     >
                       Record leave

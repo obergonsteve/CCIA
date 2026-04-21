@@ -18,7 +18,6 @@ import {
   CircleDashed,
   ExternalLink,
   Lock,
-  MonitorPlay,
   Route,
 } from "lucide-react";
 import Link from "next/link";
@@ -31,7 +30,6 @@ import {
 } from "@/lib/workshopConference";
 import { cn } from "@/lib/utils";
 import { LiveWorkshopRoomPanel } from "@/components/workshop/live-workshop-room-panel";
-import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
 
 function unitStepPathHref(
   unitId: Id<"units">,
@@ -247,46 +245,63 @@ function LegacyAssignmentStepBlock({
 function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"> }) {
   const recordJoin = useMutation(api.workshops.recordTeamsJoin);
   const now = Date.now();
-  if (!unitPageShouldRenderJoinInTeamsStrip(session, now)) {
+  const msTeams = isMicrosoftTeamsSession(session);
+  const canJoin = unitPageShouldRenderJoinInTeamsStrip(session, now);
+  const raw = session.externalJoinUrl?.trim() ?? "";
+  const showStrip =
+    canJoin ||
+    (msTeams && session.status === "scheduled" && session.endsAt > now);
+  if (!showStrip) {
     return null;
   }
-  const raw = session.externalJoinUrl!.trim();
   return (
     <section
       className="rounded-xl border border-purple-500/40 bg-purple-500/[0.1] px-4 py-3 shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/35 dark:bg-purple-500/[0.14]"
       aria-label="Microsoft Teams webinar"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          className="inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22"
-          onClick={() => {
-            const target = raw.startsWith("/")
-              ? `${window.location.origin}${raw}`
-              : raw;
-            void (async () => {
-              try {
-                await recordJoin({ sessionId: session._id });
-              } catch {
-                /* still open Teams */
-              }
-              window.open(target, "_blank", "noopener,noreferrer");
-            })();
-          }}
-        >
-          Join in Teams
-          <ExternalLink
-            className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
-            aria-hidden
-          />
-        </Button>
+        {canJoin ? (
+          <Button
+            type="button"
+            size="sm"
+            className="inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22"
+            onClick={() => {
+              const target = raw.startsWith("/")
+                ? `${window.location.origin}${raw}`
+                : raw;
+              void (async () => {
+                try {
+                  await recordJoin({ sessionId: session._id });
+                } catch {
+                  /* still open Teams */
+                }
+                window.open(target, "_blank", "noopener,noreferrer");
+              })();
+            }}
+          >
+            Join in Teams
+            <ExternalLink
+              className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
+              aria-hidden
+            />
+          </Button>
+        ) : msTeams ? (
+          <p className="text-xs text-muted-foreground">
+            Teams join link is provisioning — save the session in admin with Graph
+            configured, or refresh in a moment.
+          </p>
+        ) : null}
       </div>
+      {session.teamsLastError ? (
+        <p className="mt-2 text-xs text-destructive [overflow-wrap:anywhere]">
+          Calendar sync issue: {session.teamsLastError}
+        </p>
+      ) : null}
     </section>
   );
 }
 
-/** Own Convex subscription so the strip is not tied to parent `liveWorkshopSession` timing. */
+/** Subscribes to the registered session row so the Teams strip updates without depending on the LiveKit panel. */
 function UnitJoinInTeamsStripLoader({
   unitId,
   workshopSessionId,
@@ -302,70 +317,6 @@ function UnitJoinInTeamsStripLoader({
     return null;
   }
   return <JoinInTeamsWorkshopStrip session={row.session} />;
-}
-
-/** Microsoft Teams workshop: join in a separate window (no embedded LiveKit). */
-function TeamsWorkshopJoinSection({
-  session,
-}: {
-  session: Doc<"workshopSessions">;
-}) {
-  const recordLeave = useMutation(api.workshops.recordTeamsLeave);
-  const url = session.externalJoinUrl?.trim();
-  return (
-    <section
-      className="rounded-xl border border-teal-500/35 bg-teal-500/[0.12] text-sm shadow-sm ring-1 ring-foreground/10 dark:border-teal-400/30 dark:bg-teal-500/[0.14]"
-      aria-label="Teams webinar"
-    >
-      <div className="flex flex-col gap-3 border-b border-teal-500/30 px-4 py-3 dark:border-teal-400/22">
-        <div className="flex items-center gap-2">
-          <MonitorPlay
-            className="h-5 w-5 shrink-0 text-teal-700 dark:text-teal-300"
-            aria-hidden
-          />
-          <span className="font-heading font-semibold text-foreground">
-            Webinar (Microsoft Teams)
-          </span>
-        </div>
-        {session.teamsGraphEventId?.startsWith("sim:") ? (
-          <p className="text-xs text-amber-900 dark:text-amber-100/90">
-            Demo mode: join link opens an in-app rehearsal page (not Microsoft
-            Teams).
-          </p>
-        ) : null}
-        {session.teamsLastError ? (
-          <p className="text-xs text-destructive [overflow-wrap:anywhere]">
-            Calendar sync issue: {session.teamsLastError}
-          </p>
-        ) : null}
-        {!url ? (
-          <p className="text-xs text-muted-foreground">
-            Teams join link is provisioning. Save the session in admin with Graph
-            env configured, or refresh in a moment.
-          </p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-teal-600/50 text-teal-900 hover:bg-teal-500/10 dark:border-teal-400/40 dark:text-teal-50"
-              onClick={() => {
-                void recordLeave({ sessionId: session._id }).catch(() => {});
-              }}
-            >
-              Record leave
-            </Button>
-          </div>
-        )}
-        <WorkshopSyncTracePanel
-          sessionId={session._id}
-          className="mt-2 border-t-0"
-          defaultOpen={false}
-        />
-      </div>
-    </section>
-  );
 }
 
 export default function UnitClient({
@@ -388,17 +339,6 @@ export default function UnitClient({
       : undefined;
 
   const unit = useQuery(api.units.get, { unitId });
-  const liveWorkshopSession = useQuery(
-    api.workshops.myRegisteredSessionForLiveWorkshopUnit,
-    unit !== undefined &&
-      unit !== null &&
-      unit.deliveryMode === "live_workshop"
-      ? {
-          workshopUnitId: unitId,
-          ...(workshopSessionId != null ? { workshopSessionId } : {}),
-        }
-      : "skip",
-  );
   const items = useQuery(api.content.listByUnit, { unitId });
   const assignments = useQuery(api.assignments.listByUnit, { unitId });
   const roadmap = useQuery(api.contentProgress.roadmapForUnit, {
@@ -505,10 +445,6 @@ export default function UnitClient({
   }
 
   const isLiveWorkshopUnit = unit.deliveryMode === "live_workshop";
-  const teamsOnlyRegistered =
-    liveWorkshopSession != null &&
-    liveWorkshopSession.session != null &&
-    isMicrosoftTeamsSession(liveWorkshopSession.session);
 
   return (
     <div className="space-y-6">
@@ -557,14 +493,11 @@ export default function UnitClient({
         />
       ) : null}
 
-      {isLiveWorkshopUnit && !teamsOnlyRegistered ? (
+      {isLiveWorkshopUnit ? (
         <LiveWorkshopRoomPanel
           unitId={unitId}
           workshopSessionId={workshopSessionId}
         />
-      ) : null}
-      {isLiveWorkshopUnit && teamsOnlyRegistered && liveWorkshopSession?.session ? (
-        <TeamsWorkshopJoinSection session={liveWorkshopSession.session} />
       ) : null}
 
       {lockedByPrereq && prereqStatus.prerequisites.length > 0 ? (

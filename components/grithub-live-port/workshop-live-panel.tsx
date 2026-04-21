@@ -149,7 +149,7 @@ export function WorkshopLivePanel({
   const [chatEmojiStripExpanded, setChatEmojiStripExpanded] = useState(false);
   const [chatSectionExpanded, setChatSectionExpanded] = useState(false);
   /** Host only: whether the whiteboard strip is open on *this* screen (does not affect attendees). */
-  const [hostWhiteboardPanelOpen, setHostWhiteboardPanelOpen] = useState(true);
+  const [hostWhiteboardPanelOpen, setHostWhiteboardPanelOpen] = useState(false);
   const chatSectionId = "workshop-session-chat-panel";
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
 

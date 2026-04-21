@@ -3,17 +3,18 @@
 import { api } from "@/convex/_generated/api";
 import { OfflineTrainingBanner } from "@/components/offline-training-banner";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "convex/react";
 import { LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SidebarBreadcrumbs } from "@/components/layout/sidebar-breadcrumbs";
 import { SidebarMainPageHeading } from "@/components/layout/sidebar-main-page-heading";
 import {
@@ -27,9 +28,35 @@ import { cn } from "@/lib/utils";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setTheme, resolvedTheme } = useTheme();
   const me = useQuery(api.users.me);
   const certificationLevels = useQuery(api.certifications.listForUser);
+
+  const isWorkshopSimShell = pathname.startsWith("/workshop-sim");
+  const workshopSimJoinSessionId = useMemo(() => {
+    const m = pathname.match(/^\/workshop-sim\/join\/([^/?#]+)/);
+    const raw = m?.[1]?.trim();
+    return raw != null && raw.length > 0
+      ? (raw as Id<"workshopSessions">)
+      : undefined;
+  }, [pathname]);
+  const simJoinSession = useQuery(
+    api.workshops.getSessionForUser,
+    workshopSimJoinSessionId != null
+      ? { sessionId: workshopSimJoinSessionId }
+      : "skip",
+  );
+  const backToUnitHref =
+    simJoinSession?.session != null
+      ? (() => {
+          const unitId = simJoinSession.session.workshopUnitId;
+          const level = searchParams.get("level")?.trim();
+          return level != null && level.length > 0
+            ? `/units/${unitId}?level=${encodeURIComponent(level)}`
+            : `/units/${unitId}`;
+        })()
+      : null;
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
@@ -195,17 +222,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-svh flex-row overflow-hidden bg-background">
-      <aside
-        className={cn(
-          "relative flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out",
-          navOpen ? "w-60" : "w-0 border-r-0",
-        )}
-        aria-hidden={!navOpen}
-      >
-        <div className="flex h-full min-h-0 w-60 min-w-[15rem] flex-col">
-          {sidebarNav}
-        </div>
-      </aside>
+      {!isWorkshopSimShell ? (
+        <aside
+          className={cn(
+            "relative flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out",
+            navOpen ? "w-60" : "w-0 border-r-0",
+          )}
+          aria-hidden={!navOpen}
+        >
+          <div className="flex h-full min-h-0 w-60 min-w-[15rem] flex-col">
+            {sidebarNav}
+          </div>
+        </aside>
+      ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-1 text-card-foreground sm:px-4 dark:border-white/10 dark:bg-white/[0.07] dark:text-foreground">
@@ -213,43 +242,87 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
             aria-hidden
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
-            aria-label={navOpen ? "Toggle navigation" : "Open navigation"}
-            aria-expanded={navOpen}
-            aria-controls="app-sidebar-nav"
-            onClick={() => setNavOpen((o) => !o)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-            <Image
-              src="/LLLIA_trans.png"
-              alt={SITE_APP_NAME}
-              width={632}
-              height={186}
-              className="h-[60px] w-auto max-h-[60px] max-w-full shrink-0 object-contain object-left"
-              priority
-            />
-          </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="ml-auto shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
-            onClick={() =>
-              setTheme(resolvedTheme === "dark" ? "light" : "dark")
-            }
-            aria-label="Toggle theme"
-          >
-            {resolvedTheme === "dark" ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-          </Button>
+          {isWorkshopSimShell ? (
+            <>
+              {backToUnitHref != null ? (
+                <Link
+                  href={backToUnitHref}
+                  className={cn(
+                    buttonVariants({ variant: "default", size: "sm" }),
+                    "h-9 shrink-0 px-4 font-medium",
+                  )}
+                >
+                  Back to unit
+                </Link>
+              ) : (
+                <Link
+                  href="/workshops"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "h-9 shrink-0 px-4 font-medium",
+                  )}
+                >
+                  Back to webinars
+                </Link>
+              )}
+              <div className="min-w-0 flex-1" aria-hidden />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+                onClick={() =>
+                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                }
+                aria-label="Toggle theme"
+              >
+                {resolvedTheme === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+                aria-label={navOpen ? "Toggle navigation" : "Open navigation"}
+                aria-expanded={navOpen}
+                aria-controls="app-sidebar-nav"
+                onClick={() => setNavOpen((o) => !o)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <Image
+                  src="/LLLIA_trans.png"
+                  alt={SITE_APP_NAME}
+                  width={632}
+                  height={186}
+                  className="h-[60px] w-auto max-h-[60px] max-w-full shrink-0 object-contain object-left"
+                  priority
+                />
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="ml-auto shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+                onClick={() =>
+                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                }
+                aria-label="Toggle theme"
+              >
+                {resolvedTheme === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+            </>
+          )}
         </header>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -265,8 +338,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <PwaInstallPrompt />
             <OfflineTrainingBanner />
-            <SidebarBreadcrumbs />
-            <SidebarMainPageHeading />
+            {!isWorkshopSimShell ? (
+              <>
+                <SidebarBreadcrumbs />
+                <SidebarMainPageHeading />
+              </>
+            ) : null}
             {children}
           </main>
           <footer className="shrink-0 border-t border-border/60 text-center text-xs text-muted-foreground py-3 px-4">

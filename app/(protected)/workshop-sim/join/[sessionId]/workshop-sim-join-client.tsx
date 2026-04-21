@@ -76,15 +76,11 @@ export default function WorkshopSimJoinClient({
             <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-950 dark:text-amber-100">
               In a real deployment, this screen would be replaced by Microsoft
               Teams. Below is the same LiveKit webinar panel as on the unit page
-              so you can start a session and use chat as a rehearsal.
+              so you can start a session and use chat as a rehearsal. Use{" "}
+              <span className="font-medium text-foreground">Back to unit</span>{" "}
+              in the header to leave.
             </p>
           ) : null}
-          <Link
-            href={`/units/${session.workshopUnitId}`}
-            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90"
-          >
-            Back to unit
-          </Link>
         </CardContent>
       </Card>
 
