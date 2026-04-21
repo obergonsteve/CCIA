@@ -33,6 +33,7 @@ import type * as lib_softDelete from "../lib/softDelete.js";
 import type * as lib_workshopGraphAttendees from "../lib/workshopGraphAttendees.js";
 import type * as lib_workshopGraphKillSwitch from "../lib/workshopGraphKillSwitch.js";
 import type * as lib_workshopSyncLog from "../lib/workshopSyncLog.js";
+import type * as lib_workshopTeamsSimulation from "../lib/workshopTeamsSimulation.js";
 import type * as lib_workshopUnitLevels from "../lib/workshopUnitLevels.js";
 import type * as migrateLegacyCategories from "../migrateLegacyCategories.js";
 import type * as prerequisites from "../prerequisites.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "lib/workshopGraphAttendees": typeof lib_workshopGraphAttendees;
   "lib/workshopGraphKillSwitch": typeof lib_workshopGraphKillSwitch;
   "lib/workshopSyncLog": typeof lib_workshopSyncLog;
+  "lib/workshopTeamsSimulation": typeof lib_workshopTeamsSimulation;
   "lib/workshopUnitLevels": typeof lib_workshopUnitLevels;
   migrateLegacyCategories: typeof migrateLegacyCategories;
   prerequisites: typeof prerequisites;

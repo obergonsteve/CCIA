@@ -260,6 +260,12 @@ function TeamsWorkshopJoinSection({
             Workshop (Microsoft Teams)
           </span>
         </div>
+        {session.teamsGraphEventId?.startsWith("sim:") ? (
+          <p className="text-xs text-amber-900 dark:text-amber-100/90">
+            Demo mode: join link opens an in-app rehearsal page (not Microsoft
+            Teams).
+          </p>
+        ) : null}
         {session.teamsLastError ? (
           <p className="text-xs text-destructive [overflow-wrap:anywhere]">
             Calendar sync issue: {session.teamsLastError}

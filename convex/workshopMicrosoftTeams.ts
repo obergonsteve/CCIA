@@ -13,6 +13,11 @@ import {
   readGraphEnv,
 } from "./lib/microsoftGraph";
 import { isWorkshopGraphSyncDisabled } from "./lib/workshopGraphKillSwitch";
+import {
+  isSimulatedTeamsGraphEventId,
+  isWorkshopTeamsSimulationEnabled,
+  workshopSimulationPublicOrigin,
+} from "./lib/workshopTeamsSimulation";
 import { insertWorkshopSyncLog } from "./lib/workshopSyncLog";
 import { normalizeAttendeesForPatch } from "./lib/workshopGraphAttendees";
 
@@ -164,6 +169,32 @@ export const commitTeamsMeetingCreated = internalMutation({
   },
 });
 
+export const commitSimulatedTeamsMeeting = internalMutation({
+  args: {
+    sessionId: v.id("workshopSessions"),
+    externalJoinUrl: v.string(),
+    teamsGraphEventId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.patch(args.sessionId, {
+      externalJoinUrl: args.externalJoinUrl,
+      teamsGraphEventId: args.teamsGraphEventId,
+      teamsOnlineMeetingId: undefined,
+      teamsOrganizerId: "simulation",
+      teamsLastSyncAt: now,
+      teamsLastError: undefined,
+    });
+    await insertWorkshopSyncLog(ctx, {
+      sessionId: args.sessionId,
+      source: "system",
+      level: "info",
+      message:
+        "WORKSHOP_TEAMS_SIMULATION: stored faux Teams join URL (no Microsoft Graph). Registration and join/leave still work in the app.",
+    });
+  },
+});
+
 export const commitTeamsMeetingCreateError = internalMutation({
   args: {
     sessionId: v.id("workshopSessions"),
@@ -226,7 +257,10 @@ export const commitTeamsMeetingUpdateError = internalMutation({
 export const createTeamsMeetingForSession = internalAction({
   args: { sessionId: v.id("workshopSessions") },
   handler: async (ctx, { sessionId }) => {
-    if (isWorkshopGraphSyncDisabled()) {
+    if (
+      isWorkshopGraphSyncDisabled() &&
+      !isWorkshopTeamsSimulationEnabled()
+    ) {
       await ctx.runMutation(
         internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
         {
@@ -238,6 +272,19 @@ export const createTeamsMeetingForSession = internalAction({
         },
       );
       return { skipped: true as const, reason: "graph_disabled" as const };
+    }
+    if (isWorkshopTeamsSimulationEnabled()) {
+      await ctx.runMutation(
+        internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
+        {
+          sessionId,
+          source: "system",
+          level: "info",
+          message:
+            "createTeamsMeetingForSession skipped: WORKSHOP_TEAMS_SIMULATION uses simulateTeamsMeetingForSession instead.",
+        },
+      );
+      return { skipped: true as const, reason: "simulation" as const };
     }
     const row = await ctx.runQuery(
       internal.workshopMicrosoftTeams.getTeamsSessionForCreate,
@@ -384,10 +431,58 @@ export const createTeamsMeetingForSession = internalAction({
   },
 });
 
+export const simulateTeamsMeetingForSession = internalAction({
+  args: { sessionId: v.id("workshopSessions") },
+  handler: async (ctx, { sessionId }) => {
+    if (!isWorkshopTeamsSimulationEnabled()) {
+      return { skipped: true as const, reason: "simulation_off" as const };
+    }
+    const row = await ctx.runQuery(
+      internal.workshopMicrosoftTeams.getTeamsSessionForCreate,
+      { sessionId },
+    );
+    if (!row) {
+      return { skipped: true as const };
+    }
+    if (row.teamsGraphEventId) {
+      return { skipped: true as const, reason: "already_exists" as const };
+    }
+    const origin = workshopSimulationPublicOrigin();
+    if (!origin) {
+      await ctx.runMutation(
+        internal.workshopMicrosoftTeams.commitTeamsMeetingCreateError,
+        {
+          sessionId,
+          error:
+            "WORKSHOP_TEAMS_SIMULATION is on but WORKSHOP_SIMULATION_PUBLIC_ORIGIN is missing. Set it to your site root, e.g. https://localhost:3000",
+        },
+      );
+      return { ok: false as const, error: "missing_origin" as const };
+    }
+    const joinUrl = `${origin}/workshop-sim/join/${sessionId}`;
+    const teamsGraphEventId = `sim:${sessionId}`;
+    await ctx.runMutation(
+      internal.workshopMicrosoftTeams.commitSimulatedTeamsMeeting,
+      { sessionId, externalJoinUrl: joinUrl, teamsGraphEventId },
+    );
+    return { ok: true as const };
+  },
+});
+
 export const updateTeamsMeetingForSession = internalAction({
   args: { sessionId: v.id("workshopSessions") },
   handler: async (ctx, { sessionId }) => {
-    if (isWorkshopGraphSyncDisabled()) {
+    const row = await ctx.runQuery(
+      internal.workshopMicrosoftTeams.getTeamsSessionForAttendeeSync,
+      { sessionId },
+    );
+    if (!row || !row.teamsGraphEventId || !row.teamsOrganizerId) {
+      return { skipped: true as const };
+    }
+    if (
+      isWorkshopGraphSyncDisabled() &&
+      !isSimulatedTeamsGraphEventId(row.teamsGraphEventId)
+    ) {
       await ctx.runMutation(
         internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
         {
@@ -400,12 +495,22 @@ export const updateTeamsMeetingForSession = internalAction({
       );
       return { skipped: true as const, reason: "graph_disabled" as const };
     }
-    const row = await ctx.runQuery(
-      internal.workshopMicrosoftTeams.getTeamsSessionForAttendeeSync,
-      { sessionId },
-    );
-    if (!row || !row.teamsGraphEventId || !row.teamsOrganizerId) {
-      return { skipped: true as const };
+    if (isSimulatedTeamsGraphEventId(row.teamsGraphEventId)) {
+      await ctx.runMutation(
+        internal.workshopMicrosoftTeams.patchSessionTeamsUpdateOk,
+        { sessionId },
+      );
+      await ctx.runMutation(
+        internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
+        {
+          sessionId,
+          source: "system",
+          level: "info",
+          message:
+            "WORKSHOP_TEAMS_SIMULATION: session times saved in app only (no Graph PATCH).",
+        },
+      );
+      return { ok: true as const, simulated: true as const };
     }
     await ctx.runMutation(
       internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
@@ -548,22 +653,29 @@ export const addGraphAttendeeForWorkshopRegistration = internalAction({
   },
   handler: async (ctx, { sessionId, userId, attempt: attemptArg }) => {
     const attempt = attemptArg ?? 0;
-    if (isWorkshopGraphSyncDisabled()) {
-      await ctx.runMutation(
-        internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
-        {
-          sessionId,
-          source: "system",
-          level: "warn",
-          message: `addGraphAttendeeForWorkshopRegistration skipped: WORKSHOP_GRAPH_DISABLED (userId=${userId}).`,
-        },
-      );
-      return { skipped: true as const, reason: "graph_disabled" as const };
-    }
     const row = await ctx.runQuery(
       internal.workshopMicrosoftTeams.getTeamsSessionForAttendeeSync,
       { sessionId },
     );
+    if (isWorkshopGraphSyncDisabled()) {
+      const simAttendeeOk =
+        isWorkshopTeamsSimulationEnabled() &&
+        row != null &&
+        row.teamsGraphEventId != null &&
+        isSimulatedTeamsGraphEventId(row.teamsGraphEventId);
+      if (!simAttendeeOk) {
+        await ctx.runMutation(
+          internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
+          {
+            sessionId,
+            source: "system",
+            level: "warn",
+            message: `addGraphAttendeeForWorkshopRegistration skipped: WORKSHOP_GRAPH_DISABLED (userId=${userId}).`,
+          },
+        );
+        return { skipped: true as const, reason: "graph_disabled" as const };
+      }
+    }
     if (!row) {
       return { skipped: true as const };
     }
@@ -601,6 +713,60 @@ export const addGraphAttendeeForWorkshopRegistration = internalAction({
         },
       );
       return { skipped: true as const, reason: "no_user" as const };
+    }
+    if (isSimulatedTeamsGraphEventId(row.teamsGraphEventId)) {
+      const joinUrl = row.externalJoinUrl ?? "";
+      await ctx.runMutation(
+        internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
+        {
+          sessionId,
+          source: "system",
+          level: "info",
+          message: `WORKSHOP_TEAMS_SIMULATION: skipped Outlook/Graph for ${user.email}; optional confirmation email only.`,
+        },
+      );
+      const unitTitle =
+        (await ctx.runQuery(
+          internal.workshopMicrosoftTeams.getWorkshopUnitTitleFromSession,
+          { sessionId },
+        )) ?? "Workshop";
+      const resendResult = await sendResendWorkshopConfirmation({
+        to: user.email.trim(),
+        workshopTitle: unitTitle,
+        joinUrl: joinUrl || row.externalJoinUrl || "",
+      });
+      if (resendResult.outcome === "skipped") {
+        await ctx.runMutation(
+          internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
+          {
+            sessionId,
+            source: "resend",
+            level: "info",
+            message: `Resend confirmation skipped: ${resendResult.reason}`,
+          },
+        );
+      } else if (resendResult.outcome === "sent") {
+        await ctx.runMutation(
+          internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
+          {
+            sessionId,
+            source: "resend",
+            level: "info",
+            message: `Resend API accepted workshop confirmation email (HTTP ${resendResult.status}) to ${user.email}.`,
+          },
+        );
+      } else {
+        await ctx.runMutation(
+          internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
+          {
+            sessionId,
+            source: "resend",
+            level: "warn",
+            message: `Resend confirmation failed (HTTP ${resendResult.status}).`,
+          },
+        );
+      }
+      return { ok: true as const, simulated: true as const };
     }
     const joinUrl = row.externalJoinUrl ?? "";
     await ctx.runMutation(

@@ -14,6 +14,7 @@ import {
   userCanAccessWorkshopSession,
 } from "./lib/workshopUnitLevels";
 import { isWorkshopGraphSyncDisabled } from "./lib/workshopGraphKillSwitch";
+import { isWorkshopTeamsSimulationEnabled } from "./lib/workshopTeamsSimulation";
 import { insertWorkshopSyncLog } from "./lib/workshopSyncLog";
 import { collectLiveWorkshopUnitIdsOnLearnerCertPaths } from "./certifications";
 
@@ -119,7 +120,20 @@ export const createSession = mutation({
       ...(timeZone != null ? { timeZone } : {}),
     });
     if (conferenceProvider === "microsoft_teams") {
-      if (isWorkshopGraphSyncDisabled()) {
+      if (isWorkshopTeamsSimulationEnabled()) {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "info",
+          message:
+            "Admin: Teams simulation on — queuing faux meeting + in-app join URL (no Microsoft Graph).",
+        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.workshopMicrosoftTeams.simulateTeamsMeetingForSession,
+          { sessionId },
+        );
+      } else if (isWorkshopGraphSyncDisabled()) {
         await insertWorkshopSyncLog(ctx, {
           sessionId,
           source: "system",
@@ -209,7 +223,35 @@ export const updateSession = mutation({
       next.conferenceProvider === "microsoft_teams" &&
       next.status === "scheduled"
     ) {
-      if (isWorkshopGraphSyncDisabled()) {
+      if (isWorkshopTeamsSimulationEnabled()) {
+        if (!next.teamsGraphEventId) {
+          await insertWorkshopSyncLog(ctx, {
+            sessionId,
+            source: "system",
+            level: "info",
+            message:
+              "Admin: session updated (Teams simulation). Queued simulateTeamsMeetingForSession.",
+          });
+          await ctx.scheduler.runAfter(
+            0,
+            internal.workshopMicrosoftTeams.simulateTeamsMeetingForSession,
+            { sessionId },
+          );
+        } else {
+          await insertWorkshopSyncLog(ctx, {
+            sessionId,
+            source: "system",
+            level: "info",
+            message:
+              "Admin: session updated (Teams simulation). Queued updateTeamsMeetingForSession (local only).",
+          });
+          await ctx.scheduler.runAfter(
+            0,
+            internal.workshopMicrosoftTeams.updateTeamsMeetingForSession,
+            { sessionId },
+          );
+        }
+      } else if (isWorkshopGraphSyncDisabled()) {
         await insertWorkshopSyncLog(ctx, {
           sessionId,
           source: "system",
@@ -888,7 +930,19 @@ export const registerForSession = mutation({
     });
     await syncUnitsContainingWorkshopSession(ctx, userId, sessionId);
     if (session.conferenceProvider === "microsoft_teams") {
-      if (isWorkshopGraphSyncDisabled()) {
+      if (isWorkshopTeamsSimulationEnabled()) {
+        await insertWorkshopSyncLog(ctx, {
+          sessionId,
+          source: "system",
+          level: "info",
+          message: `WORKSHOP_TEAMS_SIMULATION: queued attendee flow (Resend only, no Graph) for userId=${userId}.`,
+        });
+        await ctx.scheduler.runAfter(
+          0,
+          internal.workshopMicrosoftTeams.addGraphAttendeeForWorkshopRegistration,
+          { sessionId, userId, attempt: 0 },
+        );
+      } else if (isWorkshopGraphSyncDisabled()) {
         await insertWorkshopSyncLog(ctx, {
           sessionId,
           source: "system",
