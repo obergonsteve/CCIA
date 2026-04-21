@@ -346,6 +346,65 @@ export function WorkshopLivePanel({
           !liveKitCredentials && !joining && "items-center justify-center gap-4 text-center",
         )}
       >
+        {liveKitCredentials &&
+        !sessionEnded &&
+        isLiveHost &&
+        liveRoomStarted ? (
+          <div
+            role="group"
+            aria-labelledby="workshop-host-whiteboard-heading"
+            className="mb-2 shrink-0 rounded-lg border border-purple-500/25 bg-purple-500/[0.06] px-3 py-2.5 dark:border-purple-400/20 dark:bg-purple-500/[0.09]"
+          >
+            <p
+              id="workshop-host-whiteboard-heading"
+              className="mb-2 text-sm font-medium text-foreground"
+            >
+              Whiteboard
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8"
+                title="Show or hide the whiteboard on your screen only — does not change whether attendees see it (use Share / Unshare for that)."
+                aria-label={
+                  hostWhiteboardPanelOpen
+                    ? "Hide whiteboard on my screen"
+                    : "Show whiteboard on my screen"
+                }
+                onClick={() => setHostWhiteboardPanelOpen((v) => !v)}
+              >
+                {hostWhiteboardPanelOpen ? "Hide" : "Show"}
+              </Button>
+              {whiteboardLive ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-orange-600 bg-orange-600 text-white hover:border-orange-700 hover:bg-orange-700 hover:text-white dark:border-orange-500 dark:bg-orange-600 dark:hover:border-orange-600 dark:hover:bg-orange-700"
+                  title="Unshare — stop sending the live whiteboard to all attendees in this session."
+                  aria-label="Unshare whiteboard with attendees"
+                  onClick={() => void onHostUnshareWhiteboard()}
+                >
+                  Unshare with attendees
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  title="Share — make the live whiteboard visible to all attendees who have joined this session."
+                  aria-label="Share whiteboard with attendees"
+                  onClick={() => void onHostShareWhiteboard()}
+                >
+                  Share with attendees
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : null}
         {liveKitCredentials && !sessionEnded ? (
           <div
             className="livekit-workshop-room flex min-h-[220px] min-w-0 flex-1 flex-col overflow-hidden rounded-md"
@@ -481,65 +540,6 @@ export function WorkshopLivePanel({
             This session has ended. You can still read chat; the live room is
             closed.
           </p>
-        ) : null}
-        {isLiveHost &&
-        liveRoomStarted &&
-        !sessionEnded &&
-        liveKitCredentials ? (
-          <div
-            role="group"
-            aria-labelledby="workshop-host-whiteboard-heading"
-            className="mt-2 rounded-lg border border-purple-500/25 bg-purple-500/[0.06] px-3 py-2.5 dark:border-purple-400/20 dark:bg-purple-500/[0.09]"
-          >
-            <p
-              id="workshop-host-whiteboard-heading"
-              className="mb-2 text-sm font-medium text-foreground"
-            >
-              Whiteboard
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8"
-                title="Show or hide the whiteboard on your screen only — does not change whether attendees see it (use Share / Unshare for that)."
-                aria-label={
-                  hostWhiteboardPanelOpen
-                    ? "Hide whiteboard on my screen"
-                    : "Show whiteboard on my screen"
-                }
-                onClick={() => setHostWhiteboardPanelOpen((v) => !v)}
-              >
-                {hostWhiteboardPanelOpen ? "Hide" : "Show"}
-              </Button>
-              {whiteboardLive ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 border-orange-600 bg-orange-600 text-white hover:border-orange-700 hover:bg-orange-700 hover:text-white dark:border-orange-500 dark:bg-orange-600 dark:hover:border-orange-600 dark:hover:bg-orange-700"
-                  title="Unshare — stop sending the live whiteboard to all attendees in this session."
-                  aria-label="Unshare whiteboard with attendees"
-                  onClick={() => void onHostUnshareWhiteboard()}
-                >
-                  Unshare with attendees
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8"
-                  title="Share — make the live whiteboard visible to all attendees who have joined this session."
-                  aria-label="Share whiteboard with attendees"
-                  onClick={() => void onHostShareWhiteboard()}
-                >
-                  Share with attendees
-                </Button>
-              )}
-            </div>
-          </div>
         ) : null}
       </div>
       </div>

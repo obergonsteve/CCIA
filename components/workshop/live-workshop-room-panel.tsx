@@ -25,11 +25,12 @@ export function LiveWorkshopRoomPanel({
 }: {
   unitId: Id<"units">;
   workshopSessionId?: Id<"workshopSessions">;
+  /** When omitted, the room starts expanded so learners see join / session controls immediately. */
   defaultOpen?: boolean;
   /** Stable `id` for the collapsible region (must be unique per page if several panels mount). */
   bodyDomId?: string;
 }) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
+  const [open, setOpen] = useState(defaultOpen ?? true);
 
   const sessionRow = useQuery(api.workshops.myRegisteredSessionForLiveWorkshopUnit, {
     workshopUnitId: unitId,

@@ -499,7 +499,6 @@ export default function UnitClient({
         <LiveWorkshopRoomPanel
           unitId={unitId}
           workshopSessionId={workshopSessionId}
-          defaultOpen={workshopSessionId != null}
         />
       ) : null}
       {isLiveWorkshopUnit && teamsOnlyRegistered && liveWorkshopSession?.session ? (
