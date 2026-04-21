@@ -639,7 +639,19 @@ async function sendResendWorkshopConfirmation(params: {
   });
   const body = await res.text();
   if (!res.ok) {
-    console.error("[Resend] workshop confirmation failed:", res.status, body);
+    const isResendTestRecipientLimit =
+      res.status === 403 &&
+      (body.includes("only send testing") ||
+        body.includes("validation_error"));
+    if (isResendTestRecipientLimit) {
+      console.warn(
+        "[Resend] workshop confirmation not sent (test key / unverified domain):",
+        res.status,
+        body.slice(0, 400),
+      );
+    } else {
+      console.error("[Resend] workshop confirmation failed:", res.status, body);
+    }
     return { outcome: "failed", status: res.status, body: body.slice(0, 500) };
   }
   return { outcome: "sent", status: res.status };
