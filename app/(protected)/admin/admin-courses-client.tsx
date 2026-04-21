@@ -527,9 +527,18 @@ function TrainingLeftTabChip({
       type="button"
       role="tab"
       aria-selected={selected}
+      data-training-tab-selected={selected ? "1" : "0"}
       onClick={onClick}
+      style={
+        selected
+          ? undefined
+          : {
+              /* Lighter than `muted-foreground` alone — mix toward chip/card surface */
+              color:
+                "color-mix(in oklch, var(--muted-foreground) 75%, var(--card))",
+            }
+      }
       className={cn(
-        /* Match {@link TrainingColumnChip} pill: px-3.5 py-1.5 text-[13px] */
         "inline-flex max-w-full min-w-0 flex-1 basis-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-bold leading-tight shadow-sm transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
@@ -538,11 +547,11 @@ function TrainingLeftTabChip({
             : "border-brand-lime/55 bg-[color-mix(in_oklab,var(--brand-lime)_30%,var(--card))] text-foreground dark:bg-[color-mix(in_oklab,var(--brand-lime)_24%,var(--card))]"
           : tone === "purple"
             ? cn(
-                "border-purple-500/45 bg-[color-mix(in_oklab,purple_12%,var(--card))] text-foreground dark:border-purple-400/40 dark:bg-[color-mix(in_oklab,purple_10%,var(--card))]",
+                "border-purple-500/45 bg-[color-mix(in_oklab,purple_12%,var(--card))] dark:border-purple-400/40 dark:bg-[color-mix(in_oklab,purple_10%,var(--card))]",
                 "hover:border-purple-600 hover:bg-[color-mix(in_oklab,purple_22%,var(--card))] dark:hover:border-purple-400 dark:hover:bg-[color-mix(in_oklab,purple_18%,var(--card))]",
               )
             : cn(
-                "border-brand-lime/50 bg-[color-mix(in_oklab,var(--brand-lime)_14%,var(--card))] text-foreground dark:border-brand-lime/45 dark:bg-[color-mix(in_oklab,var(--brand-lime)_12%,var(--card))]",
+                "border-brand-lime/50 bg-[color-mix(in_oklab,var(--brand-lime)_14%,var(--card))] dark:border-brand-lime/45 dark:bg-[color-mix(in_oklab,var(--brand-lime)_12%,var(--card))]",
                 "hover:border-brand-lime hover:bg-[color-mix(in_oklab,var(--brand-lime)_26%,var(--card))] dark:hover:bg-[color-mix(in_oklab,var(--brand-lime)_22%,var(--card))]",
               ),
       )}
@@ -2412,7 +2421,9 @@ export default function AdminCoursesClient() {
                   onClick={() => selectTrainingLeftTab("certifications")}
                   count={certListCount}
                   trailing={
-                    <span className="min-w-0 truncate">Certifications</span>
+                    <span className="min-w-0 truncate text-inherit">
+                      Certifications
+                    </span>
                   }
                 />
                 <TrainingLeftTabChip
@@ -2421,7 +2432,9 @@ export default function AdminCoursesClient() {
                   onClick={() => selectTrainingLeftTab("workshops")}
                   count={workshopSessionsInViewMonthCount}
                   trailing={
-                    <span className="min-w-0 truncate">Timetable</span>
+                    <span className="min-w-0 truncate text-inherit">
+                      Timetable
+                    </span>
                   }
                 />
               </div>
