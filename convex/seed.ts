@@ -561,18 +561,13 @@ async function insertSeededWorkshopUnits(
       status: "scheduled",
       capacity: 24,
     });
-    const liveWorkshopCatId = await getOrInsertContentCategory(
-      ctx,
-      "Live webinars",
-      "Live webinars — scheduled sessions & registration",
-      opts.contentSort,
-    );
     const sessionContentId = await ctx.db.insert("contentItems", {
       code: await allocateUniqueContentCode(ctx, spec.sessionStepTitle),
       type: "workshop_session",
       title: spec.sessionStepTitle,
       url: "",
-      contentCategoryId: liveWorkshopCatId,
+      /* Same chip as the pre-read link — avoids a separate “Live workshops/webinars” library category */
+      contentCategoryId: linkCatId,
       workshopSessionId: sessionId,
       shortDescription:
         "Pick a scheduled time and register — this step completes when you are booked in.",
@@ -996,6 +991,61 @@ export const adminSeedTrainingDatabase = mutation({
       operators,
       curriculumSkipped: false as const,
       ...stats,
+    };
+  },
+});
+
+/**
+ * Admin: drop legacy session-only content categories (`Live workshops`, `Live webinars`):
+ * re-point every `contentItems` row to **Regulators & web resources**, then delete those
+ * category rows. Safe to re-run; skips missing categories.
+ *
+ * Run: `npx convex run seed:adminRemoveLiveWorkshopsContentCategories`
+ */
+export const adminRemoveLiveWorkshopsContentCategories = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrCreator(ctx);
+    const foldIntoCode = "Regulators & web resources";
+    const target = await ctx.db
+      .query("contentCategories")
+      .withIndex("by_short_code", (q) => q.eq("shortCode", foldIntoCode))
+      .first();
+    if (!target) {
+      throw new Error(
+        `Missing content category "${foldIntoCode}". Create it or run curriculum seed first.`,
+      );
+    }
+    const obsoleteCodes = ["Live workshops", "Live webinars"] as const;
+    let contentItemsPatched = 0;
+    let categoriesDeleted = 0;
+    for (const code of obsoleteCodes) {
+      const cat = await ctx.db
+        .query("contentCategories")
+        .withIndex("by_short_code", (q) => q.eq("shortCode", code))
+        .first();
+      if (!cat) {
+        continue;
+      }
+      const items = await ctx.db
+        .query("contentItems")
+        .withIndex("by_content_category", (q) =>
+          q.eq("contentCategoryId", cat._id),
+        )
+        .collect();
+      for (const item of items) {
+        await ctx.db.patch(item._id, {
+          contentCategoryId: target._id,
+        });
+        contentItemsPatched += 1;
+      }
+      await ctx.db.delete(cat._id);
+      categoriesDeleted += 1;
+    }
+    return {
+      ok: true as const,
+      contentItemsPatched,
+      categoriesDeleted,
     };
   },
 });
