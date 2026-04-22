@@ -2,7 +2,7 @@
 
 import { ContentItemView } from "@/components/content-item-view";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import {
   isMicrosoftTeamsSession,
   unitPageShouldRenderJoinInTeamsStrip,
+  workshopJoinHrefForLink,
 } from "@/lib/workshopConference";
 import { cn } from "@/lib/utils";
 import { LiveWorkshopRoomPanel } from "@/components/workshop/live-workshop-room-panel";
@@ -261,22 +262,16 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
     >
       <div className="flex flex-wrap items-center gap-2">
         {canJoin ? (
-          <Button
-            type="button"
-            size="sm"
-            className="inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22"
+          <Link
+            href={workshopJoinHrefForLink(raw)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ size: "sm" }),
+              "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
+            )}
             onClick={() => {
-              const target = raw.startsWith("/")
-                ? `${window.location.origin}${raw}`
-                : raw;
-              void (async () => {
-                try {
-                  await recordJoin({ sessionId: session._id });
-                } catch {
-                  /* still open Teams */
-                }
-                window.open(target, "_blank", "noopener,noreferrer");
-              })();
+              void recordJoin({ sessionId: session._id }).catch(() => {});
             }}
           >
             Join in Teams
@@ -284,7 +279,7 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
               className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
               aria-hidden
             />
-          </Button>
+          </Link>
         ) : msTeams ? (
           <p className="text-xs text-muted-foreground">
             Teams join link is provisioning — save the session in admin with Graph

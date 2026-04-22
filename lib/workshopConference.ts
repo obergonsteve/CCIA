@@ -108,3 +108,12 @@ export function unitPageShouldRenderJoinInTeamsStrip(
   }
   return u.startsWith("/");
 }
+
+/** Use as `href` for `<Link target="_blank">` (avoids `window.open` in embedded browsers). */
+export function workshopJoinHrefForLink(raw: string): string {
+  const u = raw.trim();
+  if (u.startsWith("http://") || u.startsWith("https://")) {
+    return u;
+  }
+  return u.startsWith("/") ? u : `/${u}`;
+}

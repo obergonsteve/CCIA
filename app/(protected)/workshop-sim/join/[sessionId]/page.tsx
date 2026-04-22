@@ -1,4 +1,9 @@
 import WorkshopSimJoinClient from "./workshop-sim-join-client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: { absolute: "Webinar session" },
+};
 
 type PageProps = {
   params: Promise<{ sessionId: string }>;

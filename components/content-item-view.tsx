@@ -9,7 +9,10 @@ import { Label } from "@/components/ui/label";
 import { parseSlideshowUrls } from "@/lib/slideshow";
 import { cn } from "@/lib/utils";
 import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
-import { isMicrosoftTeamsSession } from "@/lib/workshopConference";
+import {
+  isMicrosoftTeamsSession,
+  workshopJoinHrefForLink,
+} from "@/lib/workshopConference";
 import { useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
@@ -372,33 +375,43 @@ export function ContentItemView({
                   {workshopSessionDetail?.session.externalJoinUrl &&
                   workshopRegistered ? (
                     isMicrosoftTeamsSession(workshopSessionDetail.session) ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="inline-flex gap-1"
-                        disabled={!unitId || locked}
-                        onClick={() => {
-                          const u =
-                            workshopSessionDetail.session.externalJoinUrl?.trim();
-                          if (!u || !workshopSessionId) {
-                            return;
-                          }
-                          void (async () => {
-                            try {
-                              await recordTeamsJoin({
-                                sessionId: workshopSessionId,
-                              });
-                            } catch {
-                              /* still open Teams */
-                            }
-                            window.open(u, "_blank", "noopener,noreferrer");
-                          })();
-                        }}
-                      >
-                        Join in Teams
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
+                      !workshopSessionId ||
+                      !workshopSessionDetail.session.externalJoinUrl?.trim() ? null : !unitId ||
+                        locked ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="inline-flex gap-1"
+                          disabled
+                        >
+                          Join in Teams
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <Link
+                          href={workshopJoinHrefForLink(
+                            workshopSessionDetail.session.externalJoinUrl.trim(),
+                          )}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            buttonVariants({
+                              variant: "secondary",
+                              size: "sm",
+                            }),
+                            "inline-flex gap-1",
+                          )}
+                          onClick={() => {
+                            void recordTeamsJoin({
+                              sessionId: workshopSessionId,
+                            }).catch(() => {});
+                          }}
+                        >
+                          Join in Teams
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
+                      )
                     ) : (
                       <Link
                         href={workshopSessionDetail.session.externalJoinUrl}
