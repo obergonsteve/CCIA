@@ -400,7 +400,7 @@ export function ContentItemView({
                               variant: "secondary",
                               size: "sm",
                             }),
-                            "inline-flex gap-1",
+                            "inline-flex gap-1 border-red-600/45 bg-red-600/15 text-red-950 hover:bg-red-600/25 dark:border-red-400/40 dark:bg-red-600/20 dark:text-red-50 dark:hover:bg-red-600/30",
                           )}
                           onClick={() => {
                             void recordTeamsJoin({
@@ -409,7 +409,7 @@ export function ContentItemView({
                           }}
                         >
                           Join in Teams
-                          <ExternalLink className="h-3.5 w-3.5" />
+                          <ExternalLink className="h-3.5 w-3.5 text-red-800 dark:text-red-200" />
                         </Link>
                       )
                     ) : (

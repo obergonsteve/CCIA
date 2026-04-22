@@ -257,7 +257,7 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
   }
   return (
     <section
-      className="rounded-xl border border-purple-500/40 bg-purple-500/[0.1] px-4 py-3 shadow-sm ring-1 ring-foreground/10 dark:border-purple-400/35 dark:bg-purple-500/[0.14]"
+      className="rounded-xl border border-red-500/40 bg-red-500/[0.08] px-4 py-3 shadow-sm ring-1 ring-foreground/10 dark:border-red-400/35 dark:bg-red-500/[0.12]"
       aria-label="Microsoft Teams webinar"
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -268,7 +268,7 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
             rel="noopener noreferrer"
             className={cn(
               buttonVariants({ size: "sm" }),
-              "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
+              "inline-flex gap-1.5 border-red-600/45 bg-red-600/15 text-red-950 hover:bg-red-600/25 dark:border-red-400/40 dark:bg-red-600/20 dark:text-red-50 dark:hover:bg-red-600/30",
             )}
             onClick={() => {
               void recordJoin({ sessionId: session._id }).catch(() => {});
@@ -276,7 +276,7 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
           >
             Join in Teams
             <ExternalLink
-              className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300"
+              className="h-3.5 w-3.5 text-red-800 dark:text-red-200"
               aria-hidden
             />
           </Link>

@@ -455,21 +455,6 @@ function OpenCertPathSessionCard({
         >
           {session.full ? "Full" : "Register"}
         </Button>
-        <Link
-          href={`/units/${session.workshopUnitId}`}
-          title="Open webinar unit — live session (video, chat, screen share)"
-          aria-label={`Open webinar unit: ${session.workshopTitle}`}
-          className={cn(
-            buttonVariants({ variant: "secondary", size: "sm" }),
-            "max-w-full rounded-full border-sky-500/35 bg-sky-500/10 px-3 font-medium text-sky-950 shadow-sm hover:bg-sky-500/18 dark:border-sky-400/40 dark:bg-sky-500/15 dark:text-sky-50 dark:hover:bg-sky-500/24",
-          )}
-        >
-          <Video
-            className="h-3.5 w-3.5 text-sky-800 dark:text-sky-200"
-            aria-hidden
-          />
-          <span className="truncate">Open webinar unit</span>
-        </Link>
         {session.externalJoinUrl ? (
           isMicrosoftTeamsSession(session) && teamsJoinTrimmed.length > 0 ? (
             <Link
@@ -478,14 +463,14 @@ function OpenCertPathSessionCard({
               rel="noopener noreferrer"
               className={cn(
                 buttonVariants({ size: "sm" }),
-                "inline-flex gap-1.5 border-sky-600/35 bg-sky-600/15 text-sky-950 hover:bg-sky-600/25 dark:border-sky-400/30 dark:bg-sky-500/20 dark:text-sky-50 dark:hover:bg-sky-500/30",
+                "inline-flex gap-1.5 border-red-600/45 bg-red-600/15 text-red-950 hover:bg-red-600/25 dark:border-red-400/40 dark:bg-red-600/20 dark:text-red-50 dark:hover:bg-red-600/30",
               )}
               onClick={() => {
                 void onTeamsJoinTracked(session._id).catch(() => {});
               }}
             >
               Join in Teams
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-red-800 dark:text-red-200" aria-hidden />
             </Link>
           ) : (
             <Link
@@ -502,6 +487,21 @@ function OpenCertPathSessionCard({
             </Link>
           )
         ) : null}
+        <Link
+          href={`/units/${session.workshopUnitId}`}
+          title="Open webinar unit — live session (video, chat, screen share)"
+          aria-label={`Open webinar unit: ${session.workshopTitle}`}
+          className={cn(
+            buttonVariants({ variant: "secondary", size: "sm" }),
+            "max-w-full rounded-full border-sky-500/35 bg-sky-500/10 px-3 font-medium text-sky-950 shadow-sm hover:bg-sky-500/18 dark:border-sky-400/40 dark:bg-sky-500/15 dark:text-sky-50 dark:hover:bg-sky-500/24",
+          )}
+        >
+          <Video
+            className="h-3.5 w-3.5 text-sky-800 dark:text-sky-200"
+            aria-hidden
+          />
+          <span className="truncate">Open webinar unit</span>
+        </Link>
       </CardContent>
     </Card>
   );
@@ -580,23 +580,6 @@ function RegisteredCertPathWorkshopCard({
         {session.externalJoinUrl && !past ? (
           isMicrosoftTeamsSession(session) ? (
             <>
-              {teamsJoinTrimmed.length > 0 ? (
-                <Link
-                  href={workshopJoinHrefForLink(teamsJoinTrimmed)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    buttonVariants({ size: "sm" }),
-                    "inline-flex gap-1.5 border-purple-500/30 bg-purple-500/10 text-purple-950 hover:bg-purple-500/18 dark:border-purple-400/25 dark:bg-purple-500/15 dark:text-purple-50 dark:hover:bg-purple-500/22",
-                  )}
-                  onClick={() => {
-                    void onTeamsJoinTracked(session._id).catch(() => {});
-                  }}
-                >
-                  Join in Teams
-                  <ExternalLink className="h-3.5 w-3.5 text-purple-700 dark:text-purple-300" />
-                </Link>
-              ) : null}
               <Link
                 href={openWebinarUnitHref}
                 title="Open webinar unit — live session (video, chat, screen share)"
@@ -612,6 +595,23 @@ function RegisteredCertPathWorkshopCard({
                 />
                 <span className="truncate">Open webinar unit</span>
               </Link>
+              {teamsJoinTrimmed.length > 0 ? (
+                <Link
+                  href={workshopJoinHrefForLink(teamsJoinTrimmed)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ size: "sm" }),
+                    "inline-flex gap-1.5 border-red-600/45 bg-red-600/15 text-red-950 hover:bg-red-600/25 dark:border-red-400/40 dark:bg-red-600/20 dark:text-red-50 dark:hover:bg-red-600/30",
+                  )}
+                  onClick={() => {
+                    void onTeamsJoinTracked(session._id).catch(() => {});
+                  }}
+                >
+                  Join in Teams
+                  <ExternalLink className="h-3.5 w-3.5 text-red-800 dark:text-red-200" />
+                </Link>
+              ) : null}
             </>
           ) : (
             <Link
