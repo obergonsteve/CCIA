@@ -288,30 +288,30 @@ function LearnerWorkshopsPathCalendar({
                 }}
                 className={cn(
                   "relative flex size-9 shrink-0 flex-col items-center justify-center text-xs leading-none transition-colors",
-                  inMonth ? "text-foreground" : "text-muted-foreground/45",
+                  inMonth
+                    ? "text-foreground"
+                    : todayCell
+                      ? "text-emerald-950/95 dark:text-emerald-100"
+                      : "text-muted-foreground/45",
                   selected
-                    ? "z-[1] rounded-full border-2 border-amber-500 bg-amber-500/25 font-semibold shadow-sm dark:border-amber-400 dark:bg-amber-500/20"
-                    : cn(
-                        hasWorkshops
-                          ? "rounded-full border-2 border-neutral-400 dark:border-neutral-500"
-                          : "rounded-md border border-transparent",
-                      ),
-                  todayCell &&
-                    !selected &&
-                    "ring-1 ring-inset ring-emerald-500/55 dark:ring-emerald-400/50",
-                  todayCell &&
-                    selected &&
-                    "ring-1 ring-inset ring-emerald-500/40 ring-offset-0 dark:ring-emerald-400/35",
-                  !selected && "hover:bg-muted/80",
+                    ? cn(
+                        "z-[1] rounded-full border-2 border-amber-500 bg-amber-500/25 font-semibold shadow-sm dark:border-amber-400 dark:bg-amber-500/20",
+                        todayCell &&
+                          "ring-2 ring-emerald-500/80 ring-offset-0 dark:ring-emerald-400/70",
+                      )
+                    : todayCell
+                      ? "rounded-full border-2 border-emerald-500 bg-emerald-500/35 font-semibold text-emerald-950 shadow-sm ring-2 ring-emerald-500/30 dark:border-emerald-400 dark:bg-emerald-500/25 dark:text-emerald-50 dark:ring-emerald-400/35"
+                      : hasWorkshops
+                        ? "rounded-full border-2 border-neutral-400 dark:border-neutral-500"
+                        : "rounded-md border border-transparent",
+                  !selected &&
+                    !todayCell &&
+                    "hover:bg-muted/80",
+                  !selected &&
+                    todayCell &&
+                    "hover:border-emerald-600 hover:bg-emerald-500/45 dark:hover:border-emerald-300 dark:hover:bg-emerald-500/35",
                 )}
               >
-                {todayCell ? (
-                  <span
-                    className="pointer-events-none absolute right-0.5 top-0.5 size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"
-                    title="Today"
-                    aria-hidden
-                  />
-                ) : null}
                 <span className={cn("tabular-nums", todayCell && "font-semibold")}>
                   {format(day, "d")}
                 </span>
