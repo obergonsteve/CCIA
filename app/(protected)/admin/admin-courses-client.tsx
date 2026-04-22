@@ -97,8 +97,6 @@ import {
 import { cn } from "@/lib/utils";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
-  adminUnitDeliveryLREdgeColors,
-  adminUnitDeliveryLREdgeColorsMuted,
   ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
   ContentLibraryDragRow,
   DraggableUnitPaletteItem,
@@ -117,6 +115,22 @@ const CATEGORY_SELECT_NONE = "__none__" as const;
 const EDIT_CERT_DRAWER_CHROME = trainingBoardDrawerChrome("certification");
 const EDIT_CONTENT_DRAWER_CHROME = trainingBoardDrawerChrome("content");
 const EDIT_UNIT_DRAWER_CHROME = trainingBoardDrawerChrome("unit");
+
+/** Shared frame for Self-paced / Webinar filter toggles (Units column). Unselected: light tinted bg; selected: stronger border + fill. */
+const unitDeliveryFilterToggleBase = cn(
+  "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
+  ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+);
+/** Self-paced: red — light tinted bg when unselected, deeper red when selected. */
+const selfPacedFilterOff =
+  "border-l-red-500/40 border-r-red-500/40 bg-red-500/15 hover:bg-red-500/20 dark:border-l-red-400/50 dark:border-r-red-400/50 dark:bg-red-500/20 dark:hover:bg-red-500/26";
+const selfPacedFilterOn =
+  "border-l-red-600 border-r-red-600 bg-red-500/32 shadow-sm hover:bg-red-500/40 dark:border-l-red-500 dark:border-r-red-500 dark:bg-red-500/30 dark:hover:bg-red-500/40";
+/** Webinar: purple — same pattern. */
+const webinarFilterOff =
+  "border-l-purple-500/40 border-r-purple-500/40 bg-purple-500/15 hover:bg-purple-500/20 dark:border-l-purple-400/50 dark:border-r-purple-400/50 dark:bg-purple-500/20 dark:hover:bg-purple-500/26";
+const webinarFilterOn =
+  "border-l-purple-600 border-r-purple-600 bg-purple-500/32 shadow-sm hover:bg-purple-500/40 dark:border-l-purple-500 dark:border-r-purple-500 dark:bg-purple-500/28 dark:hover:bg-purple-500/40";
 
 function toScheduleLocalInputValue(ms: number): string {
   const d = new Date(ms);
@@ -2742,24 +2756,33 @@ export default function AdminCoursesClient() {
                   size="sm"
                   variant="ghost"
                   className={cn(
-                    "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
-                    ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+                    unitDeliveryFilterToggleBase,
                     unitDeliveryFilter === "self_paced"
-                      ? cn(
-                          adminUnitDeliveryLREdgeColors("self_paced"),
-                          "bg-brand-gold/26 font-medium text-foreground hover:bg-brand-gold/32 dark:bg-brand-gold/28 dark:hover:bg-brand-gold/36",
-                        )
-                      : cn(
-                          adminUnitDeliveryLREdgeColorsMuted("self_paced"),
-                          "bg-background hover:bg-brand-gold/10 dark:hover:bg-brand-gold/12",
-                        ),
+                      ? selfPacedFilterOn
+                      : selfPacedFilterOff,
                   )}
                   onClick={() => setUnitDeliveryFilter("self_paced")}
                   aria-pressed={unitDeliveryFilter === "self_paced"}
                   title="Show self-paced units (default)"
                 >
-                  <span className="min-w-0 truncate">Self-paced</span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                  <span
+                    className={cn(
+                      "min-w-0 truncate",
+                      unitDeliveryFilter === "self_paced"
+                        ? "font-medium text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Self-paced
+                  </span>
+                  <span
+                    className={cn(
+                      "shrink-0 tabular-nums",
+                      unitDeliveryFilter === "self_paced"
+                        ? "text-foreground/90"
+                        : "text-muted-foreground",
+                    )}
+                  >
                     ({unitSelfPacedCount})
                   </span>
                 </Button>
@@ -2768,24 +2791,33 @@ export default function AdminCoursesClient() {
                   size="sm"
                   variant="ghost"
                   className={cn(
-                    "h-8 min-w-0 gap-1 border border-border px-2 text-xs leading-tight shadow-none",
-                    ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
+                    unitDeliveryFilterToggleBase,
                     unitDeliveryFilter === "live_workshop"
-                      ? cn(
-                          adminUnitDeliveryLREdgeColors("live_workshop"),
-                          "bg-purple-500/28 font-medium text-foreground hover:bg-purple-500/36 dark:bg-purple-400/26 dark:hover:bg-purple-400/34",
-                        )
-                      : cn(
-                          adminUnitDeliveryLREdgeColorsMuted("live_workshop"),
-                          "bg-background hover:bg-purple-500/10 dark:hover:bg-purple-400/12",
-                        ),
+                      ? webinarFilterOn
+                      : webinarFilterOff,
                   )}
                   onClick={() => setUnitDeliveryFilter("live_workshop")}
                   aria-pressed={unitDeliveryFilter === "live_workshop"}
                   title="Show live webinar units (scheduled sessions)"
                 >
-                  <span className="min-w-0 truncate">Webinar</span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                  <span
+                    className={cn(
+                      "min-w-0 truncate",
+                      unitDeliveryFilter === "live_workshop"
+                        ? "font-medium text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Webinar
+                  </span>
+                  <span
+                    className={cn(
+                      "shrink-0 tabular-nums",
+                      unitDeliveryFilter === "live_workshop"
+                        ? "text-foreground/90"
+                        : "text-muted-foreground",
+                    )}
+                  >
                     ({unitWorkshopCount})
                   </span>
                 </Button>
@@ -2924,11 +2956,7 @@ export default function AdminCoursesClient() {
                       </ul>
                     </SortableContext>
                   )
-                ) : !allUnits?.length ? (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    No units. Use +.
-                  </p>
-                ) : allCentrePaletteOrdered.length === 0 ? (
+                ) : !allUnits?.length ? null : allCentrePaletteOrdered.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     {trainingLeftTab === "workshops" &&
                     workshopPlannerDay != null &&
