@@ -18,11 +18,15 @@ export default async function UnitPage({ params, searchParams }: PageProps) {
     typeof sessionRaw === "string" && sessionRaw.length > 0
       ? sessionRaw
       : undefined;
+  const fromRaw = resolvedSearch.from;
+  const fromWorkshops =
+    typeof fromRaw === "string" && fromRaw.trim().toLowerCase() === "workshops";
   return (
     <UnitClient
       unitId={resolvedParams.unitId}
       levelId={levelId}
       workshopSessionId={workshopSessionId}
+      fromWorkshops={fromWorkshops}
     />
   );
 }

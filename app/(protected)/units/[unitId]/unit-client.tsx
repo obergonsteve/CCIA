@@ -40,9 +40,23 @@ function unitStepPathHref(
     contentId?: Id<"contentItems">;
     assignmentId?: Id<"assignments">;
   },
+  urlContext?: {
+    fromWorkshops: boolean;
+    workshopSessionId?: Id<"workshopSessions">;
+  },
 ): string {
-  const q = levelId ? `?level=${levelId}` : "";
-  const base = `/units/${unitId}${q}`;
+  const q = new URLSearchParams();
+  if (levelId) {
+    q.set("level", levelId);
+  }
+  if (urlContext?.fromWorkshops) {
+    q.set("from", "workshops");
+  }
+  if (urlContext?.workshopSessionId) {
+    q.set("session", urlContext.workshopSessionId);
+  }
+  const qs = q.toString();
+  const base = `/units/${unitId}${qs ? `?${qs}` : ""}`;
   if (st.kind === "content" && st.contentId) {
     return `${base}#step-${st.contentId}`;
   }
@@ -243,7 +257,14 @@ function LegacyAssignmentStepBlock({
  * `teamsLastSyncAt`, etc.) so the strip still shows when `conferenceProvider` is
  * `livekit` but the session row is Teams-backed.
  */
-function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"> }) {
+function JoinInTeamsWorkshopStrip({
+  session,
+  teamsJoinEnabled,
+}: {
+  session: Doc<"workshopSessions">;
+  /** False until the learner has a workshop registration for this session. */
+  teamsJoinEnabled: boolean;
+}) {
   const recordJoin = useMutation(api.workshops.recordTeamsJoin);
   const teamsSimulationOn = useQuery(
     api.workshops.workshopTeamsSimulationEnabled,
@@ -259,6 +280,10 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
   if (!showStrip) {
     return null;
   }
+  const joinButtonClass = cn(
+    buttonVariants({ size: "sm" }),
+    "inline-flex gap-1.5 border-red-600/45 bg-red-600/15 text-red-950 hover:bg-red-600/25 dark:border-red-400/40 dark:bg-red-600/20 dark:text-red-50 dark:hover:bg-red-600/30",
+  );
   return (
     <section
       className="rounded-xl border border-red-500/40 bg-red-500/[0.08] px-4 py-3 shadow-sm ring-1 ring-foreground/10 dark:border-red-400/35 dark:bg-red-500/[0.12]"
@@ -266,24 +291,51 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
     >
       <div className="flex flex-wrap items-center gap-2">
         {canJoin ? (
-          <Link
-            href={workshopJoinHrefForLink(raw)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              buttonVariants({ size: "sm" }),
-              "inline-flex gap-1.5 border-red-600/45 bg-red-600/15 text-red-950 hover:bg-red-600/25 dark:border-red-400/40 dark:bg-red-600/20 dark:text-red-50 dark:hover:bg-red-600/30",
-            )}
-            onClick={() => {
-              void recordJoin({ sessionId: session._id }).catch(() => {});
-            }}
-          >
-            Join in Teams
-            <ExternalLink
-              className="h-3.5 w-3.5 text-red-800 dark:text-red-200"
-              aria-hidden
-            />
-          </Link>
+          teamsJoinEnabled ? (
+            <Link
+              href={workshopJoinHrefForLink(raw)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={joinButtonClass}
+              onClick={() => {
+                void recordJoin({ sessionId: session._id }).catch(() => {});
+              }}
+            >
+              Join in Teams
+              <ExternalLink
+                className="h-3.5 w-3.5 text-red-800 dark:text-red-200"
+                aria-hidden
+              />
+            </Link>
+          ) : (
+            <div className="flex min-w-0 max-w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <Button
+                type="button"
+                size="sm"
+                disabled
+                title="Register for this session on the Webinars page to join in Microsoft Teams"
+                aria-label="Join in Teams (register on the Webinars page first)"
+                className={cn(
+                  joinButtonClass,
+                  "shrink-0 cursor-not-allowed opacity-60 hover:bg-red-600/15 dark:hover:bg-red-600/20",
+                )}
+              >
+                Join in Teams
+                <ExternalLink
+                  className="h-3.5 w-3.5 text-red-800/50 dark:text-red-200/50"
+                  aria-hidden
+                />
+              </Button>
+              <p
+                className="text-xs leading-snug text-muted-foreground"
+                role="status"
+              >
+                Register for this session on the{" "}
+                <span className="font-semibold text-foreground">Webinars</span>{" "}
+                page
+              </p>
+            </div>
+          )
         ) : msTeams ? (
           <p className="text-xs text-muted-foreground">
             Teams join link is provisioning — save the session in admin with Graph
@@ -300,7 +352,7 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
   );
 }
 
-/** Subscribes to the registered session row so the Teams strip updates without depending on the LiveKit panel. */
+/** Subscribes to the session row for the red Teams strip (Webinars context only on the unit page). */
 function UnitJoinInTeamsStripLoader({
   unitId,
   workshopSessionId,
@@ -311,21 +363,32 @@ function UnitJoinInTeamsStripLoader({
   const row = useQuery(api.workshops.myRegisteredSessionForLiveWorkshopUnit, {
     workshopUnitId: unitId,
     ...(workshopSessionId != null ? { workshopSessionId } : {}),
+    includeUnregisteredForWebinarsJoinStrip: true,
   });
   if (row === undefined || row === null || !row.session) {
     return null;
   }
-  return <JoinInTeamsWorkshopStrip session={row.session} />;
+  /** Strip matches Webinars flow: only registered learners can use the join control (not host preview). */
+  const teamsJoinEnabled = row.registration != null;
+  return (
+    <JoinInTeamsWorkshopStrip
+      session={row.session}
+      teamsJoinEnabled={teamsJoinEnabled}
+    />
+  );
 }
 
 export default function UnitClient({
   unitId: unitIdRaw,
   levelId: levelIdRaw,
   workshopSessionId: workshopSessionIdRaw,
+  fromWorkshops = false,
 }: {
   unitId: string;
   levelId?: string;
   workshopSessionId?: string;
+  /** Set when opening the unit from `/workshops` (`?from=workshops`). */
+  fromWorkshops?: boolean;
 }) {
   const unitId = unitIdRaw as Id<"units">;
   const levelId =
@@ -485,7 +548,7 @@ export default function UnitClient({
         </div>
       </div>
 
-      {isLiveWorkshopUnit ? (
+      {isLiveWorkshopUnit && fromWorkshops ? (
         <UnitJoinInTeamsStripLoader
           unitId={unitId}
           workshopSessionId={workshopSessionId}
@@ -597,7 +660,10 @@ export default function UnitClient({
                   const st = row.step;
                   const title = st.title;
                   const stepLocked = blocked || row.locked;
-                  const href = unitStepPathHref(unitId, levelId, st);
+                  const href = unitStepPathHref(unitId, levelId, st, {
+                    fromWorkshops,
+                    workshopSessionId,
+                  });
                   const nodeIcon =
                     row.done ? (
                       <CheckCircle2

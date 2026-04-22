@@ -383,6 +383,22 @@ function workshopClosedReplayHref(
 ): string {
   const q = new URLSearchParams();
   q.set("session", sessionId);
+  q.set("from", "workshops");
+  if (levelId) {
+    q.set("level", levelId);
+  }
+  return `/units/${unitId}?${q.toString()}`;
+}
+
+/** Webinars page → unit: enables the “Join in Teams” strip and session-scoped join rules. */
+function workshopsPageOpenUnitHref(
+  unitId: Id<"units">,
+  sessionId: Id<"workshopSessions">,
+  levelId: Id<"certificationLevels"> | null,
+): string {
+  const q = new URLSearchParams();
+  q.set("from", "workshops");
+  q.set("session", sessionId);
   if (levelId) {
     q.set("level", levelId);
   }
@@ -462,7 +478,11 @@ function OpenCertPathSessionCard({
           {session.full ? "Full" : "Register"}
         </Button>
         <Link
-          href={`/units/${session.workshopUnitId}`}
+          href={workshopsPageOpenUnitHref(
+            session.workshopUnitId,
+            session._id,
+            null,
+          )}
           title="Open webinar unit — live session (video, chat, screen share)"
           aria-label={`Open webinar unit: ${session.workshopTitle}`}
           className={cn(
@@ -533,10 +553,11 @@ function RegisteredCertPathWorkshopCard({
   certPathLevelId: Id<"certificationLevels"> | null;
 }) {
   const teamsJoinTrimmed = session.externalJoinUrl?.trim() ?? "";
-  const openWebinarUnitHref =
-    certPathLevelId != null
-      ? `/units/${session.workshopUnitId}?level=${certPathLevelId}`
-      : `/units/${session.workshopUnitId}`;
+  const openWebinarUnitHref = workshopsPageOpenUnitHref(
+    session.workshopUnitId,
+    session._id,
+    certPathLevelId,
+  );
 
   return (
     <Card

@@ -738,8 +738,18 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
     workshopUnitId: v.id("units"),
     /** When set, use this session if the learner is registered (e.g. reopen a closed run). */
     workshopSessionId: v.optional(v.id("workshopSessions")),
+    /**
+     * When true (Webinars → unit with `?from=workshops`), return a focused scheduled
+     * session even if the learner is not registered so the UI can show a disabled
+     * “Join in Teams” strip until they register.
+     */
+    includeUnregisteredForWebinarsJoinStrip: v.optional(v.boolean()),
   },
-  handler: async (ctx, { workshopUnitId, workshopSessionId }) => {
+  handler: async (ctx, {
+    workshopUnitId,
+    workshopSessionId,
+    includeUnregisteredForWebinarsJoinStrip,
+  }) => {
     const userId = await requireUserId(ctx);
     const ok = await userCanAccessWorkshopSession(ctx, workshopUnitId);
     if (!ok) {
@@ -772,14 +782,29 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
           )
           .unique();
         if (reg) {
-          return { session: focused, registration: reg };
+          return {
+            session: focused,
+            registration: reg,
+            isLiveHost: false as const,
+          };
         }
         const user = await ctx.db.get(userId);
         const isLiveHost =
           user != null &&
           (user.role === "admin" || user.role === "content_creator");
         if (isLiveHost) {
-          return { session: focused, registration: null };
+          return {
+            session: focused,
+            registration: null,
+            isLiveHost: true as const,
+          };
+        }
+        if (includeUnregisteredForWebinarsJoinStrip) {
+          return {
+            session: focused,
+            registration: null,
+            isLiveHost: false as const,
+          };
         }
       }
     }
@@ -807,12 +832,12 @@ export const myRegisteredSessionForLiveWorkshopUnit = query({
       );
       if (withJoin.length > 0) {
         withJoin.sort((a, b) => a.session.startsAt - b.session.startsAt);
-        return withJoin[0]!;
+        return { ...withJoin[0]!, isLiveHost: false as const };
       }
-      return upcoming[0]!;
+      return { ...upcoming[0]!, isLiveHost: false as const };
     }
     rows.sort((a, b) => b.session.endsAt - a.session.endsAt);
-    return rows[0]!;
+    return { ...rows[0]!, isLiveHost: false as const };
   },
 });
 
