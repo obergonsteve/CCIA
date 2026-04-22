@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -39,6 +39,9 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 const DEFAULT_AFTER_LOGIN = "/dashboard";
+
+/** When “Remember me” is used successfully, we save the email for this browser only (not the password). */
+const REMEMBERED_LOGIN_EMAIL_KEY = "ccia-landlease:remembered-login-email";
 
 /** Only allow post-login redirects to routes that exist (avoid silent 404 after auth). */
 const ALLOWED_AFTER_LOGIN_PREFIXES = [
@@ -134,15 +137,29 @@ export function LoginForm() {
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
-      email:
-        process.env.NODE_ENV === "development"
-          ? "steve.moore@ccia-landlease.com"
-          : "",
-      password:
-        process.env.NODE_ENV === "development" ? "stevemoore" : "",
+      email: "",
+      password: "",
       rememberMe: false,
     },
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const saved = localStorage.getItem(REMEMBERED_LOGIN_EMAIL_KEY)?.trim();
+      if (saved) {
+        form.reset({
+          email: saved,
+          password: "",
+          rememberMe: true,
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [form]);
 
   async function onSubmit(values: Values) {
     setSignInProblemOpen(false);
@@ -218,6 +235,19 @@ export function LoginForm() {
         );
         setSignInProblemOpen(true);
         return;
+      }
+
+      try {
+        if (values.rememberMe) {
+          localStorage.setItem(
+            REMEMBERED_LOGIN_EMAIL_KEY,
+            values.email.trim().toLowerCase(),
+          );
+        } else {
+          localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+        }
+      } catch {
+        /* ignore */
       }
 
       window.location.assign(safeNextFromSearch(window.location.search));
@@ -323,7 +353,17 @@ export function LoginForm() {
                   className="h-4 w-4 rounded border-input accent-brand-sky"
                   disabled={isSubmitting}
                   checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    field.onChange(checked);
+                    if (!checked) {
+                      try {
+                        localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+                      } catch {
+                        /* ignore */
+                      }
+                    }
+                  }}
                   aria-describedby="login-remember-me-desc"
                 />
               </FormControl>
@@ -338,7 +378,9 @@ export function LoginForm() {
                   id="login-remember-me-desc"
                   className="text-xs text-muted-foreground"
                 >
-                  Stay signed in on this device for up to 30 days.
+                  Keep your session for up to 30 days and save your email on
+                  this device for next time. Uncheck to use a short session and
+                  clear a saved email.
                 </p>
               </div>
             </FormItem>
