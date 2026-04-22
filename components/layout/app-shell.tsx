@@ -14,7 +14,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { SidebarBreadcrumbs } from "@/components/layout/sidebar-breadcrumbs";
 import { SidebarMainPageHeading } from "@/components/layout/sidebar-main-page-heading";
 import {
@@ -23,6 +23,7 @@ import {
   primarySidebarNav,
 } from "@/lib/sidebar-nav";
 import { SITE_APP_NAME, SITE_FOOTER_APP } from "@/lib/site-brand";
+import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -30,33 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTheme, resolvedTheme } = useTheme();
-  /** Name/role for shell UI — from the login cookie, not Convex (Convex `me` is deployment-fallback / Steve). */
-  const [sessionUser, setSessionUser] = useState<{
-    name: string;
-    role: "operator" | "supervisor" | "admin" | "content_creator";
-  } | null>(null);
-  useEffect(() => {
-    let cancel = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/auth/session", { credentials: "include" });
-        const data = (await res.json()) as {
-          user: {
-            name: string;
-            role: "operator" | "supervisor" | "admin" | "content_creator";
-          } | null;
-        };
-        if (!cancel) {
-          setSessionUser(data.user);
-        }
-      } catch {
-        if (!cancel) setSessionUser(null);
-      }
-    })();
-    return () => {
-      cancel = true;
-    };
-  }, []);
+  const { user: sessionUser } = useSessionUser();
   const certificationLevels = useQuery(api.certifications.listForUser);
 
   const isWorkshopSimShell = pathname.startsWith("/workshop-sim");

@@ -32,6 +32,7 @@ import {
   certificationTierSectionTitle,
   effectiveCertificationTier,
 } from "@/lib/certificationTier";
+import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 import { useMemo, useState, type ReactNode } from "react";
 
@@ -378,7 +379,7 @@ function CertificationBucketSection({
 }
 
 export default function DashboardClient() {
-  const me = useQuery(api.users.me);
+  const { user: sessionUser, isLoading: sessionLoading } = useSessionUser();
   const buckets = useQuery(api.certifications.listDashboardBucketsForUser);
   const addToPlan = useMutation(api.certifications.addCertificationLevelToMyPlan);
   const removeFromPlan = useMutation(
@@ -395,7 +396,7 @@ export default function DashboardClient() {
     [buckets],
   );
 
-  if (!me || !buckets) {
+  if (sessionLoading || !sessionUser || !buckets) {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-8 bg-muted rounded w-1/3" />
@@ -405,7 +406,9 @@ export default function DashboardClient() {
   }
 
   const firstName =
-    me.name.trim().split(/\s+/)[0] || me.name.trim() || me.name;
+    sessionUser.name.trim().split(/\s+/)[0] ||
+    sessionUser.name.trim() ||
+    sessionUser.name;
 
   return (
     <div className="-mt-2 space-y-5">
@@ -480,9 +483,9 @@ export default function DashboardClient() {
         />
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-muted-foreground">Role</span>
-          <span className="font-medium capitalize">{me.role}</span>
+          <span className="font-medium capitalize">{sessionUser.role}</span>
           <Badge variant="secondary" className="text-xs font-normal">
-            {me.email}
+            {sessionUser.email}
           </Badge>
         </div>
       </div>

@@ -89,10 +89,31 @@ export default function AdminDatabaseClient() {
               try {
                 const res = await seedTrainingDatabase({});
                 if (res.curriculumSkipped) {
-                  toast.message(
-                    res.message ??
-                      "Curriculum already seeded — clear first to re-insert.",
-                  );
+                  const ws =
+                    "workshopUnitsInserted" in res &&
+                    typeof (res as { workshopUnitsInserted?: unknown })
+                      .workshopUnitsInserted === "number"
+                      ? (res as { workshopUnitsInserted: number })
+                          .workshopUnitsInserted
+                      : 0;
+                  const tiers =
+                    "certificationTiersPatched" in res &&
+                    typeof (res as { certificationTiersPatched?: unknown })
+                      .certificationTiersPatched === "number"
+                      ? (res as { certificationTiersPatched: number })
+                          .certificationTiersPatched
+                      : 0;
+                  if (ws > 0 || tiers > 0) {
+                    toast.success(
+                      res.message ??
+                        `Workshops +${ws}, certification tiers updated: ${tiers} level(s).`,
+                    );
+                  } else {
+                    toast.message(
+                      res.message ??
+                        "Curriculum already seeded — clear first to re-insert.",
+                    );
+                  }
                 } else {
                   const ws =
                     "workshopUnitsInserted" in res &&

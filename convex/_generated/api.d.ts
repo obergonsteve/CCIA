@@ -26,6 +26,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_certTier from "../lib/certTier.js";
 import type * as lib_entityCodes from "../lib/entityCodes.js";
 import type * as lib_httpCookies from "../lib/httpCookies.js";
+import type * as lib_landLeaseCertTiers from "../lib/landLeaseCertTiers.js";
 import type * as lib_liveKitSanitize from "../lib/liveKitSanitize.js";
 import type * as lib_microsoftGraph from "../lib/microsoftGraph.js";
 import type * as lib_prerequisites from "../lib/prerequisites.js";
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   "lib/certTier": typeof lib_certTier;
   "lib/entityCodes": typeof lib_entityCodes;
   "lib/httpCookies": typeof lib_httpCookies;
+  "lib/landLeaseCertTiers": typeof lib_landLeaseCertTiers;
   "lib/liveKitSanitize": typeof lib_liveKitSanitize;
   "lib/microsoftGraph": typeof lib_microsoftGraph;
   "lib/prerequisites": typeof lib_prerequisites;

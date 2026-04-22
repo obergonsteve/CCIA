@@ -18,6 +18,10 @@ import { isWorkshopTeamsSimulationEnabled } from "./lib/workshopTeamsSimulation"
 import { insertWorkshopSyncLog } from "./lib/workshopSyncLog";
 import { collectLiveWorkshopUnitIdsOnLearnerCertPaths } from "./certifications";
 import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
+import {
+  certificationTierForLandLeaseCourseName,
+  isGlobalLandLeaseSeedLevelName,
+} from "./lib/landLeaseCertTiers";
 
 const sessionStatusValidator = v.union(
   v.literal("scheduled"),
@@ -1197,17 +1201,28 @@ export const unregisterFromSession = mutation({
   },
 });
 
-/** One-time or repeat-safe: set `certificationTier` = bronze where missing. */
+/**
+ * Sets `certificationTier` where missing. Global Land Lease seed certifications get
+ * the same bronze/silver/gold as the curriculum seed; other global/company levels get bronze.
+ */
 export const backfillCertificationTiers = mutation({
   args: {},
   handler: async (ctx) => {
     await requireAdminOrCreator(ctx);
     let patched = 0;
     for (const row of await ctx.db.query("certificationLevels").collect()) {
-      if (row.certificationTier === undefined && row.deletedAt == null) {
-        await ctx.db.patch(row._id, { certificationTier: "bronze" });
-        patched += 1;
+      if (row.certificationTier !== undefined || row.deletedAt != null) {
+        continue;
       }
+      if (row.companyId == null && isGlobalLandLeaseSeedLevelName(row.name)) {
+        await ctx.db.patch(row._id, {
+          certificationTier: certificationTierForLandLeaseCourseName(row.name),
+        });
+        patched += 1;
+        continue;
+      }
+      await ctx.db.patch(row._id, { certificationTier: "bronze" });
+      patched += 1;
     }
     return { patched };
   },

@@ -12,6 +12,10 @@ import {
   SEED_CODE_BASE_MAX_LEN,
 } from "./lib/entityCodes";
 import { requireAdminOrCreator } from "./lib/auth";
+import {
+  certificationTierForLandLeaseCourseName,
+  syncLandLeaseCertificationTiersFromCurriculum,
+} from "./lib/landLeaseCertTiers";
 import { isLive } from "./lib/softDelete";
 
 /** bcrypt cost 10 via bcryptjs — hashes for stevemoore / gillmoore (must match `auth.login`). */
@@ -388,16 +392,16 @@ function seededContentCategoryForLesson(type: SeedContent["type"]): string {
   }
 }
 
-function certificationTierForCourseName(
-  name: string,
-): "bronze" | "silver" | "gold" {
-  if (name === "Land Lease 101") {
-    return "bronze";
-  }
-  if (name === "Commercials, Fees & Asset Care") {
-    return "gold";
-  }
-  return "silver";
+/**
+ * After global Land Lease curriculum exists: same on dev/prod — workshop units + tier alignment
+ * (idempotent; one internal entry point for all “curriculum present” code paths).
+ */
+async function ensureLandLeasePostCurriculumState(ctx: MutationCtx) {
+  const { inserted: workshopUnitsInserted } =
+    await ensureSeededWorkshopUnits(ctx);
+  const { patched: certificationTiersPatched } =
+    await syncLandLeaseCertificationTiersFromCurriculum(ctx);
+  return { workshopUnitsInserted, certificationTiersPatched };
 }
 
 /** Same short demo clip as `curriculumSeedData` (HTML5-friendly). */
@@ -410,6 +414,22 @@ function maxSeedUnitOrderInCourse(courseName: string): number {
     return -1;
   }
   return Math.max(...course.units.map((u) => u.order));
+}
+
+/** Next `certificationUnits.order` for a new unit on this level (append after existing links). */
+async function nextCertificationUnitOrderForLevel(
+  ctx: MutationCtx,
+  levelId: Id<"certificationLevels">,
+  courseName: string,
+): Promise<number> {
+  const links = await ctx.db
+    .query("certificationUnits")
+    .withIndex("by_level", (q) => q.eq("levelId", levelId))
+    .collect();
+  if (links.length > 0) {
+    return Math.max(...links.map((l) => l.order)) + 1;
+  }
+  return maxSeedUnitOrderInCourse(courseName) + 1;
 }
 
 type SeededWorkshopUnitSpec = {
@@ -473,6 +493,45 @@ const SEEDED_WORKSHOP_UNIT_SPECS: SeededWorkshopUnitSpec[] = [
   },
 ];
 
+/** Map course name → level id for global (non–company) Land Lease curriculum levels. */
+async function levelIdByCourseNameForSeededCurriculum(
+  ctx: MutationCtx,
+): Promise<Map<string, Id<"certificationLevels">>> {
+  const levels = await ctx.db.query("certificationLevels").collect();
+  const map = new Map<string, Id<"certificationLevels">>();
+  for (const course of LAND_LEASE_CURRICULUM) {
+    const found = levels.find(
+      (l) => l.name === course.name && l.companyId === undefined,
+    );
+    if (found) {
+      map.set(course.name, found._id);
+    }
+  }
+  return map;
+}
+
+/**
+ * If «Land Lease 101» was seeded before live-workshop units existed, the full curriculum
+ * mutation short-circuited and never called `insertSeededWorkshopUnits`. This backfills
+ * only missing workshop rows (idempotent).
+ */
+async function ensureSeededWorkshopUnits(
+  ctx: MutationCtx,
+): Promise<{ inserted: number }> {
+  const levelIdByCourseName = await levelIdByCourseNameForSeededCurriculum(ctx);
+  for (const spec of SEEDED_WORKSHOP_UNIT_SPECS) {
+    if (!levelIdByCourseName.has(spec.courseName)) {
+      return { inserted: 0 };
+    }
+  }
+  const inserted = await insertSeededWorkshopUnits(ctx, {
+    levelIdByCourseName,
+    unitSort: { n: 10_000 },
+    contentSort: { n: 10_000 },
+  });
+  return { inserted };
+}
+
 async function insertSeededWorkshopUnits(
   ctx: MutationCtx,
   opts: {
@@ -481,13 +540,25 @@ async function insertSeededWorkshopUnits(
     contentSort: { n: number };
   },
 ): Promise<number> {
+  const existingLiveWorkshopTitles = new Set(
+    (await ctx.db.query("units").collect())
+      .filter((u) => u.deliveryMode === "live_workshop")
+      .map((u) => u.title),
+  );
   let inserted = 0;
   for (const spec of SEEDED_WORKSHOP_UNIT_SPECS) {
+    if (existingLiveWorkshopTitles.has(spec.title)) {
+      continue;
+    }
     const levelId = opts.levelIdByCourseName.get(spec.courseName);
     if (!levelId) {
       throw new Error(`Seed workshop: missing level for ${spec.courseName}`);
     }
-    const nextOrder = maxSeedUnitOrderInCourse(spec.courseName) + 1;
+    const nextOrder = await nextCertificationUnitOrderForLevel(
+      ctx,
+      levelId,
+      spec.courseName,
+    );
     const unitCatLabel = seededUnitCategoryForCourse(spec.courseName);
     const unitCatId = await getOrInsertUnitCategory(
       ctx,
@@ -619,6 +690,7 @@ async function insertSeededWorkshopUnits(
       contentId: assignId,
       order: stepOrder,
     });
+    existingLiveWorkshopTitles.add(spec.title);
     inserted += 1;
   }
   return inserted;
@@ -651,7 +723,7 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
       thumbnailUrl: course.thumbnailUrl,
       order: course.order,
       companyId: undefined,
-      certificationTier: certificationTierForCourseName(course.name),
+      certificationTier: certificationTierForLandLeaseCourseName(course.name),
     });
     levelIds.push(levelId);
     levelIdByCourseName.set(course.name, levelId);
@@ -795,17 +867,15 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
     (n, c) => n + c.units.length,
     0,
   );
-  const workshopUnitsInserted = await insertSeededWorkshopUnits(ctx, {
-    levelIdByCourseName,
-    unitSort,
-    contentSort,
-  });
+  const { workshopUnitsInserted, certificationTiersPatched } =
+    await ensureLandLeasePostCurriculumState(ctx);
 
   return {
     levelCount: levelIds.length,
     unitCount: selfPacedUnitCount + workshopUnitsInserted,
     prerequisiteCount,
     workshopUnitsInserted,
+    certificationTiersPatched,
   };
 }
 
@@ -852,11 +922,17 @@ export const seedLandLeaseCurriculum = mutation({
   handler: async (ctx) => {
     const exists = await landLeaseCurriculumAlreadySeeded(ctx);
     if (exists) {
+      const { workshopUnitsInserted, certificationTiersPatched } =
+        await ensureLandLeasePostCurriculumState(ctx);
       return {
         ok: true as const,
         skipped: true as const,
+        workshopUnitsInserted,
+        certificationTiersPatched,
         message:
-          "Already seeded (global «Land Lease 101» exists). Remove those levels in dashboard to re-run.",
+          workshopUnitsInserted > 0 || certificationTiersPatched > 0
+            ? `Curriculum present; workshops +${workshopUnitsInserted}, certification tiers corrected: ${certificationTiersPatched} level(s).`
+            : "Already seeded (global «Land Lease 101» exists). Remove those levels in dashboard to re-run the full seed.",
       };
     }
     const stats = await runInsertLandLeaseCurriculum(ctx);
@@ -1039,12 +1115,18 @@ export const adminSeedTrainingDatabase = mutation({
     const operators = await runSeedCommunityOperatorsAndAdmins(ctx);
     const exists = await landLeaseCurriculumAlreadySeeded(ctx);
     if (exists) {
+      const { workshopUnitsInserted, certificationTiersPatched } =
+        await ensureLandLeasePostCurriculumState(ctx);
       return {
         ok: true as const,
         operators,
         curriculumSkipped: true as const,
+        workshopUnitsInserted,
+        certificationTiersPatched,
         message:
-          "Curriculum already present («Land Lease 101»). Use Clear test data first to re-seed.",
+          workshopUnitsInserted > 0 || certificationTiersPatched > 0
+            ? `Curriculum present; workshops +${workshopUnitsInserted}, tiers corrected: ${certificationTiersPatched} level(s).`
+            : "Curriculum already present («Land Lease 101»). Use Clear and re-seed to rebuild everything.",
       };
     }
     const stats = await runInsertLandLeaseCurriculum(ctx);
@@ -1053,6 +1135,52 @@ export const adminSeedTrainingDatabase = mutation({
       operators,
       curriculumSkipped: false as const,
       ...stats,
+    };
+  },
+});
+
+/**
+ * Idempotent: insert Land Lease live workshop / webinar units (and sessions) if titles are missing.
+ * Run: `npx convex run seed:ensureLandLeaseWorkshopUnits` (no admin; trusted env only).
+ */
+export const ensureLandLeaseWorkshopUnits = mutation({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await landLeaseCurriculumAlreadySeeded(ctx))) {
+      return {
+        ok: false as const,
+        reason:
+          "Land Lease curriculum not found. Run seed:seedLandLeaseCurriculum first.",
+        workshopUnitsInserted: 0,
+        certificationTiersPatched: 0,
+      };
+    }
+    return {
+      ok: true as const,
+      ...(await ensureLandLeasePostCurriculumState(ctx)),
+    };
+  },
+});
+
+/**
+ * Idempotent: set bronze/silver/gold on the five global Land Lease seed certifications by name
+ * (matches dev full seed; fixes prod after `workshops:backfillCertificationTiers` set all to bronze).
+ * Run: `npx convex run seed:syncLandLeaseCertificationTiers --prod`
+ */
+export const syncLandLeaseCertificationTiers = mutation({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await landLeaseCurriculumAlreadySeeded(ctx))) {
+      return {
+        ok: false as const,
+        reason:
+          "Land Lease curriculum not found. Run seed:seedLandLeaseCurriculum first.",
+        patched: 0,
+      };
+    }
+    return {
+      ok: true as const,
+      ...(await syncLandLeaseCertificationTiersFromCurriculum(ctx)),
     };
   },
 });
