@@ -868,101 +868,163 @@ export const seedLandLeaseCurriculum = mutation({
   },
 });
 
+type AdminClearTrainingCounts = {
+  contentProgressEvents: number;
+  userContentProgress: number;
+  userAssignmentProgress: number;
+  testResults: number;
+  userProgress: number;
+  unitPrerequisites: number;
+  unitContents: number;
+  certificationUnits: number;
+  contentItems: number;
+  assignments: number;
+  units: number;
+  certificationLevels: number;
+  certificationCategories: number;
+  unitCategories: number;
+  contentCategories: number;
+  certificationWorkshopAttendees: number;
+  workshopSessionWhiteboardStrokes: number;
+  workshopSessionChatMessages: number;
+  workshopRegistrations: number;
+  workshopSessionSyncLogs: number;
+  workshopSessions: number;
+  /** User rows updated to drop `plannedCertificationLevelIds` (stale after levels removed). */
+  userRoadmapPinsCleared: number;
+};
+
+/** Deletes all training data (companies and users stay). */
+async function runAdminClearTrainingData(
+  ctx: MutationCtx,
+): Promise<AdminClearTrainingCounts> {
+  const counts: AdminClearTrainingCounts = {
+    contentProgressEvents: 0,
+    userContentProgress: 0,
+    userAssignmentProgress: 0,
+    testResults: 0,
+    userProgress: 0,
+    unitPrerequisites: 0,
+    unitContents: 0,
+    certificationUnits: 0,
+    contentItems: 0,
+    assignments: 0,
+    units: 0,
+    certificationLevels: 0,
+    certificationCategories: 0,
+    unitCategories: 0,
+    contentCategories: 0,
+    certificationWorkshopAttendees: 0,
+    workshopSessionWhiteboardStrokes: 0,
+    workshopSessionChatMessages: 0,
+    workshopRegistrations: 0,
+    workshopSessionSyncLogs: 0,
+    workshopSessions: 0,
+    userRoadmapPinsCleared: 0,
+  };
+  for (const row of await ctx.db.query("contentProgressEvents").collect()) {
+    await ctx.db.delete(row._id);
+    counts.contentProgressEvents += 1;
+  }
+  for (const row of await ctx.db.query("userContentProgress").collect()) {
+    await ctx.db.delete(row._id);
+    counts.userContentProgress += 1;
+  }
+  for (const row of await ctx.db.query("userAssignmentProgress").collect()) {
+    await ctx.db.delete(row._id);
+    counts.userAssignmentProgress += 1;
+  }
+  for (const row of await ctx.db.query("testResults").collect()) {
+    await ctx.db.delete(row._id);
+    counts.testResults += 1;
+  }
+  for (const row of await ctx.db.query("userProgress").collect()) {
+    await ctx.db.delete(row._id);
+    counts.userProgress += 1;
+  }
+  for (const row of await ctx.db.query("unitPrerequisites").collect()) {
+    await ctx.db.delete(row._id);
+    counts.unitPrerequisites += 1;
+  }
+  for (const row of await ctx.db.query("certificationWorkshopAttendees").collect()) {
+    await ctx.db.delete(row._id);
+    counts.certificationWorkshopAttendees += 1;
+  }
+  for (const row of await ctx.db.query("workshopSessionWhiteboardStrokes").collect()) {
+    await ctx.db.delete(row._id);
+    counts.workshopSessionWhiteboardStrokes += 1;
+  }
+  for (const row of await ctx.db.query("workshopSessionChatMessages").collect()) {
+    await ctx.db.delete(row._id);
+    counts.workshopSessionChatMessages += 1;
+  }
+  for (const row of await ctx.db.query("workshopRegistrations").collect()) {
+    await ctx.db.delete(row._id);
+    counts.workshopRegistrations += 1;
+  }
+  for (const row of await ctx.db.query("workshopSessionSyncLogs").collect()) {
+    await ctx.db.delete(row._id);
+    counts.workshopSessionSyncLogs += 1;
+  }
+  for (const row of await ctx.db.query("workshopSessions").collect()) {
+    await ctx.db.delete(row._id);
+    counts.workshopSessions += 1;
+  }
+  for (const row of await ctx.db.query("unitContents").collect()) {
+    await ctx.db.delete(row._id);
+    counts.unitContents += 1;
+  }
+  for (const row of await ctx.db.query("certificationUnits").collect()) {
+    await ctx.db.delete(row._id);
+    counts.certificationUnits += 1;
+  }
+  for (const row of await ctx.db.query("contentItems").collect()) {
+    await ctx.db.delete(row._id);
+    counts.contentItems += 1;
+  }
+  for (const row of await ctx.db.query("assignments").collect()) {
+    await ctx.db.delete(row._id);
+    counts.assignments += 1;
+  }
+  for (const row of await ctx.db.query("units").collect()) {
+    await ctx.db.delete(row._id);
+    counts.units += 1;
+  }
+  for (const row of await ctx.db.query("certificationLevels").collect()) {
+    await ctx.db.delete(row._id);
+    counts.certificationLevels += 1;
+  }
+  for (const row of await ctx.db.query("certificationCategories").collect()) {
+    await ctx.db.delete(row._id);
+    counts.certificationCategories += 1;
+  }
+  for (const row of await ctx.db.query("unitCategories").collect()) {
+    await ctx.db.delete(row._id);
+    counts.unitCategories += 1;
+  }
+  for (const row of await ctx.db.query("contentCategories").collect()) {
+    await ctx.db.delete(row._id);
+    counts.contentCategories += 1;
+  }
+  for (const u of await ctx.db.query("users").collect()) {
+    if (u.plannedCertificationLevelIds && u.plannedCertificationLevelIds.length > 0) {
+      await ctx.db.patch(u._id, { plannedCertificationLevelIds: undefined });
+      counts.userRoadmapPinsCleared += 1;
+    }
+  }
+  return counts;
+}
+
 /**
  * Admin: delete all certification levels, units, content, assignments, prerequisites, and learner progress/results.
  * Preserves companies and users.
+ * Clears all training-related tables, including per-step progress and session sync logs, so a re-seed is consistent.
  */
 export const adminClearTrainingData = mutation({
   args: {},
   handler: async (ctx) => {
     await requireAdminOrCreator(ctx);
-    const counts = {
-      testResults: 0,
-      userProgress: 0,
-      unitPrerequisites: 0,
-      unitContents: 0,
-      certificationUnits: 0,
-      contentItems: 0,
-      assignments: 0,
-      units: 0,
-      certificationLevels: 0,
-      certificationCategories: 0,
-      unitCategories: 0,
-      contentCategories: 0,
-      certificationWorkshopAttendees: 0,
-      workshopSessionWhiteboardStrokes: 0,
-      workshopSessionChatMessages: 0,
-      workshopRegistrations: 0,
-      workshopSessions: 0,
-    };
-    for (const row of await ctx.db.query("testResults").collect()) {
-      await ctx.db.delete(row._id);
-      counts.testResults += 1;
-    }
-    for (const row of await ctx.db.query("userProgress").collect()) {
-      await ctx.db.delete(row._id);
-      counts.userProgress += 1;
-    }
-    for (const row of await ctx.db.query("unitPrerequisites").collect()) {
-      await ctx.db.delete(row._id);
-      counts.unitPrerequisites += 1;
-    }
-    for (const row of await ctx.db.query("certificationWorkshopAttendees").collect()) {
-      await ctx.db.delete(row._id);
-      counts.certificationWorkshopAttendees += 1;
-    }
-    for (const row of await ctx.db.query("workshopSessionWhiteboardStrokes").collect()) {
-      await ctx.db.delete(row._id);
-      counts.workshopSessionWhiteboardStrokes += 1;
-    }
-    for (const row of await ctx.db.query("workshopSessionChatMessages").collect()) {
-      await ctx.db.delete(row._id);
-      counts.workshopSessionChatMessages += 1;
-    }
-    for (const row of await ctx.db.query("workshopRegistrations").collect()) {
-      await ctx.db.delete(row._id);
-      counts.workshopRegistrations += 1;
-    }
-    for (const row of await ctx.db.query("workshopSessions").collect()) {
-      await ctx.db.delete(row._id);
-      counts.workshopSessions += 1;
-    }
-    for (const row of await ctx.db.query("unitContents").collect()) {
-      await ctx.db.delete(row._id);
-      counts.unitContents += 1;
-    }
-    for (const row of await ctx.db.query("certificationUnits").collect()) {
-      await ctx.db.delete(row._id);
-      counts.certificationUnits += 1;
-    }
-    for (const row of await ctx.db.query("contentItems").collect()) {
-      await ctx.db.delete(row._id);
-      counts.contentItems += 1;
-    }
-    for (const row of await ctx.db.query("assignments").collect()) {
-      await ctx.db.delete(row._id);
-      counts.assignments += 1;
-    }
-    for (const row of await ctx.db.query("units").collect()) {
-      await ctx.db.delete(row._id);
-      counts.units += 1;
-    }
-    for (const row of await ctx.db.query("certificationLevels").collect()) {
-      await ctx.db.delete(row._id);
-      counts.certificationLevels += 1;
-    }
-    for (const row of await ctx.db.query("certificationCategories").collect()) {
-      await ctx.db.delete(row._id);
-      counts.certificationCategories += 1;
-    }
-    for (const row of await ctx.db.query("unitCategories").collect()) {
-      await ctx.db.delete(row._id);
-      counts.unitCategories += 1;
-    }
-    for (const row of await ctx.db.query("contentCategories").collect()) {
-      await ctx.db.delete(row._id);
-      counts.contentCategories += 1;
-    }
+    const counts = await runAdminClearTrainingData(ctx);
     return { ok: true as const, counts };
   },
 });
@@ -990,6 +1052,26 @@ export const adminSeedTrainingDatabase = mutation({
       ok: true as const,
       operators,
       curriculumSkipped: false as const,
+      ...stats,
+    };
+  },
+});
+
+/**
+ * Admin: full reset — same as Clear test data, then re-insert operators + full Land Lease curriculum
+ * (levels, self-paced + live workshop units, sessions, prerequisites). Use when you want a clean DB in one step.
+ */
+export const adminClearAndReseedTrainingDatabase = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrCreator(ctx);
+    const clearCounts = await runAdminClearTrainingData(ctx);
+    const operators = await runSeedCommunityOperatorsAndAdmins(ctx);
+    const stats = await runInsertLandLeaseCurriculum(ctx);
+    return {
+      ok: true as const,
+      clearCounts,
+      operators,
       ...stats,
     };
   },

@@ -35,6 +35,9 @@ function formatDeletedAt(ms: number | undefined) {
 export default function AdminDatabaseClient() {
   const clearTrainingData = useMutation(api.seed.adminClearTrainingData);
   const seedTrainingDatabase = useMutation(api.seed.adminSeedTrainingDatabase);
+  const clearAndReseedTrainingDatabase = useMutation(
+    api.seed.adminClearAndReseedTrainingDatabase,
+  );
   const restoreCert = useMutation(api.adminDeleted.restoreCertificationLevel);
   const restoreUnit = useMutation(api.adminDeleted.restoreUnit);
   const restoreContent = useMutation(api.adminDeleted.restoreContentItem);
@@ -60,13 +63,16 @@ export default function AdminDatabaseClient() {
           <CardDescription>
             <strong>Clear test data</strong> deletes certification levels,
             units, library content, assignments, prerequisites, curriculum
-            category rows, certification–unit and unit–content links, learner
-            progress, and stored quiz/test results.{" "}
-            <strong>Companies and user accounts stay.</strong>{" "}
+            category rows, certification–unit and unit–content links, all learner
+            progress (per-step content progress, audit events, workshop session
+            sync data), and quiz/test results; clears pinned certification
+            roadmaps on user accounts. <strong>Companies and user accounts
+            stay.</strong>{" "}
             <strong>Seed test data</strong> ensures demo operator companies and
-            default admin logins, then inserts Land Lease 101 only when that
-            curriculum is not already present — clear first if you need a clean
-            re-seed.
+            default admin logins, then inserts the full Land Lease curriculum
+            only when it is not already present — use{" "}
+            <strong>Clear and re-seed</strong> for a one-step reset, or clear
+            first then seed.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
@@ -96,7 +102,7 @@ export default function AdminDatabaseClient() {
                           .workshopUnitsInserted
                       : 0;
                   toast.success(
-                    `Seeded ${res.levelCount} levels, ${res.unitCount} units (${ws} live webinar), ${res.prerequisiteCount} prerequisite links`,
+                    `Seeded ${res.levelCount} levels, ${res.unitCount} units (${ws} live workshop), ${res.prerequisiteCount} prerequisite links`,
                   );
                 }
               } catch (e) {
@@ -106,6 +112,29 @@ export default function AdminDatabaseClient() {
           >
             <Database className="h-4 w-4 mr-1.5" />
             Seed test data
+          </Button>
+          <Button
+            variant="default"
+            onClick={async () => {
+              try {
+                const res = await clearAndReseedTrainingDatabase({});
+                const c = res.clearCounts;
+                const ws =
+                  typeof res.workshopUnitsInserted === "number"
+                    ? res.workshopUnitsInserted
+                    : 0;
+                toast.success(
+                  `Cleared and re-seeded: ${c.certificationLevels} levels, ${res.levelCount} new levels, ${res.unitCount} units (${ws} live workshop), ${res.prerequisiteCount} prerequisite links. Roadmap pins cleared: ${c.userRoadmapPinsCleared} users.`,
+                );
+              } catch (e) {
+                toast.error(
+                  e instanceof Error ? e.message : "Clear and re-seed failed",
+                );
+              }
+            }}
+          >
+            <Database className="h-4 w-4 mr-1.5" />
+            Clear and re-seed
           </Button>
         </CardContent>
       </Card>
@@ -241,7 +270,9 @@ export default function AdminDatabaseClient() {
           <p className="text-sm text-muted-foreground">
             This permanently deletes certification levels, units, content items,
             assignments, prerequisite rules, curriculum category and link rows,
-            user progress, and quiz/test results. Companies and user accounts are
+            all step-level progress, progress events, workshop session sync logs,
+            user progress, and quiz/test results, and removes pinned
+            certification plans from every user. Companies and user accounts are
             kept.
           </p>
           <DialogFooter className="gap-2 sm:gap-0">

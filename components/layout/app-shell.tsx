@@ -14,7 +14,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SidebarBreadcrumbs } from "@/components/layout/sidebar-breadcrumbs";
 import { SidebarMainPageHeading } from "@/components/layout/sidebar-main-page-heading";
 import {
@@ -30,7 +30,33 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTheme, resolvedTheme } = useTheme();
-  const me = useQuery(api.users.me);
+  /** Name/role for shell UI — from the login cookie, not Convex (Convex `me` is deployment-fallback / Steve). */
+  const [sessionUser, setSessionUser] = useState<{
+    name: string;
+    role: "operator" | "supervisor" | "admin" | "content_creator";
+  } | null>(null);
+  useEffect(() => {
+    let cancel = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/session", { credentials: "include" });
+        const data = (await res.json()) as {
+          user: {
+            name: string;
+            role: "operator" | "supervisor" | "admin" | "content_creator";
+          } | null;
+        };
+        if (!cancel) {
+          setSessionUser(data.user);
+        }
+      } catch {
+        if (!cancel) setSessionUser(null);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
   const certificationLevels = useQuery(api.certifications.listForUser);
 
   const isWorkshopSimShell = pathname.startsWith("/workshop-sim");
@@ -65,7 +91,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const showAdmin =
-    me?.role === "admin" || me?.role === "content_creator";
+    sessionUser?.role === "admin" ||
+    sessionUser?.role === "content_creator";
 
   /** Open by default so learners see nav immediately after sign-in (menu still toggles). */
   const [navOpen, setNavOpen] = useState(true);
@@ -196,12 +223,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </ScrollArea>
       <div className="shrink-0 space-y-1 border-t border-white/10 p-2">
-        {me ? (
+        {sessionUser ? (
           <p
             className="truncate px-2 text-xs font-medium text-brand-sky"
-            title={me.name}
+            title={sessionUser.name}
           >
-            {me.name}
+            {sessionUser.name}
           </p>
         ) : null}
         <Button
