@@ -18,12 +18,17 @@ export function WorkshopSyncTracePanel({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const teamsSimOn = useQuery(api.workshops.workshopTeamsSimulationEnabled, {});
   const logs = useQuery(
     api.workshops.workshopSessionSyncTrace,
     sessionId ? { sessionId, limit: 80 } : "skip",
   );
 
   if (!sessionId) {
+    return null;
+  }
+
+  if (teamsSimOn === true) {
     return null;
   }
 

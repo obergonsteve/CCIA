@@ -12,8 +12,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { isMicrosoftTeamsSession } from "@/lib/workshopConference";
+import { useQuery } from "convex/react";
 import {
   parseLocalInput,
   toLocalInputValue,
@@ -60,6 +62,10 @@ export function WorkshopSessionEditRow({
   >(session.conferenceProvider ?? "livekit");
   const [timeZone, setTimeZone] = useState(
     session.timeZone ?? "Australia/Sydney",
+  );
+  const teamsSimulationOn = useQuery(
+    api.workshops.workshopTeamsSimulationEnabled,
+    {},
   );
 
   useEffect(() => {
@@ -206,7 +212,7 @@ export function WorkshopSessionEditRow({
               {new Date(session.teamsLastSyncAt).toLocaleString()}
             </p>
           ) : null}
-          {session.teamsLastError ? (
+          {session.teamsLastError && teamsSimulationOn !== true ? (
             <p className="text-destructive [overflow-wrap:anywhere]">
               Graph error: {session.teamsLastError}
             </p>

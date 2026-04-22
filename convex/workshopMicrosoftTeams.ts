@@ -728,57 +728,15 @@ export const addGraphAttendeeForWorkshopRegistration = internalAction({
       return { skipped: true as const, reason: "no_user" as const };
     }
     if (isSimulatedTeamsGraphEventId(row.teamsGraphEventId)) {
-      const joinUrl = row.externalJoinUrl ?? "";
       await ctx.runMutation(
         internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
         {
           sessionId,
           source: "system",
           level: "info",
-          message: `WORKSHOP_TEAMS_SIMULATION: skipped Outlook/Graph for ${user.email}; optional confirmation email only.`,
+          message: `WORKSHOP_TEAMS_SIMULATION: skipped Outlook/Graph and Resend email for ${user.email} (no meeting link email in simulation).`,
         },
       );
-      const unitTitle =
-        (await ctx.runQuery(
-          internal.workshopMicrosoftTeams.getWorkshopUnitTitleFromSession,
-          { sessionId },
-        )) ?? "Webinar";
-      const resendResult = await sendResendWorkshopConfirmation({
-        to: user.email.trim(),
-        workshopTitle: unitTitle,
-        joinUrl: joinUrl || row.externalJoinUrl || "",
-      });
-      if (resendResult.outcome === "skipped") {
-        await ctx.runMutation(
-          internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
-          {
-            sessionId,
-            source: "resend",
-            level: "info",
-            message: `Resend confirmation skipped: ${resendResult.reason}`,
-          },
-        );
-      } else if (resendResult.outcome === "sent") {
-        await ctx.runMutation(
-          internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
-          {
-            sessionId,
-            source: "resend",
-            level: "info",
-            message: `Resend API accepted webinar confirmation email (HTTP ${resendResult.status}) to ${user.email}.`,
-          },
-        );
-      } else {
-        await ctx.runMutation(
-          internal.workshopMicrosoftTeams.appendWorkshopSyncLogInternal,
-          {
-            sessionId,
-            source: "resend",
-            level: "warn",
-            message: `Resend confirmation failed (HTTP ${resendResult.status}).`,
-          },
-        );
-      }
       return { ok: true as const, simulated: true as const };
     }
     const joinUrl = row.externalJoinUrl ?? "";

@@ -221,7 +221,15 @@ export const updateSession = mutation({
           }
         : {}),
     });
-    const next = await ctx.db.get(sessionId);
+    let next = await ctx.db.get(sessionId);
+    if (
+      isWorkshopTeamsSimulationEnabled() &&
+      next &&
+      next.conferenceProvider === "microsoft_teams"
+    ) {
+      await ctx.db.patch(sessionId, { teamsLastError: undefined });
+      next = await ctx.db.get(sessionId);
+    }
     if (
       next &&
       next.conferenceProvider === "microsoft_teams" &&
@@ -974,7 +982,7 @@ export const registerForSession = mutation({
           sessionId,
           source: "system",
           level: "info",
-          message: `WORKSHOP_TEAMS_SIMULATION: queued attendee flow (Resend only, no Graph) for userId=${userId}.`,
+          message: `WORKSHOP_TEAMS_SIMULATION: queued simulated attendee flow (no Graph, no Resend email) for userId=${userId}.`,
         });
         await ctx.scheduler.runAfter(
           0,
@@ -1004,6 +1012,12 @@ export const registerForSession = mutation({
     }
     return { ok: true as const };
   },
+});
+
+/** Learner/admin UI: hide Teams/Resend debug panels when simulation mode is on. */
+export const workshopTeamsSimulationEnabled = query({
+  args: {},
+  handler: async () => isWorkshopTeamsSimulationEnabled(),
 });
 
 export const workshopSessionSyncTrace = query({

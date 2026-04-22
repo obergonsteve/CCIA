@@ -245,6 +245,10 @@ function LegacyAssignmentStepBlock({
  */
 function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"> }) {
   const recordJoin = useMutation(api.workshops.recordTeamsJoin);
+  const teamsSimulationOn = useQuery(
+    api.workshops.workshopTeamsSimulationEnabled,
+    {},
+  );
   const now = Date.now();
   const msTeams = isMicrosoftTeamsSession(session);
   const canJoin = unitPageShouldRenderJoinInTeamsStrip(session, now);
@@ -287,7 +291,7 @@ function JoinInTeamsWorkshopStrip({ session }: { session: Doc<"workshopSessions"
           </p>
         ) : null}
       </div>
-      {session.teamsLastError ? (
+      {session.teamsLastError && teamsSimulationOn !== true ? (
         <p className="mt-2 text-xs text-destructive [overflow-wrap:anywhere]">
           Calendar sync issue: {session.teamsLastError}
         </p>
