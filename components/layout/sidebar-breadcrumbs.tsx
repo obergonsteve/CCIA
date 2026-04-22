@@ -18,7 +18,14 @@ const SIDEBAR_EXACT = new Set([
   "/admin/database",
 ]);
 
-type CrumbTone = "dashboard" | "hub" | "cert" | "unit" | "content" | "admin";
+type CrumbTone =
+  | "dashboard"
+  | "hub"
+  | "webinar"
+  | "cert"
+  | "unit"
+  | "content"
+  | "admin";
 
 type Crumb = { href?: string; label: string; tone: CrumbTone };
 
@@ -29,6 +36,8 @@ const chipTone: Record<CrumbTone, string> = {
   dashboard:
     "border-border/80 bg-muted/45 hover:border-border hover:bg-muted/70",
   hub: "border-brand-sky/40 bg-brand-sky/12 hover:border-brand-sky/55 hover:bg-brand-sky/18 dark:border-brand-sky/45 dark:bg-brand-sky/14",
+  webinar:
+    "border-purple-500/40 bg-purple-500/10 hover:border-purple-500/55 hover:bg-purple-500/16 dark:border-purple-400/40 dark:bg-purple-500/12",
   cert: "border-brand-gold/40 bg-brand-gold/10 hover:border-brand-gold/55 hover:bg-brand-gold/16 dark:border-brand-gold/45",
   unit: "border-brand-lime/45 bg-brand-lime/12 hover:border-brand-lime/60 hover:bg-brand-lime/18 dark:border-brand-lime/40",
   content:
@@ -40,6 +49,8 @@ const chipTone: Record<CrumbTone, string> = {
 const chipCurrentRing: Record<CrumbTone, string> = {
   dashboard: "border-border bg-muted/55 ring-1 ring-border/60",
   hub: "border-brand-sky/45 bg-brand-sky/14 ring-1 ring-brand-sky/25 dark:bg-brand-sky/16",
+  webinar:
+    "border-purple-500/45 bg-purple-500/12 ring-1 ring-purple-500/25 dark:border-purple-400/45",
   cert: "border-brand-gold/45 bg-brand-gold/12 ring-1 ring-brand-gold/25 dark:bg-brand-gold/14",
   unit: "border-brand-lime/50 bg-brand-lime/14 ring-1 ring-brand-lime/25 dark:bg-brand-lime/12",
   content:
@@ -145,13 +156,21 @@ function UnitBreadcrumbsInner({ unitIdRaw }: { unitIdRaw: string }) {
 
   const items: Crumb[] = [
     { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
-    { href: "/certifications", label: "Certifications", tone: "hub" },
   ];
   if (levelId) {
+    items.push(
+      { href: "/certifications", label: "Certifications", tone: "hub" },
+      {
+        href: `/certifications/${levelId}`,
+        label: level?.name ?? "Course",
+        tone: "cert",
+      },
+    );
+  } else {
     items.push({
-      href: `/certifications/${levelId}`,
-      label: level?.name ?? "Course",
-      tone: "cert",
+      href: "/workshops",
+      label: "Webinars",
+      tone: "webinar",
     });
   }
   items.push({ label: unit?.title ?? "Unit", tone: "unit" });
@@ -160,10 +179,14 @@ function UnitBreadcrumbsInner({ unitIdRaw }: { unitIdRaw: string }) {
 
 function UnitBreadcrumbsFallback({ unitIdRaw }: { unitIdRaw: string }) {
   const unitId = unitIdRaw as Id<"units">;
+  const searchParams = useSearchParams();
+  const hasCertLevel = Boolean(searchParams.get("level")?.trim());
   const unit = useQuery(api.units.get, { unitId });
   const items: Crumb[] = [
     { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
-    { href: "/certifications", label: "Certifications", tone: "hub" },
+    hasCertLevel
+      ? { href: "/certifications", label: "Certifications", tone: "hub" }
+      : { href: "/workshops", label: "Webinars", tone: "webinar" },
     { label: unit?.title ?? "Unit", tone: "unit" },
   ];
   return <CrumbTrail items={items} />;

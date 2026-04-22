@@ -77,7 +77,6 @@ import {
   type AdminTrainingStatsTarget,
 } from "@/components/admin/admin-training-stats-sheet";
 import { WorkshopSessionEditRow } from "@/components/admin/workshop-session-edit-row";
-import { WorkshopSyncTracePanel } from "@/components/workshop-sync-trace-panel";
 import {
   WorkshopPlannerCalendar,
   WORKSHOP_CAL_DAY_PREFIX,
@@ -765,8 +764,6 @@ export default function AdminCoursesClient() {
     "livekit" | "microsoft_teams"
   >("livekit");
   const [scheduleTimeZone, setScheduleTimeZone] = useState("Australia/Sydney");
-  const [scheduleTraceSessionId, setScheduleTraceSessionId] =
-    useState<Id<"workshopSessions"> | null>(null);
   const [trainingStatsOpen, setTrainingStatsOpen] = useState(false);
   const [trainingStatsTarget, setTrainingStatsTarget] =
     useState<AdminTrainingStatsTarget | null>(null);
@@ -1743,7 +1740,6 @@ export default function AdminCoursesClient() {
           setScheduleExternalUrl("");
           setScheduleConferenceProvider("livekit");
           setScheduleTimeZone("Australia/Sydney");
-          setScheduleTraceSessionId(null);
           setScheduleWorkshopOpen(true);
           return;
         }
@@ -5680,7 +5676,6 @@ export default function AdminCoursesClient() {
         onOpenChange={(open) => {
           if (!open) {
             setScheduleWorkshopOpen(false);
-            setScheduleTraceSessionId(null);
           }
         }}
       >
@@ -5783,20 +5778,11 @@ export default function AdminCoursesClient() {
               />
             </div>
             {scheduleConferenceProvider === "microsoft_teams" ? (
-              <div className="space-y-1.5">
-                {scheduleTraceSessionId ? (
-                  <WorkshopSyncTracePanel
-                    sessionId={scheduleTraceSessionId}
-                    defaultOpen
-                  />
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">
-                    After you create a Teams session, a live debug trace appears
-                    here (Graph + Resend). Leave this dialog open to watch it
-                    update.
-                  </p>
-                )}
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                After you create a Teams session, use the Timetable and
+                workshop sync trace in Training Content to follow Graph and
+                email activity.
+              </p>
             ) : null}
           </div>
           <DialogFooter>
@@ -5804,7 +5790,6 @@ export default function AdminCoursesClient() {
               type="button"
               variant="outline"
               onClick={() => {
-                setScheduleTraceSessionId(null);
                 setScheduleWorkshopOpen(false);
               }}
             >
@@ -5827,7 +5812,7 @@ export default function AdminCoursesClient() {
                     toast.error("Capacity must be a positive number");
                     return;
                   }
-                  const newSessionId = await createWorkshopSession({
+                  await createWorkshopSession({
                     workshopUnitId: scheduleWorkshopUnitId,
                     startsAt,
                     endsAt,
@@ -5843,11 +5828,7 @@ export default function AdminCoursesClient() {
                       : {}),
                   });
                   toast.success("Session created");
-                  if (scheduleConferenceProvider === "microsoft_teams") {
-                    setScheduleTraceSessionId(newSessionId);
-                  } else {
-                    setScheduleWorkshopOpen(false);
-                  }
+                  setScheduleWorkshopOpen(false);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed");
                 }

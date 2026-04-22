@@ -55,6 +55,11 @@ function formatWorkshopSessionRange(startMs: number, endMs: number): string {
   return `${format(start, "EEE dd/MM/yyyy")}, ${startTime} — ${format(end, "EEE dd/MM/yyyy")}, ${endTime}`;
 }
 
+/** Tight padding — applied to every session tile (registered, not registered, closed). */
+const WORKSHOP_SESSION_TILE_CARD = "!gap-1.5 !py-1.5";
+const WORKSHOP_SESSION_TILE_HEADER = "!py-1";
+const WORKSHOP_SESSION_TILE_CONTENT = "flex flex-wrap gap-2 !pt-0 !pb-1";
+
 const WEEK_STARTS_ON = 1 as const;
 
 type WorkshopCalendarKind = "registered" | "open" | "closed";
@@ -419,20 +424,21 @@ function OpenCertPathSessionCard({
   session,
   now,
   onRegister,
-  onTeamsJoinTracked,
 }: {
   session: WorkshopBrowseRow;
   now: number;
   onRegister: () => void;
-  onTeamsJoinTracked: (sessionId: Id<"workshopSessions">) => Promise<void>;
 }) {
   const teamsJoinTrimmed = session.externalJoinUrl?.trim() ?? "";
   return (
     <Card
       size="sm"
-      className="border border-sky-300/75 bg-sky-100 shadow-sm dark:border-sky-400/30 dark:bg-sky-500/[0.16]"
+      className={cn(
+        WORKSHOP_SESSION_TILE_CARD,
+        "border border-sky-300/75 bg-sky-100 shadow-sm dark:border-sky-400/30 dark:bg-sky-500/[0.16]",
+      )}
     >
-      <CardHeader className="py-2">
+      <CardHeader className={WORKSHOP_SESSION_TILE_HEADER}>
         <CardTitle className="text-base font-medium">
           {session.workshopTitle}
         </CardTitle>
@@ -445,7 +451,7 @@ function OpenCertPathSessionCard({
           neutralAccent="sky"
         />
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2 pb-2">
+      <CardContent className={WORKSHOP_SESSION_TILE_CONTENT}>
         <Button
           type="button"
           size="sm"
@@ -455,38 +461,6 @@ function OpenCertPathSessionCard({
         >
           {session.full ? "Full" : "Register"}
         </Button>
-        {session.externalJoinUrl ? (
-          isMicrosoftTeamsSession(session) && teamsJoinTrimmed.length > 0 ? (
-            <Link
-              href={workshopJoinHrefForLink(teamsJoinTrimmed)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                buttonVariants({ size: "sm" }),
-                "inline-flex gap-1.5 border-red-600/45 bg-red-600/15 text-red-950 hover:bg-red-600/25 dark:border-red-400/40 dark:bg-red-600/20 dark:text-red-50 dark:hover:bg-red-600/30",
-              )}
-              onClick={() => {
-                void onTeamsJoinTracked(session._id).catch(() => {});
-              }}
-            >
-              Join in Teams
-              <ExternalLink className="h-3.5 w-3.5 shrink-0 text-red-800 dark:text-red-200" aria-hidden />
-            </Link>
-          ) : (
-            <Link
-              href={session.externalJoinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                buttonVariants({ variant: "ghost", size: "sm" }),
-                "inline-flex gap-1 text-sky-800 hover:bg-sky-500/15 hover:text-sky-950 dark:text-sky-200 dark:hover:bg-sky-500/20 dark:hover:text-sky-50",
-              )}
-            >
-              Join link
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          )
-        ) : null}
         <Link
           href={`/units/${session.workshopUnitId}`}
           title="Open webinar unit — live session (video, chat, screen share)"
@@ -502,6 +476,37 @@ function OpenCertPathSessionCard({
           />
           <span className="truncate">Open webinar unit</span>
         </Link>
+        {session.externalJoinUrl ? (
+          isMicrosoftTeamsSession(session) && teamsJoinTrimmed.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled
+              title="Register for this session to join in Microsoft Teams"
+              aria-label="Join in Teams (register for this session first)"
+              className="inline-flex gap-1.5 border-red-600/35 bg-red-600/10 text-red-950/60 dark:border-red-400/30 dark:bg-red-600/12 dark:text-red-50/60"
+            >
+              Join in Teams
+              <ExternalLink
+                className="h-3.5 w-3.5 shrink-0 text-red-800/50 dark:text-red-200/50"
+                aria-hidden
+              />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled
+              title="Register for this session to use the join link"
+              aria-label="Join link (register for this session first)"
+              className="inline-flex gap-1 text-sky-800/60 dark:text-sky-200/60"
+            >
+              Join link
+              <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          )
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -537,11 +542,12 @@ function RegisteredCertPathWorkshopCard({
     <Card
       size="sm"
       className={cn(
+        WORKSHOP_SESSION_TILE_CARD,
         "border border-purple-300/80 bg-purple-100 shadow-sm dark:border-purple-900/80 dark:bg-[color-mix(in_oklab,purple_32%,#0f0518)]",
         past && "border-dashed opacity-80",
       )}
     >
-      <CardHeader className="gap-0.5 py-1.5">
+      <CardHeader className={cn("gap-0.5", WORKSHOP_SESSION_TILE_HEADER)}>
         <Link
           href={openWebinarUnitHref}
           className={cn(
@@ -559,13 +565,13 @@ function RegisteredCertPathWorkshopCard({
             </span>
           ) : null}
         </Link>
-        <p className="mt-1.5 text-xs leading-tight text-muted-foreground">
+        <p className="mt-1 text-xs leading-tight text-muted-foreground">
           {formatWorkshopSessionRange(session.startsAt, session.endsAt)}
           {past ? " · Past" : ""}
         </p>
         <WorkshopSessionStatusRow session={session} now={now} />
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2 pb-2">
+      <CardContent className={WORKSHOP_SESSION_TILE_CONTENT}>
         {!past && session.status === "scheduled" ? (
           <Button
             type="button"
@@ -647,7 +653,7 @@ function RegisteredCertPathWorkshopCard({
         {isMicrosoftTeamsSession(session) ? (
           <WorkshopSyncTracePanel
             sessionId={session._id}
-            className="mt-1 w-full"
+            className="mt-0.5 w-full"
             defaultOpen={false}
           />
         ) : null}
@@ -674,9 +680,14 @@ function ClosedCertPathWorkshopCard({
   return (
     <Card
       size="sm"
-      className="border border-slate-300/90 bg-slate-50 shadow-sm dark:border-slate-700/90 dark:bg-slate-950"
+      className={cn(
+        WORKSHOP_SESSION_TILE_CARD,
+        "border border-slate-300/90 bg-slate-50 shadow-sm dark:border-slate-700/90 dark:bg-slate-950",
+      )}
     >
-      <CardHeader className="py-2">
+      <CardHeader
+        className={cn("gap-0.5", WORKSHOP_SESSION_TILE_HEADER)}
+      >
         <CardTitle className="text-base font-medium text-foreground">
           {workshopTitle}
         </CardTitle>
@@ -685,12 +696,12 @@ function ClosedCertPathWorkshopCard({
         </p>
         <Badge
           variant="outline"
-          className="mt-1 w-fit border-slate-400/60 bg-slate-200/40 px-2 py-0 text-[10px] font-bold uppercase tracking-wide text-slate-800 dark:border-slate-500/50 dark:bg-slate-800/50 dark:text-slate-100"
+          className="mt-0.5 w-fit border-slate-400/60 bg-slate-200/40 px-2 py-0 text-[10px] font-bold uppercase tracking-wide text-slate-800 dark:border-slate-500/50 dark:bg-slate-800/50 dark:text-slate-100"
         >
           Closed
         </Badge>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2 pb-2">
+      <CardContent className={WORKSHOP_SESSION_TILE_CONTENT}>
         <Link
           href={href}
           title="Open webinar unit — session chat and whiteboard"
@@ -1042,9 +1053,6 @@ export default function WorkshopsClient() {
                       <OpenCertPathSessionCard
                         session={s}
                         now={now}
-                        onTeamsJoinTracked={async (sessionId) => {
-                          await recordTeamsJoin({ sessionId });
-                        }}
                         onRegister={() => {
                           void (async () => {
                             try {
