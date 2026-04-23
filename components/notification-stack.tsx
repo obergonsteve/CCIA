@@ -28,44 +28,82 @@ const NOTE_W = 256;
 
 type Importance = "low" | "normal" | "high" | "urgent";
 
+const glassShadow =
+  "shadow-[0_2px_16px_rgba(0,0,0,0.05),0_8px_32px_-4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)] " +
+  "dark:shadow-[0_4px_28px_rgba(0,0,0,0.24),0_0_0_1px_rgba(255,255,255,0.06)_inset] " +
+  "backdrop-blur-2xl";
+
+/** One frosted “bubble” with stronger, distinct importance tints. */
 function importanceClassNames(level: Importance | undefined) {
   const n = (level ?? "normal") as Importance;
   switch (n) {
     case "low":
       return {
-        header:
-          "bg-slate-200/18 dark:bg-slate-600/16 border-b border-slate-400/22 dark:border-slate-500/22 backdrop-blur-sm",
-        body: "border-slate-300/30 bg-slate-100/25 dark:border-slate-500/20 dark:bg-slate-900/30 backdrop-blur-md",
-        title: "text-slate-900 drop-shadow-sm dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.7)]",
+        shell: cn(
+          "rounded-2xl overflow-hidden border-l-[5px] border-slate-500/50",
+          "border border-slate-300/45 border-l-slate-500/50 dark:border-slate-500/30 dark:border-l-slate-400/55",
+          "bg-gradient-to-br from-sky-100/35 via-slate-100/20 to-slate-300/15 " +
+            "dark:from-slate-500/22 dark:via-slate-800/20 dark:to-slate-900/16",
+          glassShadow,
+        ),
+        hairline:
+          "border-b border-slate-400/20 bg-white/12 dark:border-white/10 dark:bg-slate-900/15",
+        icon: "text-slate-600 dark:text-slate-300",
+        title:
+          "text-slate-900/95 [text-shadow:0_1px_0_rgba(255,255,255,0.45)] dark:text-slate-50",
         text: "text-slate-800/95 dark:text-slate-100/95",
-        muted: "text-slate-600/90 dark:text-slate-300/85",
+        muted: "text-slate-600/88 dark:text-slate-300/85",
       };
     case "normal":
       return {
-        header:
-          "bg-amber-200/20 dark:bg-amber-900/18 border-b border-amber-400/22 dark:border-amber-600/22 backdrop-blur-sm",
-        body: "border-amber-300/30 bg-amber-100/22 dark:border-amber-500/20 dark:bg-amber-950/32 backdrop-blur-md",
-        title: "text-amber-950 drop-shadow-sm dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
+        shell: cn(
+          "rounded-2xl overflow-hidden border-l-[5px] border-amber-500/50",
+          "border border-amber-300/40 border-l-amber-500/55 dark:border-amber-600/28 dark:border-l-amber-400/50",
+          "bg-gradient-to-br from-amber-200/35 from-20% via-amber-100/20 to-amber-300/22 " +
+            "dark:from-amber-500/22 dark:via-amber-800/18 dark:to-amber-950/18",
+          glassShadow,
+        ),
+        hairline:
+          "border-b border-amber-500/20 bg-amber-50/20 dark:border-amber-400/12 dark:bg-amber-900/20",
+        icon: "text-amber-700 dark:text-amber-300",
+        title:
+          "text-amber-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-amber-50",
         text: "text-amber-950/95 dark:text-amber-50/95",
-        muted: "text-amber-900/75 dark:text-amber-100/80",
+        muted: "text-amber-900/80 dark:text-amber-100/80",
       };
     case "high":
       return {
-        header:
-          "bg-orange-200/20 dark:bg-orange-900/18 border-b border-orange-400/22 dark:border-orange-700/22 backdrop-blur-sm",
-        body: "border-orange-300/30 bg-orange-100/22 dark:border-orange-500/20 dark:bg-orange-950/32 backdrop-blur-md",
-        title: "text-orange-950 drop-shadow-sm dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]",
+        shell: cn(
+          "rounded-2xl overflow-hidden border-l-[5px] border-orange-500/55",
+          "border border-orange-300/42 border-l-orange-500/60 dark:border-orange-500/32 dark:border-l-orange-400/50",
+          "bg-gradient-to-br from-orange-200/38 from-20% via-orange-100/22 to-orange-300/24 " +
+            "dark:from-orange-500/25 dark:via-orange-800/20 dark:to-orange-950/20",
+          glassShadow,
+        ),
+        hairline:
+          "border-b border-orange-500/22 bg-orange-50/18 dark:border-orange-400/12 dark:bg-orange-950/20",
+        icon: "text-orange-700 dark:text-orange-300",
+        title:
+          "text-orange-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-orange-50",
         text: "text-orange-950/95 dark:text-orange-50/95",
-        muted: "text-orange-900/75 dark:text-orange-100/80",
+        muted: "text-orange-900/80 dark:text-orange-100/80",
       };
     case "urgent":
       return {
-        header:
-          "bg-rose-200/20 dark:bg-rose-900/18 border-b border-rose-400/22 dark:border-rose-700/22 backdrop-blur-sm",
-        body: "border-rose-300/30 bg-rose-100/24 dark:border-rose-500/20 dark:bg-rose-950/32 backdrop-blur-md",
-        title: "text-rose-950 drop-shadow-sm dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]",
+        shell: cn(
+          "rounded-2xl overflow-hidden border-l-[5px] border-rose-500/55",
+          "border border-rose-300/40 border-l-rose-500/60 dark:border-rose-500/32 dark:border-l-rose-400/55",
+          "bg-gradient-to-br from-rose-200/40 from-20% via-rose-100/22 to-rose-300/25 " +
+            "dark:from-rose-500/26 dark:via-rose-800/20 dark:to-rose-950/20",
+          glassShadow,
+        ),
+        hairline:
+          "border-b border-rose-500/22 bg-rose-50/20 dark:border-rose-400/12 dark:bg-rose-950/20",
+        icon: "text-rose-700 dark:text-rose-300",
+        title:
+          "text-rose-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-rose-50",
         text: "text-rose-950/95 dark:text-rose-50/95",
-        muted: "text-rose-900/75 dark:text-rose-100/80",
+        muted: "text-rose-900/80 dark:text-rose-100/80",
       };
     default:
       return importanceClassNames("normal");
@@ -145,16 +183,11 @@ function DraggableNote({
       }}
       onPointerDown={() => onFocusNote()}
     >
-      <div
-        className={cn(
-          "overflow-hidden rounded-md border border-white/25 shadow-[0_1px_8px_rgba(0,0,0,0.06)] dark:border-white/10 dark:shadow-[0_1px_12px_rgba(0,0,0,0.25)]",
-          th.body,
-        )}
-      >
+      <div className={cn("overflow-hidden", th.shell)}>
         <div
           className={cn(
-            "flex min-h-8 items-center gap-0.5 px-1.5",
-            th.header,
+            "flex min-h-8 items-center gap-0.5 px-2",
+            th.hairline,
             hasDetails && !expanded && "border-b-0",
           )}
         >
@@ -168,7 +201,7 @@ function DraggableNote({
             <GripVertical className="h-3.5 w-3.5" aria-hidden />
           </button>
           <StickyNote
-            className={cn("h-3 w-3 shrink-0 opacity-50", th.muted)}
+            className={cn("h-3 w-3 shrink-0 opacity-90", th.icon)}
             aria-hidden
           />
           <span
