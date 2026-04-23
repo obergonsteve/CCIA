@@ -75,6 +75,7 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
               href="/login"
               className={cn(
                 buttonVariants({ size: "lg", variant: "lime" }),
+                "min-w-[8.5rem] px-8 sm:min-w-36 sm:px-10",
                 "text-white hover:text-white",
               )}
             >
@@ -82,7 +83,10 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
             </Link>
             <Link
               href="/register"
-              className={cn(buttonVariants({ size: "lg", variant: "ruby" }))}
+              className={cn(
+                buttonVariants({ size: "lg", variant: "ruby" }),
+                "min-w-[8.5rem] px-8 sm:min-w-36 sm:px-10",
+              )}
             >
               Register
             </Link>
