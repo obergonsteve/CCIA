@@ -22,7 +22,13 @@ export default async function RegisterPage({ params, searchParams }: PageProps) 
         className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
         aria-hidden
       />
-      <div className="relative w-full max-w-md space-y-6 rounded-2xl border-2 border-brand-gold/55 bg-card/90 p-6 shadow-lg backdrop-blur-sm dark:border-brand-gold/50 dark:bg-card/80 sm:p-8">
+      <div
+        className={cn(
+          "relative w-full max-w-md space-y-6 rounded-2xl border-2 border-brand-gold/55 bg-card/90 p-6 backdrop-blur-sm dark:border-brand-gold/50 dark:bg-card/80 sm:p-8",
+          "shadow-[0_20px_40px_-8px_rgba(0,0,0,0.24),0_8px_16px_-4px_rgba(0,0,0,0.12)]",
+          "dark:shadow-[0_24px_48px_-8px_rgba(0,0,0,0.62),0_12px_24px_-6px_rgba(0,0,0,0.42)]",
+        )}
+      >
         <div className="text-center space-y-2">
           <div className="flex justify-center pb-1">
             <Image
