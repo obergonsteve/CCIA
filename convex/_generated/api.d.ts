@@ -45,6 +45,7 @@ import type * as seedAnalytics from "../seedAnalytics.js";
 import type * as seedAnalyticsDiag from "../seedAnalyticsDiag.js";
 import type * as unitCategories from "../unitCategories.js";
 import type * as units from "../units.js";
+import type * as userNotifications from "../userNotifications.js";
 import type * as users from "../users.js";
 import type * as workshopLiveKit from "../workshopLiveKit.js";
 import type * as workshopLiveKitAction from "../workshopLiveKitAction.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   seedAnalyticsDiag: typeof seedAnalyticsDiag;
   unitCategories: typeof unitCategories;
   units: typeof units;
+  userNotifications: typeof userNotifications;
   users: typeof users;
   workshopLiveKit: typeof workshopLiveKit;
   workshopLiveKitAction: typeof workshopLiveKitAction;

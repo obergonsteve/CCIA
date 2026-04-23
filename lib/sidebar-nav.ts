@@ -5,6 +5,7 @@ import {
   GraduationCap,
   Layers,
   LayoutDashboard,
+  Settings,
   Users,
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export const adminSidebarNav = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/courses", label: "Training Content", icon: Layers },
   { href: "/admin/database", label: "Database", icon: Database },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function primaryNavIconClass(
@@ -110,6 +112,13 @@ export function sidebarMainPageHeading(
     return {
       label: "Database",
       icon: Database,
+      iconClassName: "text-brand-gold",
+    };
+  }
+  if (pathname.startsWith("/admin/settings")) {
+    return {
+      label: "Settings",
+      icon: Settings,
       iconClassName: "text-brand-gold",
     };
   }

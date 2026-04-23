@@ -16,6 +16,7 @@ const SIDEBAR_EXACT = new Set([
   "/admin/users",
   "/admin/courses",
   "/admin/database",
+  "/admin/settings",
 ]);
 
 type CrumbTone =
@@ -200,7 +201,9 @@ function AdminOtherBreadcrumbs({ pathname }: { pathname: string }) {
         ? { href: "/admin/courses" as const, label: "Training Content" }
         : pathname.startsWith("/admin/database")
           ? { href: "/admin/database" as const, label: "Database" }
-          : { href: "/admin/users" as const, label: "Admin" };
+          : pathname.startsWith("/admin/settings")
+            ? { href: "/admin/settings" as const, label: "Settings" }
+            : { href: "/admin/users" as const, label: "Admin" };
   return (
     <CrumbTrail
       items={[

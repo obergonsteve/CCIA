@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
+import { NotificationStack } from "@/components/notification-stack";
 import { OfflineTrainingBanner } from "@/components/offline-training-banner";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -359,6 +360,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </footer>
         </div>
       </div>
+      <NotificationStack />
     </div>
   );
 }

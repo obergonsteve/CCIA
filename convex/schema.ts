@@ -422,4 +422,36 @@ export default defineSchema({
     score: v.optional(v.number()),
   })
     .index("by_user_unit_assignment", ["userId", "unitId", "assignmentId"]),
+
+  /**
+   * In-app notifications (not toasts): reminders, nudges, new content, etc.
+   * `dedupeKey` is stable per logical item (e.g. `webinar:sessionId`) so crons/events
+   * can upsert without spamming; dismissed rows are not re-inserted.
+   */
+  userNotifications: defineTable({
+    userId: v.id("users"),
+    kind: v.union(
+      v.literal("webinar_reminder"),
+      v.literal("unit_progress_nudge"),
+      v.literal("content_update"),
+      v.literal("new_unit"),
+      v.literal("new_webinar"),
+      v.literal("general"),
+    ),
+    title: v.string(),
+    body: v.optional(v.string()),
+    /** In-app link (e.g. `/workshops`, `/units/{id}`). */
+    linkHref: v.optional(v.string()),
+    /**
+     * One row per (user, dedupeKey). Used by internal creators to avoid duplicates
+     * and to remember dismissals.
+     */
+    dedupeKey: v.string(),
+    createdAt: v.number(),
+    dismissed: v.boolean(),
+    dismissedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_dismissed", ["userId", "dismissed"])
+    .index("by_user_dedupe", ["userId", "dedupeKey"]),
 });
