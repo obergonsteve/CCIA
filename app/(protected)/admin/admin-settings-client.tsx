@@ -49,6 +49,9 @@ export default function AdminSettingsClient() {
   const [testNotifOpen, setTestNotifOpen] = useState(false);
   const [testTitle, setTestTitle] = useState("Test notification");
   const [testBody, setTestBody] = useState("");
+  const [testImportance, setTestImportance] = useState<
+    "low" | "normal" | "high" | "urgent"
+  >("normal");
   const createTestNotif = useMutation(
     api.userNotifications.createTestForCurrentUser,
   );
@@ -128,6 +131,7 @@ export default function AdminSettingsClient() {
             onClick={() => {
               setTestTitle("Test notification");
               setTestBody("");
+              setTestImportance("normal");
               setTestNotifOpen(true);
             }}
           >
@@ -164,6 +168,24 @@ export default function AdminSettingsClient() {
                 className="resize-y min-h-[5rem]"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="test-notif-importance">Importance</Label>
+              <select
+                id="test-notif-importance"
+                value={testImportance}
+                onChange={(e) =>
+                  setTestImportance(
+                    e.target.value as "low" | "normal" | "high" | "urgent",
+                  )
+                }
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -186,6 +208,7 @@ export default function AdminSettingsClient() {
                     forUserId: user.userId as Id<"users">,
                     title,
                     body: testBody.trim() || undefined,
+                    importance: testImportance,
                   });
                   toast.success("Notification created — check the top-right.");
                   setTestNotifOpen(false);

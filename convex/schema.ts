@@ -438,6 +438,15 @@ export default defineSchema({
       v.literal("new_webinar"),
       v.literal("general"),
     ),
+    /** Affects in-app post-it color; defaults to "normal" in UI if missing. */
+    importance: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("normal"),
+        v.literal("high"),
+        v.literal("urgent"),
+      ),
+    ),
     title: v.string(),
     body: v.optional(v.string()),
     /** In-app link (e.g. `/workshops`, `/units/{id}`). */

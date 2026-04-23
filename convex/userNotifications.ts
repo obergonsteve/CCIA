@@ -23,6 +23,15 @@ const kindValidator = v.union(
   v.literal("general"),
 );
 
+const importanceValidator = v.optional(
+  v.union(
+    v.literal("low"),
+    v.literal("normal"),
+    v.literal("high"),
+    v.literal("urgent"),
+  ),
+);
+
 const createArgs = {
   userId: v.id("users"),
   kind: kindValidator,
@@ -31,6 +40,7 @@ const createArgs = {
   linkHref: v.optional(v.string()),
   dedupeKey: v.string(),
   createdAt: v.optional(v.number()),
+  importance: importanceValidator,
 };
 
 type CreateOrSkipResult =
@@ -54,6 +64,7 @@ async function tryCreateOrSkip(
     linkHref?: string;
     dedupeKey: string;
     createdAt?: number;
+    importance?: "low" | "normal" | "high" | "urgent";
   },
 ): Promise<CreateOrSkipResult> {
   const createdAt = args.createdAt ?? Date.now();
@@ -74,6 +85,7 @@ async function tryCreateOrSkip(
   const id = await ctx.db.insert("userNotifications", {
     userId: args.userId,
     kind: args.kind,
+    importance: args.importance ?? "normal",
     title: args.title.trim(),
     body: args.body?.trim() ? args.body.trim() : undefined,
     linkHref: args.linkHref?.trim() ? args.linkHref.trim() : undefined,
@@ -178,8 +190,9 @@ export const createTestForCurrentUser = mutation({
     forUserId: v.id("users"),
     title: v.string(),
     body: v.optional(v.string()),
+    importance: importanceValidator,
   },
-  handler: async (ctx, { forUserId, title, body }) => {
+  handler: async (ctx, { forUserId, title, body, importance }) => {
     await assertIsAdminOrCreator(ctx, forUserId);
     const dedupeKey = `test:settings:${Date.now()}:${Math.random().toString(36).slice(2, 12)}`;
     const t = title.trim() || "Test notification";
@@ -189,6 +202,7 @@ export const createTestForCurrentUser = mutation({
       title: t,
       body: body?.trim() ? body.trim() : undefined,
       dedupeKey,
+      importance: importance ?? "normal",
     });
   },
 });
@@ -216,6 +230,7 @@ export const createOrSkipForUsers = internalMutation({
     title: v.string(),
     body: v.optional(v.string()),
     linkHref: v.optional(v.string()),
+    importance: importanceValidator,
     /**
      * Base key; per user we store `${baseDedupeKey}:user` so one user dismissing
      * does not block others, while a repeat broadcast can use the same base+version.
@@ -233,6 +248,7 @@ export const createOrSkipForUsers = internalMutation({
         title: args.title,
         body: args.body,
         linkHref: args.linkHref,
+        importance: args.importance ?? "normal",
         dedupeKey: `${args.dedupeKey}:${userId}`,
       });
       if (res.status === "created") {
