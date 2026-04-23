@@ -39,6 +39,8 @@ import {
 import { toast } from "sonner";
 import {
   certificationTierBadgeClass,
+  certificationTierBadgeMedallionClass,
+  certificationTierBadgeShellClass,
   certificationTierLabel,
   certificationTierSectionTitle,
   effectiveCertificationTier,
@@ -1090,13 +1092,17 @@ export function SortableLevelRow({
         >
           <Badge
             className={cn(
-              "shrink-0 px-1.5 py-0 text-[10px] font-bold uppercase tracking-wide",
+              "shrink-0",
+              certificationTierBadgeShellClass,
               certificationTierBadgeClass(tier),
             )}
             aria-label={certificationTierLabel(tier)}
             title={certificationTierSectionTitle(tier)}
           >
-            <CertificationTierMedallion tier={tier} />
+            <CertificationTierMedallion
+              tier={tier}
+              className={certificationTierBadgeMedallionClass}
+            />
           </Badge>
           <Tooltip>
             <TooltipTrigger asChild>

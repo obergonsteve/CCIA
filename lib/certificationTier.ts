@@ -42,6 +42,13 @@ export function certificationTierSectionTitle(tier: CertificationTierKey): strin
   }
 }
 
+/** Shell for compact tier star badges (card headers, admin tree, level hero). */
+export const certificationTierBadgeShellClass =
+  "h-7 min-h-7 gap-1 px-3 text-sm font-bold uppercase tracking-wide";
+
+/** Star size inside {@link certificationTierBadgeShellClass} rows. */
+export const certificationTierBadgeMedallionClass = "size-6";
+
 export function certificationTierBadgeClass(tier: CertificationTierKey): string {
   switch (tier) {
     case "bronze":

@@ -181,7 +181,7 @@ export default function CertificationsClient() {
                           <div className="absolute left-4 top-4">
                             <Badge
                               className={cn(
-                                "h-auto min-h-10 items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
+                                "h-auto min-h-11 items-center px-2 py-0.5 text-sm font-bold uppercase tracking-wide shadow-sm",
                                 certificationTierBadgeClass(tier),
                               )}
                               aria-label={certificationTierLabel(tier)}
@@ -189,7 +189,7 @@ export default function CertificationsClient() {
                             >
                               <CertificationTierMedallion
                                 tier={tier}
-                                className="size-[2.33rem]"
+                                className="size-[2.65rem]"
                               />
                             </Badge>
                           </div>

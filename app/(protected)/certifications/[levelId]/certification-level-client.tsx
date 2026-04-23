@@ -27,6 +27,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
   certificationTierBadgeClass,
+  certificationTierBadgeMedallionClass,
+  certificationTierBadgeShellClass,
   certificationTierLabel,
   certificationTierSectionTitle,
   effectiveCertificationTier,
@@ -225,13 +227,16 @@ export default function CertificationLevelClient({
                 />
                 <Badge
                   className={cn(
-                    "px-1.5 text-[10px] font-bold uppercase tracking-wide",
+                    certificationTierBadgeShellClass,
                     certificationTierBadgeClass(tier),
                   )}
                   aria-label={certificationTierLabel(tier)}
                   title={certificationTierSectionTitle(tier)}
                 >
-                  <CertificationTierMedallion tier={tier} />
+                  <CertificationTierMedallion
+                    tier={tier}
+                    className={certificationTierBadgeMedallionClass}
+                  />
                 </Badge>
               </div>
               {level.tagline ? (
@@ -252,13 +257,16 @@ export default function CertificationLevelClient({
             />
             <Badge
               className={cn(
-                "px-1.5 text-[10px] font-bold uppercase tracking-wide",
+                certificationTierBadgeShellClass,
                 certificationTierBadgeClass(tier),
               )}
               aria-label={certificationTierLabel(tier)}
               title={certificationTierSectionTitle(tier)}
             >
-              <CertificationTierMedallion tier={tier} />
+              <CertificationTierMedallion
+                tier={tier}
+                className={certificationTierBadgeMedallionClass}
+              />
             </Badge>
           </div>
           {level.tagline ? (

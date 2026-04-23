@@ -28,6 +28,8 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   certificationTierBadgeClass,
+  certificationTierBadgeMedallionClass,
+  certificationTierBadgeShellClass,
   certificationTierLabel,
   certificationTierSectionTitle,
   effectiveCertificationTier,
@@ -301,13 +303,16 @@ function CertificationBucketSection({
                     <CardTitle className="text-lg">{level.name}</CardTitle>
                     <Badge
                       className={cn(
-                        "px-1.5 text-[10px] font-bold uppercase tracking-wide",
+                        certificationTierBadgeShellClass,
                         certificationTierBadgeClass(tier),
                       )}
                       aria-label={certificationTierLabel(tier)}
                       title={certificationTierSectionTitle(tier)}
                     >
-                      <CertificationTierMedallion tier={tier} />
+                      <CertificationTierMedallion
+                        tier={tier}
+                        className={certificationTierBadgeMedallionClass}
+                      />
                     </Badge>
                   </div>
                   <CardDescription className="line-clamp-2">
