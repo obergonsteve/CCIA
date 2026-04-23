@@ -28,11 +28,11 @@ export default async function LandingPage({ params, searchParams }: PageProps) {
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center">
           <div className="flex min-w-0 items-center gap-3">
             <Image
-              src="/LLLIA_trans.png"
+              src="/LLLIA_logo.png"
               alt={SITE_APP_NAME}
-              width={260}
-              height={56}
-              className="h-10 w-auto max-w-[min(100%,14rem)] shrink-0 object-contain object-left sm:h-11"
+              width={138}
+              height={137}
+              className="h-10 w-auto shrink-0 object-contain object-left sm:h-11"
               priority
             />
           </div>
