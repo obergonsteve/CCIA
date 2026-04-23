@@ -1,5 +1,6 @@
 import { buttonVariants } from "@/components/ui/button";
-import { SITE_ORG_NAME } from "@/lib/site-brand";
+import { SITE_APP_NAME, SITE_ORG_FORMAL_NAME } from "@/lib/site-brand";
+import Image from "next/image";
 import Link from "next/link";
 import { RegisterForm } from "./register-form";
 import { cn } from "@/lib/utils";
@@ -23,12 +24,22 @@ export default async function RegisterPage({ params, searchParams }: PageProps) 
       />
       <div className="relative w-full max-w-md space-y-6 rounded-2xl border-2 border-brand-gold/55 bg-card/90 p-6 shadow-lg backdrop-blur-sm dark:border-brand-gold/50 dark:bg-card/80 sm:p-8">
         <div className="text-center space-y-2">
+          <div className="flex justify-center pb-1">
+            <Image
+              src="/LLLIA_logo.png"
+              alt={SITE_APP_NAME}
+              width={138}
+              height={137}
+              className="h-16 w-auto object-contain sm:h-[4.5rem]"
+              priority
+            />
+          </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Create <span className="text-brand-sky dark:text-brand-sky/95">account</span>
           </h1>
           <p className="text-sm text-muted-foreground">
-            Your company must be provisioned by {SITE_ORG_NAME} before you can
-            register.
+            Your company must be provisioned by {SITE_ORG_FORMAL_NAME} before
+            you can register.
           </p>
         </div>
         <RegisterForm />

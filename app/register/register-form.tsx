@@ -142,28 +142,40 @@ export function RegisterForm() {
         <FormField
           control={form.control}
           name="companyId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Company</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger
-                    className={cn(AUTH_INPUT, "w-full min-w-0 justify-between")}
-                  >
-                    <SelectValue placeholder="Select operator company" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {(companies ?? []).map((c) => (
-                    <SelectItem key={c._id} value={c._id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const companyId = field.value;
+            const companyTriggerLabel = !companyId
+              ? null
+              : companies === undefined
+                ? "Loading…"
+                : (companies.find((c) => c._id === companyId)?.name ??
+                    "Unknown company");
+
+            return (
+              <FormItem>
+                <FormLabel>Company</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger
+                      className={cn(AUTH_INPUT, "w-full min-w-0 justify-between")}
+                    >
+                      <SelectValue placeholder="Select operator company">
+                        {companyTriggerLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(companies ?? []).map((c) => (
+                      <SelectItem key={c._id} value={c._id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         {error && (
           <p className="text-sm text-destructive" role="alert">

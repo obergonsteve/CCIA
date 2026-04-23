@@ -364,25 +364,14 @@ export function LoginForm() {
                       }
                     }
                   }}
-                  aria-describedby="login-remember-me-desc"
                 />
               </FormControl>
-              <div className="space-y-0.5 leading-none">
-                <FormLabel
-                  htmlFor="login-remember-me"
-                  className="cursor-pointer font-normal text-foreground"
-                >
-                  Remember me
-                </FormLabel>
-                <p
-                  id="login-remember-me-desc"
-                  className="text-xs text-muted-foreground"
-                >
-                  Keep your session for up to 30 days and save your email on
-                  this device for next time. Uncheck to use a short session and
-                  clear a saved email.
-                </p>
-              </div>
+              <FormLabel
+                htmlFor="login-remember-me"
+                className="cursor-pointer font-normal text-foreground"
+              >
+                Remember me
+              </FormLabel>
             </FormItem>
           )}
         />
