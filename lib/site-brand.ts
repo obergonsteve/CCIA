@@ -4,6 +4,8 @@ export const SITE_ORG_NAME = "Land Lease Living";
 export const SITE_ORG_INDUSTRY_LINE = "Industry Association";
 /** Full name for legal / provisioning copy (e.g. registration). */
 export const SITE_ORG_FORMAL_NAME = `${SITE_ORG_NAME} ${SITE_ORG_INDUSTRY_LINE}`;
+/** Full association name with state (e.g. public landing hero). */
+export const SITE_ORG_NAME_NSW = `${SITE_ORG_FORMAL_NAME} NSW`;
 export const SITE_ORG_TAGLINE = "Industry Association NSW";
 export const SITE_APP_NAME = `${SITE_ORG_FORMAL_NAME} Training`;
 export const SITE_PWA_SHORT_NAME = "LLL Training";

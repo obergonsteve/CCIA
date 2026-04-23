@@ -11,6 +11,8 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
         lime:
           "bg-brand-lime text-brand-charcoal hover:bg-brand-lime/85 dark:text-brand-charcoal dark:hover:bg-brand-lime/85",
+        ruby:
+          "bg-brand-gold text-white shadow-sm hover:bg-[color-mix(in_oklab,var(--brand-gold)_78%,black)] active:bg-[color-mix(in_oklab,var(--brand-gold)_72%,black)] dark:bg-brand-gold dark:text-white dark:hover:bg-[color-mix(in_oklab,var(--brand-gold)_78%,black)]",
         outline:
           "border-brand-sky/35 bg-background hover:bg-brand-sky/6 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-brand-sky/40 dark:bg-input/30 dark:hover:bg-brand-sky/10",
         secondary:
