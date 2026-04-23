@@ -22,6 +22,7 @@ import {
   primaryNavIconClass,
   primarySidebarNav,
 } from "@/lib/sidebar-nav";
+import { appPageGradientClass } from "@/lib/app-page-surface";
 import { SITE_APP_NAME, SITE_FOOTER_APP } from "@/lib/site-brand";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
@@ -327,7 +328,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </header>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col",
+            appPageGradientClass,
+          )}
+        >
           <main
             className={cn(
               "mx-auto min-h-0 w-full flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 md:p-8 space-y-4",

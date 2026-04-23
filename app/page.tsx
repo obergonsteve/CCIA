@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { appPageGradientClass } from "@/lib/app-page-surface";
 import { SITE_APP_NAME, SITE_FOOTER_PUBLIC, SITE_ORG_NAME_NSW } from "@/lib/site-brand";
 import { BookOpen, Shield, Video } from "lucide-react";
 import Image from "next/image";
@@ -19,7 +20,7 @@ type PageProps = {
 export default async function LandingPage({ params, searchParams }: PageProps) {
   await Promise.all([params, searchParams]);
   return (
-    <div className="min-h-svh flex flex-col bg-gradient-to-b from-background via-brand-gold/[0.07] to-brand-sky/[0.1]">
+    <div className={cn("min-h-svh flex flex-col", appPageGradientClass)}>
       <header className="relative border-b border-white/10 bg-brand-charcoal pt-1 text-white shadow-md">
         <div
           className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"

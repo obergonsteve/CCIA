@@ -1,4 +1,5 @@
 import { buttonVariants } from "@/components/ui/button";
+import { appPageGradientClass } from "@/lib/app-page-surface";
 import {
   SITE_APP_NAME,
   SITE_ORG_INDUSTRY_LINE,
@@ -19,7 +20,10 @@ export default async function LoginPage({ params, searchParams }: PageProps) {
   return (
     <div className="relative min-h-svh overflow-hidden p-6 flex flex-col items-center justify-center">
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-sky/[0.14] via-background to-brand-lime/[0.12] dark:from-brand-sky/20 dark:via-background dark:to-brand-lime/16"
+        className={cn(
+          "pointer-events-none absolute inset-0",
+          appPageGradientClass,
+        )}
         aria-hidden
       />
       <div

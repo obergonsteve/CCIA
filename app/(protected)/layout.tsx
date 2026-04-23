@@ -1,4 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { appPageGradientClass } from "@/lib/app-page-surface";
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 
@@ -9,7 +11,12 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
-        <div className="flex h-svh items-center justify-center bg-background text-sm text-muted-foreground">
+        <div
+          className={cn(
+            "flex h-svh items-center justify-center text-sm text-muted-foreground",
+            appPageGradientClass,
+          )}
+        >
           Loading…
         </div>
       }
