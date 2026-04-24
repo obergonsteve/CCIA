@@ -189,10 +189,8 @@ export default function AdminUsersClient() {
       )}
     >
       <div className="space-y-3">
-        <p className="text-muted-foreground min-w-0 max-w-3xl">
-          Companies and people — select a company to edit its profile and manage
-          accounts. Use <strong>Add user</strong> to invite someone to the selected
-          company.
+        <p className="w-full min-w-0 text-muted-foreground">
+          Manage the companies and users that have access to LLLIA Training.
         </p>
         <div className="w-full max-w-[17.25rem] space-y-3">
           {isAdmin && sessionUser ? (
