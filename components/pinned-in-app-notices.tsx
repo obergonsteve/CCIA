@@ -115,7 +115,7 @@ export function PinnedInAppNotices() {
     >
       <div
         className={cn(
-          "flex min-h-11 w-full min-w-[9.25rem] max-w-full items-stretch justify-stretch gap-0 rounded-lg border border-dashed border-brand-sky/30 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-2 py-1.5 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150 sm:min-w-[10.25rem] sm:px-2.5",
+          "flex min-h-0 w-full min-w-[9.25rem] max-w-full items-stretch justify-stretch gap-0 rounded-lg border border-dashed border-brand-sky/30 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-2 py-0.5 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150 sm:min-w-[10.25rem] sm:px-2.5",
           "dark:border-brand-sky/25 dark:from-brand-sky/[0.14] dark:via-brand-lime/[0.09] dark:to-brand-gold/[0.11] dark:shadow-brand-sky/20",
           over && [
             "border-brand-sky/90 border-solid bg-brand-sky/20 dark:border-brand-sky/70",
@@ -133,7 +133,7 @@ export function PinnedInAppNotices() {
               variant="ghost"
               size="sm"
               className={cn(
-                "h-10 w-full min-w-0 justify-between gap-2 px-2 text-[0.8rem] leading-tight text-foreground/88",
+                "h-8 w-full min-w-0 justify-between gap-1.5 px-1.5 text-[0.75rem] leading-tight text-foreground/88",
                 /* `ghost` sets `hover:bg-muted` and `aria-expanded:bg-muted` — override so the chip never picks up that gray. */
                 "!bg-transparent hover:!bg-black/[0.06] dark:hover:!bg-white/[0.08]",
                 "aria-expanded:!bg-transparent dark:aria-expanded:!bg-transparent",
@@ -144,27 +144,27 @@ export function PinnedInAppNotices() {
               aria-label={`Pinned in header — ${noticeCountLabel}`}
               onClick={() => setExpanded((e) => !e)}
             >
-              <span className="flex min-w-0 items-center gap-2">
+              <span className="flex min-w-0 items-center gap-1.5">
                 <Pin
-                  className="size-4 shrink-0 text-brand-sky"
+                  className="size-3.5 shrink-0 text-brand-sky"
                   aria-hidden
                 />
                 {count > 0 ? (
                   <span
-                    className="min-w-0 text-left text-[0.8rem] font-bold tabular-nums leading-tight text-foreground"
+                    className="min-w-0 text-left text-[0.75rem] font-bold tabular-nums leading-tight text-foreground"
                     aria-label={noticeCountLabel}
                   >
                     {noticeCountLabel}
                   </span>
                 ) : (
-                  <span className="text-[0.8rem] text-muted-foreground/80">
+                  <span className="text-[0.75rem] text-muted-foreground/80">
                     {noticeCountLabel}
                   </span>
                 )}
               </span>
               <ChevronDown
                 className={cn(
-                  "size-4 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
+                  "size-3.5 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
                   expanded && "rotate-180",
                 )}
                 aria-hidden
