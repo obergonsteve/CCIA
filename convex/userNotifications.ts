@@ -815,14 +815,21 @@ async function assertIsAdmin(
 }
 
 /**
- * Admin only: in-app post-it to everyone (one shared notice) or to every user
- * in a single company (one row per user). Session `forUserId` must be an admin.
+ * Admin only: in-app post-it to everyone (one shared notice), to every user in
+ * a single company (one row per user), or to one user. Session `forUserId` must
+ * be an admin.
  */
 export const adminSendInAppNotification = mutation({
   args: {
     forUserId: v.id("users"),
-    scope: v.union(v.literal("all"), v.literal("company")),
+    scope: v.union(
+      v.literal("all"),
+      v.literal("company"),
+      v.literal("user"),
+    ),
     companyId: v.optional(v.id("companies")),
+    /** Required when `scope` is `"user"`. */
+    targetUserId: v.optional(v.id("users")),
     title: v.string(),
     body: v.optional(v.string()),
     importance: importanceValidator,
@@ -845,6 +852,29 @@ export const adminSendInAppNotification = mutation({
       const dedupeKey = `admin:all:${Date.now()}:${Math.random().toString(36).slice(2, 12)}`;
       return tryCreateOrSkip(ctx, {
         userId: undefined,
+        kind,
+        title,
+        body,
+        linkHref: args.linkHref,
+        linkLabel: args.linkLabel,
+        linkRef: args.linkRef,
+        dedupeKey,
+        importance,
+      });
+    }
+
+    if (args.scope === "user") {
+      const targetUserId = args.targetUserId;
+      if (!targetUserId) {
+        throw new ConvexError("Select a user for single-user delivery");
+      }
+      const userRow = await ctx.db.get(targetUserId);
+      if (!userRow) {
+        throw new ConvexError("User not found");
+      }
+      const dedupeKey = `admin:u:${String(targetUserId)}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+      return tryCreateOrSkip(ctx, {
+        userId: targetUserId,
         kind,
         title,
         body,

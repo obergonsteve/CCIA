@@ -56,6 +56,13 @@ type SendInAppNoticeDialogProps = {
   presetSummary?: string;
   /** Default company when scope is "company" (e.g. Users admin page). */
   defaultCompanyId?: Id<"companies">;
+  /**
+   * When set, the notice is sent only to this user; audience pickers are hidden.
+   * Use with `preset={null}` for a full link form targeted at one person.
+   */
+  targetUserId?: Id<"users">;
+  /** e.g. name and email, shown in the “Who receives it” line. */
+  targetUserSummary?: string;
 };
 
 export function SendInAppNoticeDialog({
@@ -64,6 +71,8 @@ export function SendInAppNoticeDialog({
   preset,
   presetSummary,
   defaultCompanyId,
+  targetUserId,
+  targetUserSummary,
 }: SendInAppNoticeDialogProps) {
   const { user: sessionUser } = useSessionUser();
   const companies = useQuery(api.companies.list, open ? {} : "skip");
@@ -75,6 +84,9 @@ export function SendInAppNoticeDialog({
   const [inAppCompanyId, setInAppCompanyId] = useState<Id<"companies"> | null>(
     null,
   );
+  /** When scope is company: `__all__` = everyone in that company; else one user id. */
+  const [inAppCompanyRecipient, setInAppCompanyRecipient] =
+    useState<string>("__all__");
   const [inAppTitle, setInAppTitle] = useState("");
   const [inAppBody, setInAppBody] = useState("");
   const [inAppImportance, setInAppImportance] = useState<
@@ -155,6 +167,43 @@ export function SendInAppNoticeDialog({
     inAppScope === "all"
       ? "All users (every company)"
       : "Selected company only";
+
+  const singleUserTarget = targetUserId != null;
+
+  const inAppCompanyUsers = useQuery(
+    api.users.listByCompany,
+    open &&
+      sessionUser?.role === "admin" &&
+      !singleUserTarget &&
+      inAppScope === "company" &&
+      inAppCompanyId
+      ? { companyId: inAppCompanyId }
+      : "skip",
+  );
+
+  const inAppCompanyUserTriggerLabel = useMemo(() => {
+    if (inAppCompanyRecipient === "__all__") {
+      return "Everyone in this company";
+    }
+    if (inAppCompanyUsers === undefined) {
+      return "Loading…";
+    }
+    const u = inAppCompanyUsers.find((x) => x._id === inAppCompanyRecipient);
+    if (!u) {
+      return "Select a user";
+    }
+    return `${u.name} (${u.email})`;
+  }, [inAppCompanyRecipient, inAppCompanyUsers]);
+
+  useEffect(() => {
+    if (inAppCompanyRecipient === "__all__" || inAppCompanyUsers === undefined) {
+      return;
+    }
+    const ok = inAppCompanyUsers.some((u) => u._id === inAppCompanyRecipient);
+    if (!ok) {
+      setInAppCompanyRecipient("__all__");
+    }
+  }, [inAppCompanyUsers, inAppCompanyRecipient]);
 
   const inAppCompanyTriggerLabel = useMemo(() => {
     if (inAppCompanyId == null) {
@@ -260,10 +309,10 @@ export function SendInAppNoticeDialog({
   }, [inAppPickedContentKey, contentLinkRows]);
 
   useEffect(() => {
-    if (open && defaultCompanyId) {
+    if (open && defaultCompanyId && !singleUserTarget) {
       setInAppCompanyId(defaultCompanyId);
     }
-  }, [open, defaultCompanyId]);
+  }, [open, defaultCompanyId, singleUserTarget]);
 
   const resetForm = useCallback(() => {
     setInAppTitle("");
@@ -280,6 +329,7 @@ export function SendInAppNoticeDialog({
     setInAppScope("all");
     setInAppImportance("normal");
     setInAppCompanyId(null);
+    setInAppCompanyRecipient("__all__");
   }, []);
 
   useEffect(() => {
@@ -287,10 +337,10 @@ export function SendInAppNoticeDialog({
       return;
     }
     resetForm();
-    if (defaultCompanyId) {
+    if (defaultCompanyId && !singleUserTarget) {
       setInAppCompanyId(defaultCompanyId);
     }
-  }, [open, defaultCompanyId, resetForm]);
+  }, [open, defaultCompanyId, resetForm, singleUserTarget]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -312,51 +362,126 @@ export function SendInAppNoticeDialog({
         <div
           className="space-y-4 text-sm [&_[data-slot=label]]:text-[color-mix(in_oklab,var(--brand-lime)_58%,#0c0e09)] [&_[data-slot=label]]:dark:text-[color-mix(in_oklab,var(--brand-lime)_42%,#d9e0cc)]"
         >
-          <div className="space-y-2">
-            <Label htmlFor="inapp-scope">Who receives it</Label>
-            <Select
-              value={inAppScope}
-              onValueChange={(v) => {
-                if (v === "all" || v === "company") {
-                  setInAppScope(v);
-                }
-              }}
-            >
-              <SelectTrigger id="inapp-scope" className={inAppSelectTrigger}>
-                <SelectValue placeholder="Choose audience">
-                  {inAppScopeLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All users (every company)</SelectItem>
-                <SelectItem value="company">Selected company only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {inAppScope === "company" ? (
+          {singleUserTarget ? (
             <div className="space-y-2">
-              <Label htmlFor="inapp-company">Company</Label>
-              <Select
-                value={inAppCompanyId ?? ""}
-                onValueChange={(v) =>
-                  setInAppCompanyId(v as Id<"companies">)
-                }
+              <Label>Who receives it</Label>
+              <p
+                className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm text-foreground"
+                id="inapp-single-user-summary"
               >
-                <SelectTrigger id="inapp-company" className={inAppSelectTrigger}>
-                  <SelectValue placeholder="Select a company">
-                    {inAppCompanyTriggerLabel}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {(companies ?? []).map((c) => (
-                    <SelectItem key={c._id} value={c._id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <span className="font-medium text-muted-foreground">
+                  This person only:{" "}
+                </span>
+                {targetUserSummary?.trim() || "Selected user"}
+              </p>
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="inapp-scope">Who receives it</Label>
+                <Select
+                  value={inAppScope}
+                  onValueChange={(v) => {
+                    if (v === "all" || v === "company") {
+                      setInAppScope(v);
+                    }
+                  }}
+                >
+                  <SelectTrigger
+                    id="inapp-scope"
+                    className={inAppSelectTrigger}
+                  >
+                    <SelectValue placeholder="Choose audience">
+                      {inAppScopeLabel}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      All users (every company)
+                    </SelectItem>
+                    <SelectItem value="company">
+                      Selected company only
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {inAppScope === "company" ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="inapp-company">Company</Label>
+                    <Select
+                      value={inAppCompanyId ?? ""}
+                      onValueChange={(v) => {
+                        setInAppCompanyId(v as Id<"companies">);
+                        setInAppCompanyRecipient("__all__");
+                      }}
+                    >
+                      <SelectTrigger
+                        id="inapp-company"
+                        className={inAppSelectTrigger}
+                      >
+                        <SelectValue placeholder="Select a company">
+                          {inAppCompanyTriggerLabel}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(companies ?? []).map((c) => (
+                          <SelectItem key={c._id} value={c._id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {inAppCompanyId ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="inapp-company-user">User</Label>
+                      <Select
+                        value={inAppCompanyRecipient}
+                        onValueChange={(v) => {
+                          if (v != null) {
+                            setInAppCompanyRecipient(v);
+                          }
+                        }}
+                        disabled={inAppCompanyUsers === undefined}
+                      >
+                        <SelectTrigger
+                          id="inapp-company-user"
+                          className={inAppSelectTrigger}
+                        >
+                          <SelectValue placeholder="Everyone or one person">
+                            {inAppCompanyUserTriggerLabel}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__all__">
+                            Everyone in this company
+                          </SelectItem>
+                          {(inAppCompanyUsers ?? []).map((u) => (
+                            <SelectItem key={u._id} value={u._id}>
+                              {u.name} ({u.email})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {inAppCompanyUsers &&
+                      inAppCompanyUsers.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No user accounts in this company yet. Notices to
+                          “Everyone” will apply once users are added.
+                        </p>
+                      ) : inAppCompanyUsers && inAppCompanyUsers.length > 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Send to everyone in this company, or pick one person
+                          in the list above.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          )}
           <div className="space-y-2">
             <Label htmlFor="inapp-title">Title</Label>
             <Input
@@ -702,9 +827,33 @@ export function SendInAppNoticeDialog({
                 toast.error("Enter a title.");
                 return;
               }
-              if (inAppScope === "company" && !inAppCompanyId) {
+              if (
+                !singleUserTarget &&
+                inAppScope === "company" &&
+                !inAppCompanyId
+              ) {
                 toast.error("Select a company.");
                 return;
+              }
+              if (singleUserTarget && !targetUserId) {
+                toast.error("User missing.");
+                return;
+              }
+              const companySendsToOneUser =
+                !singleUserTarget &&
+                inAppScope === "company" &&
+                Boolean(inAppCompanyId) &&
+                inAppCompanyRecipient !== "__all__";
+              if (companySendsToOneUser) {
+                const member = inAppCompanyUsers?.find(
+                  (u) => u._id === inAppCompanyRecipient,
+                );
+                if (!member) {
+                  toast.error(
+                    "Select a user in this company, or wait for the list to load.",
+                  );
+                  return;
+                }
               }
               try {
                 let linkRef:
@@ -779,9 +928,22 @@ export function SendInAppNoticeDialog({
 
                 const r = await adminSendInAppNotification({
                   forUserId: sessionUser.userId as Id<"users">,
-                  scope: inAppScope,
+                  scope: singleUserTarget
+                    ? "user"
+                    : companySendsToOneUser
+                      ? "user"
+                      : inAppScope,
                   companyId:
-                    inAppScope === "company" ? inAppCompanyId! : undefined,
+                    !singleUserTarget &&
+                    inAppScope === "company" &&
+                    !companySendsToOneUser
+                      ? inAppCompanyId!
+                      : undefined,
+                  targetUserId: singleUserTarget
+                    ? targetUserId
+                    : companySendsToOneUser
+                      ? (inAppCompanyRecipient as Id<"users">)
+                      : undefined,
                   title: t,
                   body: inAppBody.trim() || undefined,
                   importance: inAppImportance,
@@ -791,7 +953,22 @@ export function SendInAppNoticeDialog({
                       : undefined,
                   linkRef,
                 });
-                if (inAppScope === "all" && "status" in r) {
+                if (
+                  (singleUserTarget || companySendsToOneUser) &&
+                  "status" in r
+                ) {
+                  if (r.status === "created") {
+                    toast.success("Notice sent to that user.");
+                  } else if (r.status === "skipped_dismissed") {
+                    toast.message(
+                      "A previous notice for this person was dismissed; this send was skipped. Try again with a new title or wait for the system to allow a new notice.",
+                    );
+                  } else {
+                    toast.message(
+                      "A matching notice is already active for that user.",
+                    );
+                  }
+                } else if (inAppScope === "all" && "status" in r) {
                   if (r.status === "created") {
                     toast.success("Notice sent to all users.");
                   } else {

@@ -33,13 +33,19 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
   Building2,
   Landmark,
+  Pencil,
   Plus,
   Trash2,
   Users as UsersIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { SendInAppNoticeTextButton } from "@/components/admin/send-in-app-notice-control";
+import {
+  SendInAppNoticeRowIconButton,
+  SendInAppNoticeTextButton,
+} from "@/components/admin/send-in-app-notice-control";
+import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +93,13 @@ export default function AdminUsersClient() {
 
   const [userDeleteOpen, setUserDeleteOpen] = useState(false);
   const [userDeleteId, setUserDeleteId] = useState<Id<"users"> | null>(null);
+
+  const [userNoticeOpen, setUserNoticeOpen] = useState(false);
+  const [userNoticeTarget, setUserNoticeTarget] = useState<{
+    _id: Id<"users">;
+    name: string;
+    email: string;
+  } | null>(null);
 
   const isAdmin = sessionUser?.role === "admin";
   const companyUsers = useQuery(
@@ -159,6 +172,7 @@ export default function AdminUsersClient() {
   }, [selectedCompany]);
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div
       className={cn(
         "space-y-6 -mt-2",
@@ -552,34 +566,53 @@ export default function AdminUsersClient() {
                               {u.email} · {u.role}
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setUserEditId(u._id);
-                              setUserEditName(u.name);
-                              setUserEditEmail(u.email);
-                              setUserEditRole(u.role);
-                              setUserEditCompanyId(u.companyId);
-                              setUserEditPassword("");
-                              setUserEditOpen(true);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => {
-                              setUserDeleteId(u._id);
-                              setUserDeleteOpen(true);
-                            }}
-                          >
-                            Remove
-                          </Button>
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                            {isAdmin ? (
+                              <SendInAppNoticeRowIconButton
+                                onOpen={() => {
+                                  setUserNoticeTarget({
+                                    _id: u._id,
+                                    name: u.name,
+                                    email: u.email,
+                                  });
+                                  setUserNoticeOpen(true);
+                                }}
+                                title="Send in-app notice to this user"
+                                tooltip="Send in-app notice to this user"
+                                className="rounded-md text-brand-sky/90 hover:bg-brand-sky/12 hover:text-brand-sky dark:text-brand-sky/80 dark:hover:bg-brand-sky/15 dark:hover:text-brand-sky"
+                              />
+                            ) : null}
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
+                              aria-label={`Edit ${u.name}`}
+                              onClick={() => {
+                                setUserEditId(u._id);
+                                setUserEditName(u.name);
+                                setUserEditEmail(u.email);
+                                setUserEditRole(u.role);
+                                setUserEditCompanyId(u.companyId);
+                                setUserEditPassword("");
+                                setUserEditOpen(true);
+                              }}
+                            >
+                              <Pencil className="size-3.5" aria-hidden />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              aria-label={`Remove ${u.name}`}
+                              onClick={() => {
+                                setUserDeleteId(u._id);
+                                setUserDeleteOpen(true);
+                              }}
+                            >
+                              <Trash2 className="size-3.5" aria-hidden />
+                            </Button>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -812,6 +845,26 @@ export default function AdminUsersClient() {
         </DialogContent>
       </Dialog>
 
+      {isAdmin && sessionUser ? (
+        <SendInAppNoticeDialog
+          open={userNoticeOpen}
+          onOpenChange={(o) => {
+            setUserNoticeOpen(o);
+            if (!o) {
+              setUserNoticeTarget(null);
+            }
+          }}
+          preset={null}
+          targetUserId={userNoticeTarget?._id}
+          targetUserSummary={
+            userNoticeTarget
+              ? `${userNoticeTarget.name} (${userNoticeTarget.email})`
+              : undefined
+          }
+          defaultCompanyId={selectedCompanyId ?? undefined}
+        />
+      ) : null}
     </div>
+    </TooltipProvider>
   );
 }
