@@ -211,7 +211,7 @@ export default function CertificationLevelClient({
   const tier = effectiveCertificationTier(level);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {level.thumbnailUrl ? (
         <div className="relative overflow-hidden rounded-2xl border border-border/80 shadow-sm">
           <div className="relative aspect-[21/9] min-h-[140px] w-full md:aspect-[3/1]">
