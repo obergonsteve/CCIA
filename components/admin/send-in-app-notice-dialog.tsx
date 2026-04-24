@@ -62,7 +62,7 @@ type SendInAppNoticeDialogProps = {
    */
   initialAudience?: "all" | "company";
   /**
-   * When set, the notice is sent only to this user; audience pickers are hidden.
+   * When set, the note is sent only to this user; audience pickers are hidden.
    * Use with `preset={null}` for a full link form targeted at one person.
    */
   targetUserId?: Id<"users">;
@@ -368,7 +368,7 @@ export function SendInAppNoticeDialog({
       >
         <DialogHeader className="shrink-0 space-y-0 border-b border-border/50 px-4 pb-3 pt-4 pr-12 text-left sm:text-left">
           <DialogTitle className="text-lg text-red-700 dark:text-red-400">
-            Send in-app notice
+            Send in-app note
           </DialogTitle>
         </DialogHeader>
         <div
@@ -482,7 +482,7 @@ export function SendInAppNoticeDialog({
                       {inAppCompanyUsers &&
                       inAppCompanyUsers.length === 0 ? (
                         <p className="text-xs text-muted-foreground">
-                          No user accounts in this company yet. Notices to
+                          No user accounts in this company yet. Notes to
                           “Everyone” will apply once users are added.
                         </p>
                       ) : inAppCompanyUsers && inAppCompanyUsers.length > 0 ? (
@@ -973,22 +973,22 @@ export function SendInAppNoticeDialog({
                   "status" in r
                 ) {
                   if (r.status === "created") {
-                    toast.success("Notice sent to that user.");
+                    toast.success("Note sent to that user.");
                   } else if (r.status === "skipped_dismissed") {
                     toast.message(
-                      "A previous notice for this person was dismissed; this send was skipped. Try again with a new title or wait for the system to allow a new notice.",
+                      "A previous note for this person was dismissed; this send was skipped. Try again with a new title or wait for the system to allow a new note.",
                     );
                   } else {
                     toast.message(
-                      "A matching notice is already active for that user.",
+                      "A matching note is already active for that user.",
                     );
                   }
                 } else if (inAppScope === "all" && "status" in r) {
                   if (r.status === "created") {
-                    toast.success("Notice sent to all users.");
+                    toast.success("Note sent to all users.");
                   } else {
                     toast.message(
-                      "A matching notice is already active or was dismissed for this send.",
+                      "A matching note is already active or was dismissed for this send.",
                     );
                   }
                 } else if (inAppScope === "company" && "users" in r) {
@@ -1005,7 +1005,7 @@ export function SendInAppNoticeDialog({
                 onOpenChange(false);
               } catch (e) {
                 toast.error(
-                  e instanceof Error ? e.message : "Failed to send notice",
+                  e instanceof Error ? e.message : "Failed to send note",
                 );
               }
             }}

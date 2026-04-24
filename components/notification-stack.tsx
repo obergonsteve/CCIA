@@ -200,7 +200,7 @@ function DraggableNote({
       } else if (r.reason === "max_pins") {
         toast.error("Pinned list is full (20). Unpin one first.");
       } else if (r.reason === "not_active") {
-        toast.error("That notice is no longer available.");
+        toast.error("That note is no longer available.");
       } else {
         toast.error("Could not add to Pinned.");
       }
@@ -315,7 +315,7 @@ function DraggableNote({
         transform: `translate(${x}px, ${y}px)`,
         zIndex: z,
       }}
-      title="Drag the handle or the card onto Pinned in the header to add this notice to Pinned"
+      title="Drag the handle or the card onto Pinned in the header to add this note to Pinned"
       onPointerDown={onCardPointerDown}
     >
       <div className={cn("w-full overflow-hidden", th.shell)}>

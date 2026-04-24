@@ -293,7 +293,7 @@ export default function AdminUsersClient() {
                                   setCompanyNoticeCompanyId(c._id);
                                   setCompanyNoticeOpen(true);
                                 }}
-                                title="Send in-app notice for this company"
+                                title="Send in-app note for this company"
                                 tooltip="Notify everyone in this company, or pick one person in the form."
                                 className="!h-7 !w-7 min-h-0 min-w-0 rounded-none"
                               />
@@ -602,8 +602,8 @@ export default function AdminUsersClient() {
                                   });
                                   setUserNoticeOpen(true);
                                 }}
-                                title="Send in-app notice to this user"
-                                tooltip="Send in-app notice to this user"
+                                title="Send in-app note to this user"
+                                tooltip="Send in-app note to this user"
                                 className="rounded-md"
                               />
                             ) : null}

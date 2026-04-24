@@ -5,10 +5,10 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import {
+  Archive,
   ChevronDown,
   ExternalLink,
   GripVertical,
-  Pin,
   PinOff,
 } from "lucide-react";
 import Link from "next/link";
@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 const DRAG_TYPE_PREFIX = "cciaNotification:";
 
 const PIN_CONTROL_HINT =
-  "Drag a notice here to pin it. Oldest first when opened.";
+  "Drag a note here to stash it. Oldest first when opened.";
 
 export function PinnedInAppNotices() {
   const { user: sessionUser } = useSessionUser();
@@ -57,10 +57,10 @@ export function PinnedInAppNotices() {
   const unpinM = useMutation(api.userNotifications.unpinInApp);
 
   const count = pinned?.length ?? 0;
-  const noticeCountLabel =
+  const noteCountLabel =
     count === 1
-      ? "1 pinned notice"
-      : `${count} pinned notices`;
+      ? "1 stashed note"
+      : `${count} stashed notes`;
 
   useEffect(() => {
     const onHover = (e: Event) => {
@@ -104,7 +104,7 @@ export function PinnedInAppNotices() {
     <div
       id={PINNED_IN_APP_DROP_ID}
       role="region"
-      aria-label="Pinned in header"
+      aria-label="Stashed in header"
       className={cn(
         "relative z-30 shrink-0 rounded-lg transition-shadow duration-150",
         over &&
@@ -137,20 +137,20 @@ export function PinnedInAppNotices() {
           )}
           aria-expanded={expanded}
           title={PIN_CONTROL_HINT}
-          aria-label={`Pinned in header — ${noticeCountLabel}. ${PIN_CONTROL_HINT}`}
+          aria-label={`Stashed in header — ${noteCountLabel}. ${PIN_CONTROL_HINT}`}
           onClick={() => setExpanded((e) => !e)}
         >
           <span className="flex min-w-0 items-center gap-1.5">
-            <Pin className="size-3.5 shrink-0 text-brand-sky" aria-hidden />
+            <Archive className="size-3.5 shrink-0 text-brand-sky" aria-hidden />
             {count > 0 ? (
               <span
                 className="min-w-0 text-left text-[0.75rem] font-normal tabular-nums leading-tight text-[color-mix(in_srgb,var(--brand-gold),#0a0a0a_28%)] dark:text-[color-mix(in_srgb,var(--brand-gold),#000_14%)]"
               >
-                {noticeCountLabel}
+                {noteCountLabel}
               </span>
             ) : (
               <span className="text-[0.75rem] text-muted-foreground/80">
-                {noticeCountLabel}
+                {noteCountLabel}
               </span>
             )}
           </span>
@@ -174,7 +174,7 @@ export function PinnedInAppNotices() {
             </p>
           ) : pinned.length === 0 ? (
             <p className="px-1 py-3 text-center text-xs text-muted-foreground">
-              Drag a notice here to pin it
+              Drag a note here to stash it
             </p>
           ) : (
             <ol className="m-0 list-none space-y-1.5 p-0">

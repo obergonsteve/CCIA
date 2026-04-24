@@ -880,7 +880,7 @@ export default function UnitClient({
                       }}
                     >
                       <Bell className="h-3.5 w-3.5" aria-hidden />
-                      In-app notice
+                      In-app note
                     </Button>
                   </div>
                 ) : null}

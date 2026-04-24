@@ -96,7 +96,7 @@ export function postItImportanceClassNames(
 export const postItCardWidthClass = "w-64 max-w-[min(16rem,calc(100vw-0.5rem))]";
 
 /**
- * Shared top row: **fixed h-7** and identical padding so every notice (floating or in the
+ * Shared top row: **fixed h-7** and identical padding so every note (floating or in the
  * pinned list) has the same chrome. Use the same `hasDetails` / `expanded` pattern as
  * the floating post-it.
  */

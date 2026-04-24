@@ -815,7 +815,7 @@ async function assertIsAdmin(
 }
 
 /**
- * Admin only: in-app post-it to everyone (one shared notice), to every user in
+ * Admin only: in-app post-it to everyone (one shared note), to every user in
  * a single company (one row per user), or to one user. Session `forUserId` must
  * be an admin.
  */

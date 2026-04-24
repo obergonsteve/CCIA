@@ -49,7 +49,7 @@ type TextButtonProps = {
 };
 
 /**
- * Default admin entry point: “Send in-app notice…” (ruby) with an internal dialog.
+ * Default admin entry point: “Send in-app note…” (ruby) with an internal dialog.
  * Use one instance per page area that shares a single preset (or `preset={null}` for
  * the open admin flow).
  */
@@ -57,7 +57,7 @@ export function SendInAppNoticeTextButton({
   preset,
   presetSummary,
   defaultCompanyId,
-  label = "Send in-app notice…",
+  label = "Send in-app note…",
   className,
 }: TextButtonProps) {
   const [open, setOpen] = useState(false);
@@ -84,7 +84,7 @@ export function SendInAppNoticeTextButton({
   );
 }
 
-const NOTICE_ROW_ICON_TIP = "Send in-app notice to learners (links to this item)";
+const NOTE_ROW_ICON_TIP = "Send in-app note to learners (links to this item)";
 
 type RowIconProps = {
   onOpen: () => void;
@@ -96,7 +96,7 @@ type RowIconProps = {
 };
 
 /**
- * Compact notice affordance for admin list rows (training board drag lists).
+ * Compact in-app note affordance for admin list rows (training board drag lists).
  * Parent should open a single {@link SendInAppNoticeDialog} (controlled) to avoid
  * one dialog per row in large lists.
  */
@@ -104,8 +104,8 @@ export function SendInAppNoticeRowIconButton({
   onOpen,
   className,
   compact,
-  title = NOTICE_ROW_ICON_TIP,
-  tooltip = "Send in-app notice…",
+  title = NOTE_ROW_ICON_TIP,
+  tooltip = "Send in-app note…",
 }: RowIconProps) {
   return (
     <Tooltip>

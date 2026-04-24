@@ -75,7 +75,7 @@ function clampYToViewport(
 
 /**
  * Default: **one shared spot** — horiz + vert **centre of** `#ccia-app-header` for the
- * 256×100 notional card. Every notice uses the same `(x,y)`; which card shows on top is
+ * 256×100 notional card. Every note uses the same `(x,y)`; which card shows on top is
  * **z-index**, not position. (Second `index` arg kept for callers, ignored.)
  */
 export function defaultNotifPosition(

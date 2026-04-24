@@ -272,7 +272,7 @@ export function DraggableUnitPaletteItem({
   deleteVariant?: "unlink" | "trash" | "cancel";
   unlinkActionTone?: "sky" | "muted";
   onOpenPrerequisites?: () => void;
-  /** Opens parent-controlled “send in-app notice” dialog (training board). */
+  /** Opens parent-controlled “send in-app note” dialog (training board). */
   onSendInAppNotice?: () => void;
   /** Opens admin analytics for this unit. */
   onStats?: () => void;
