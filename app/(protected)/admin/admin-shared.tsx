@@ -45,6 +45,7 @@ import {
   certificationTierSectionTitle,
   effectiveCertificationTier,
 } from "@/lib/certificationTier";
+import { SendInAppNoticeRowIconButton } from "@/components/admin/send-in-app-notice-control";
 import { cn } from "@/lib/utils";
 
 export type UnitAdminListRow = Doc<"units"> & {
@@ -252,6 +253,7 @@ export function DraggableUnitPaletteItem({
    */
   unlinkActionTone = "muted",
   onOpenPrerequisites,
+  onSendInAppNotice,
   onStats,
 }: {
   unit: UnitAdminListRow;
@@ -270,6 +272,8 @@ export function DraggableUnitPaletteItem({
   deleteVariant?: "unlink" | "trash" | "cancel";
   unlinkActionTone?: "sky" | "muted";
   onOpenPrerequisites?: () => void;
+  /** Opens parent-controlled “send in-app notice” dialog (training board). */
+  onSendInAppNotice?: () => void;
   /** Opens admin analytics for this unit. */
   onStats?: () => void;
 }) {
@@ -278,7 +282,11 @@ export function DraggableUnitPaletteItem({
     id: `palette-unit:${unit._id}`,
     disabled: paletteDragDisabled,
   });
-  const hasActions = onEdit != null || onDelete != null || onStats != null;
+  const hasActions =
+    onEdit != null ||
+    onDelete != null ||
+    onStats != null ||
+    onSendInAppNotice != null;
   const { text: descText, show: showDesc } = unitRowDescription(unit);
   const chips = onOpenPrerequisites ? (
     <UnitRowPereqAssignChips
@@ -362,14 +370,20 @@ export function DraggableUnitPaletteItem({
       {hasActions ? (
         <div
           className={cn(
-            "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
+            "flex shrink-0 flex-col items-center justify-center gap-0 self-stretch border-l border-border transition-opacity duration-150 ease-out",
             isDragging
               ? "opacity-100"
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
-          {onEdit || onDelete || onStats ? (
+          {onEdit || onDelete || onStats || onSendInAppNotice ? (
             <>
+              {onSendInAppNotice ? (
+                <SendInAppNoticeRowIconButton
+                  compact
+                  onOpen={onSendInAppNotice}
+                />
+              ) : null}
               {onStats ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -377,13 +391,13 @@ export function DraggableUnitPaletteItem({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                      className="h-6 w-6 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         onStats();
                       }}
                     >
-                      <BarChart3 className="h-3 w-3" />
+                      <BarChart3 className="h-2.5 w-2.5" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent {...adminAnalyticsTooltipContentProps}>
@@ -398,13 +412,13 @@ export function DraggableUnitPaletteItem({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-none"
+                      className="h-6 w-6 rounded-none"
                       onClick={(e) => {
                         e.stopPropagation();
                         onEdit();
                       }}
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Pencil className="h-2.5 w-2.5" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="left">
@@ -420,7 +434,7 @@ export function DraggableUnitPaletteItem({
                       variant="ghost"
                       size="icon"
                       className={cn(
-                        "h-7 w-7 rounded-none",
+                        "h-6 w-6 rounded-none",
                         deleteVariant === "unlink"
                           ? unlinkActionTone === "sky"
                             ? "text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
@@ -441,11 +455,11 @@ export function DraggableUnitPaletteItem({
                       }}
                     >
                       {deleteVariant === "unlink" ? (
-                        <Unlink2 className="h-3 w-3" aria-hidden />
+                        <Unlink2 className="h-2.5 w-2.5" aria-hidden />
                       ) : deleteVariant === "cancel" ? (
-                        <CircleX className="h-3 w-3" aria-hidden />
+                        <CircleX className="h-2.5 w-2.5" aria-hidden />
                       ) : (
-                        <Trash2 className="h-3 w-3" aria-hidden />
+                        <Trash2 className="h-2.5 w-2.5" aria-hidden />
                       )}
                     </Button>
                   </TooltipTrigger>
@@ -534,6 +548,7 @@ export function ContentLibraryDragRow({
   contentCategoryShortCode,
   onEdit,
   onDelete,
+  onSendInAppNotice,
   onStats,
 }: {
   item: Doc<"contentItems">;
@@ -543,6 +558,7 @@ export function ContentLibraryDragRow({
   contentCategoryShortCode?: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  onSendInAppNotice?: () => void;
   onStats?: () => void;
 }) {
   const paletteDragDisabled = Boolean(inSelectedUnit);
@@ -553,7 +569,11 @@ export function ContentLibraryDragRow({
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
   const shortLine = contentShortDescriptionFirstLine(item.shortDescription);
-  const hasActions = onEdit != null || onDelete != null || onStats != null;
+  const hasActions =
+    onEdit != null ||
+    onDelete != null ||
+    onStats != null ||
+    onSendInAppNotice != null;
   return (
     <div
       ref={setNodeRef}
@@ -610,12 +630,18 @@ export function ContentLibraryDragRow({
       {hasActions ? (
         <div
           className={cn(
-            "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
+            "flex shrink-0 flex-col items-center justify-center gap-0 self-stretch border-l border-border transition-opacity duration-150 ease-out",
             isDragging
               ? "opacity-100"
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
+          {onSendInAppNotice ? (
+            <SendInAppNoticeRowIconButton
+              compact
+              onOpen={onSendInAppNotice}
+            />
+          ) : null}
           {onStats ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -623,14 +649,14 @@ export function ContentLibraryDragRow({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                  className="h-6 w-6 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
                   title="Analytics — engagement for this content"
                   onClick={(e) => {
                     e.stopPropagation();
                     onStats();
                   }}
                 >
-                  <BarChart3 className="h-3 w-3" />
+                  <BarChart3 className="h-2.5 w-2.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent {...adminAnalyticsTooltipContentProps}>
@@ -643,14 +669,14 @@ export function ContentLibraryDragRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none"
+              className="h-6 w-6 rounded-none"
               title="Edit content"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit();
               }}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-2.5 w-2.5" />
             </Button>
           ) : null}
           {onDelete ? (
@@ -658,14 +684,14 @@ export function ContentLibraryDragRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+              className="h-6 w-6 rounded-none text-destructive hover:text-destructive"
               title="Delete from library"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-2.5 w-2.5" />
             </Button>
           ) : null}
         </div>
@@ -689,6 +715,7 @@ export function SortableUnitContentRow({
   contentCategoryShortCode,
   onEdit,
   onDelete,
+  onSendInAppNotice,
   onStats,
 }: {
   item: UnitAttachedContentRow;
@@ -698,6 +725,7 @@ export function SortableUnitContentRow({
   contentCategoryShortCode?: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  onSendInAppNotice?: () => void;
   onStats?: () => void;
 }) {
   const {
@@ -715,7 +743,14 @@ export function SortableUnitContentRow({
   };
   const subtitle = contentLibrarySubtitle(item);
   const displayTitle = libraryContentDisplayTitle(item.title);
-  const hasActions = onEdit != null || onDelete != null || onStats != null;
+  const shortDescriptionLine = contentShortDescriptionFirstLine(
+    item.shortDescription,
+  );
+  const hasActions =
+    onEdit != null ||
+    onDelete != null ||
+    onStats != null ||
+    onSendInAppNotice != null;
   return (
     <div
       ref={setNodeRef}
@@ -753,6 +788,14 @@ export function SortableUnitContentRow({
             {contentCategoryShortCode.trim()}
           </div>
         ) : null}
+        {shortDescriptionLine ? (
+          <div
+            className="mt-0.5 truncate text-xs text-muted-foreground"
+            title={shortDescriptionLine}
+          >
+            {shortDescriptionLine}
+          </div>
+        ) : null}
         <div className="mt-0.5 truncate text-xs text-muted-foreground/65 dark:text-muted-foreground/60">
           {subtitle}
         </div>
@@ -760,12 +803,18 @@ export function SortableUnitContentRow({
       {hasActions ? (
         <div
           className={cn(
-            "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
+            "flex shrink-0 flex-col items-center justify-center gap-0 self-stretch border-l border-border transition-opacity duration-150 ease-out",
             isDragging
               ? "opacity-100"
               : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
           )}
         >
+          {onSendInAppNotice ? (
+            <SendInAppNoticeRowIconButton
+              compact
+              onOpen={onSendInAppNotice}
+            />
+          ) : null}
           {onStats ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -773,14 +822,14 @@ export function SortableUnitContentRow({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                  className="h-6 w-6 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
                   title="Analytics — engagement for this content"
                   onClick={(e) => {
                     e.stopPropagation();
                     onStats();
                   }}
                 >
-                  <BarChart3 className="h-3 w-3" />
+                  <BarChart3 className="h-2.5 w-2.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent {...adminAnalyticsTooltipContentProps}>
@@ -793,14 +842,14 @@ export function SortableUnitContentRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none"
+              className="h-6 w-6 rounded-none"
               title="Edit content"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit();
               }}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-2.5 w-2.5" />
             </Button>
           ) : null}
           {onDelete ? (
@@ -808,14 +857,14 @@ export function SortableUnitContentRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
+              className="h-6 w-6 rounded-none text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
               title="Unlink from this unit"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
             >
-              <Unlink2 className="h-3 w-3" aria-hidden />
+              <Unlink2 className="h-2.5 w-2.5" aria-hidden />
             </Button>
           ) : null}
         </div>
@@ -982,6 +1031,7 @@ export function SortableLevelRow({
   onSelect,
   onEdit,
   onDelete,
+  onSendInAppNotice,
   onStats,
 }: {
   level: Doc<"certificationLevels">;
@@ -993,6 +1043,7 @@ export function SortableLevelRow({
   onSelect: () => void;
   onEdit?: () => void;
   onDelete: () => void;
+  onSendInAppNotice?: () => void;
   /** Opens admin analytics for this certification. */
   onStats?: () => void;
 }) {
@@ -1125,12 +1176,18 @@ export function SortableLevelRow({
       </div>
       <div
         className={cn(
-          "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
+          "flex shrink-0 flex-col items-center justify-center gap-0 self-stretch border-l border-border transition-opacity duration-150 ease-out",
           isDragging
             ? "opacity-100"
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
         )}
       >
+        {onSendInAppNotice ? (
+          <SendInAppNoticeRowIconButton
+            compact
+            onOpen={onSendInAppNotice}
+          />
+        ) : null}
         {onStats ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1138,13 +1195,13 @@ export function SortableLevelRow({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 shrink-0 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                className="h-6 w-6 shrink-0 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStats();
                 }}
               >
-                <BarChart3 className="h-3 w-3" />
+                <BarChart3 className="h-2.5 w-2.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent {...adminAnalyticsTooltipContentProps}>
@@ -1157,28 +1214,28 @@ export function SortableLevelRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-7 w-7 shrink-0 rounded-none"
+            className="h-6 w-6 shrink-0 rounded-none"
             title="Edit certification"
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
             }}
           >
-            <Pencil className="h-3 w-3" />
+            <Pencil className="h-2.5 w-2.5" />
           </Button>
         ) : null}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-7 w-7 rounded-none text-destructive hover:text-destructive"
+          className="h-6 w-6 rounded-none text-destructive hover:text-destructive"
           title="Delete certification"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
         >
-          <Trash2 className="h-3 w-3" />
+          <Trash2 className="h-2.5 w-2.5" />
         </Button>
       </div>
     </div>
@@ -1306,7 +1363,7 @@ export function SortableUnitRow({
       </div>
       <div
         className={cn(
-          "flex shrink-0 flex-col items-center justify-center self-stretch border-l border-border transition-opacity duration-150 ease-out",
+          "flex shrink-0 flex-col items-center justify-center gap-0 self-stretch border-l border-border transition-opacity duration-150 ease-out",
           isDragging
             ? "opacity-100"
             : "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
@@ -1319,13 +1376,13 @@ export function SortableUnitRow({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
+                className="h-6 w-6 rounded-none text-cyan-800 hover:bg-cyan-500/15 hover:text-cyan-950 dark:text-cyan-400 dark:hover:bg-cyan-500/20 dark:hover:text-cyan-200"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStats();
                 }}
               >
-                <BarChart3 className="h-3 w-3" />
+                <BarChart3 className="h-2.5 w-2.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent {...adminAnalyticsTooltipContentProps}>
@@ -1339,13 +1396,13 @@ export function SortableUnitRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none"
+              className="h-6 w-6 rounded-none"
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit();
               }}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-2.5 w-2.5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
@@ -1358,14 +1415,14 @@ export function SortableUnitRow({
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-none text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
+              className="h-6 w-6 rounded-none text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
               title="Unlink from this certification"
               onClick={(e) => {
                 e.stopPropagation();
                 onRemoveFromCert();
               }}
             >
-              <Unlink2 className="h-3 w-3" aria-hidden />
+              <Unlink2 className="h-2.5 w-2.5" aria-hidden />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">

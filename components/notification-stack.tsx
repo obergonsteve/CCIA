@@ -510,13 +510,16 @@ export function NotificationStack() {
         })}
         {rows.length > 1 ? (
           <div
-            className="pointer-events-auto fixed bottom-4 right-4 z-[30000]"
+            className="pointer-events-auto fixed right-4 bottom-1 z-[30000] max-[480px]:right-2 max-[480px]:bottom-1"
           >
             <Button
               type="button"
-              variant="secondary"
               size="sm"
-              className="text-xs shadow-md"
+              className={cn(
+                "text-xs font-medium shadow-md",
+                "border border-brand-lime/60 bg-brand-lime/90 text-foreground",
+                "hover:bg-brand-lime dark:border-brand-lime/50 dark:bg-brand-lime/80 dark:hover:bg-brand-lime/90",
+              )}
               onClick={() => {
                 for (const r of rows) {
                   removeNotifPosition(forUserKey, r._id);

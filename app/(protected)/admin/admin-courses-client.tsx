@@ -94,6 +94,11 @@ import {
   trainingBoardEditDrawerFieldChrome,
 } from "@/lib/training-board-drawer-chrome";
 import { cn } from "@/lib/utils";
+import {
+  resolveLevelIdForInAppLink,
+  type SendInAppNoticePreset,
+} from "@/components/admin/send-in-app-notice-control";
+import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
 import { PrerequisiteDropEditor } from "@/components/admin/prerequisite-drop-editor";
 import {
   ADMIN_LIST_ITEM_LR_BORDER_WIDTH,
@@ -124,12 +129,12 @@ const unitDeliveryFilterToggleBase = cn(
 const selfPacedFilterOff =
   "border-l-red-500/40 border-r-red-500/40 bg-red-500/15 hover:bg-red-500/20 dark:border-l-red-400/50 dark:border-r-red-400/50 dark:bg-red-500/20 dark:hover:bg-red-500/26";
 const selfPacedFilterOn =
-  "border-l-red-600 border-r-red-600 bg-red-500/32 shadow-sm hover:bg-red-500/40 dark:border-l-red-500 dark:border-r-red-500 dark:bg-red-500/30 dark:hover:bg-red-500/40";
+  "border-l-red-600 border-r-red-600 bg-red-500/24 shadow-sm hover:bg-red-500/32 dark:border-l-red-500 dark:border-r-red-500 dark:bg-red-500/20 dark:hover:bg-red-500/32";
 /** Webinar: purple — same pattern. */
 const webinarFilterOff =
   "border-l-purple-500/40 border-r-purple-500/40 bg-purple-500/15 hover:bg-purple-500/20 dark:border-l-purple-400/50 dark:border-r-purple-400/50 dark:bg-purple-500/20 dark:hover:bg-purple-500/26";
 const webinarFilterOn =
-  "border-l-purple-600 border-r-purple-600 bg-purple-500/32 shadow-sm hover:bg-purple-500/40 dark:border-l-purple-500 dark:border-r-purple-500 dark:bg-purple-500/28 dark:hover:bg-purple-500/40";
+  "border-l-purple-600 border-r-purple-600 bg-purple-500/24 shadow-sm hover:bg-purple-500/32 dark:border-l-purple-500 dark:border-r-purple-500 dark:bg-purple-500/20 dark:hover:bg-purple-500/32";
 
 function toScheduleLocalInputValue(ms: number): string {
   const d = new Date(ms);
@@ -767,6 +772,10 @@ export default function AdminCoursesClient() {
   const [trainingStatsOpen, setTrainingStatsOpen] = useState(false);
   const [trainingStatsTarget, setTrainingStatsTarget] =
     useState<AdminTrainingStatsTarget | null>(null);
+  const [inAppNoticeOpen, setInAppNoticeOpen] = useState(false);
+  const [inAppNoticePreset, setInAppNoticePreset] =
+    useState<SendInAppNoticePreset | null>(null);
+  const [inAppNoticeSummary, setInAppNoticeSummary] = useState("");
   const [contentSearch, setContentSearch] = useState("");
   /** Content / library column: filter by admin-defined content category (chips). */
   const [contentLibraryCategoryFilter, setContentLibraryCategoryFilter] =
@@ -2600,6 +2609,14 @@ export default function AdminCoursesClient() {
                               }
                               onSelect={() => handleCertFilterToggle(l._id)}
                               onEdit={() => openCertificationEditor(l._id)}
+                              onSendInAppNotice={() => {
+                                setInAppNoticePreset({
+                                  kind: "certificationLevel",
+                                  levelId: l._id,
+                                });
+                                setInAppNoticeSummary(l.name);
+                                setInAppNoticeOpen(true);
+                              }}
                               onStats={() => openCertificationStats(l._id)}
                               onDelete={() => {
                                 setCertDeleteId(l._id);
@@ -3068,6 +3085,18 @@ export default function AdminCoursesClient() {
                             onOpenPrerequisites={() =>
                               togglePrereqsUnderRow(u._id)
                             }
+                            onSendInAppNotice={() => {
+                              setInAppNoticePreset({
+                                kind: "unit",
+                                unitId: u._id,
+                                levelId: resolveLevelIdForInAppLink(
+                                  u,
+                                  filterCertId,
+                                ),
+                              });
+                              setInAppNoticeSummary(u.title);
+                              setInAppNoticeOpen(true);
+                            }}
                             onStats={() => openUnitStats(u._id)}
                           />
                         </UnitRowContentDropTarget>
@@ -3282,6 +3311,27 @@ export default function AdminCoursesClient() {
                                 );
                                 setEditContentOpen(true);
                               }}
+                              onSendInAppNotice={
+                                selectedDetailUnitId && selectedDetailUnit
+                                  ? () => {
+                                      setInAppNoticePreset({
+                                        kind: "content",
+                                        contentId: item._id,
+                                        unitId: selectedDetailUnitId,
+                                        levelId: resolveLevelIdForInAppLink(
+                                          selectedDetailUnit,
+                                          filterCertId,
+                                        ),
+                                        workshopSessionId:
+                                          item.workshopSessionId ?? undefined,
+                                      });
+                                      setInAppNoticeSummary(
+                                        libraryContentDisplayTitle(item.title),
+                                      );
+                                      setInAppNoticeOpen(true);
+                                    }
+                                  : undefined
+                              }
                               onStats={() => openContentStats(item._id)}
                               onDelete={() => {
                                 if (!selectedDetailUnitId) {
@@ -3394,6 +3444,32 @@ export default function AdminCoursesClient() {
                                 ),
                               });
                             }}
+                            onSendInAppNotice={
+                              (contentIdsInSelectedUnitWhenBrowsingLibrary?.has(
+                                item._id,
+                              ) ??
+                                false) &&
+                              selectedDetailUnitId &&
+                              selectedDetailUnit
+                                ? () => {
+                                    setInAppNoticePreset({
+                                      kind: "content",
+                                      contentId: item._id,
+                                      unitId: selectedDetailUnitId,
+                                      levelId: resolveLevelIdForInAppLink(
+                                        selectedDetailUnit,
+                                        filterCertId,
+                                      ),
+                                      workshopSessionId:
+                                        item.workshopSessionId ?? undefined,
+                                    });
+                                    setInAppNoticeSummary(
+                                      libraryContentDisplayTitle(item.title),
+                                    );
+                                    setInAppNoticeOpen(true);
+                                  }
+                                : undefined
+                            }
                           />
                         </li>
                       ))}
@@ -5849,6 +5925,19 @@ export default function AdminCoursesClient() {
           }
         }}
         target={trainingStatsTarget}
+      />
+
+      <SendInAppNoticeDialog
+        open={inAppNoticeOpen}
+        onOpenChange={(o) => {
+          setInAppNoticeOpen(o);
+          if (!o) {
+            setInAppNoticePreset(null);
+            setInAppNoticeSummary("");
+          }
+        }}
+        preset={inAppNoticePreset}
+        presetSummary={inAppNoticeSummary || undefined}
       />
 
       </div>

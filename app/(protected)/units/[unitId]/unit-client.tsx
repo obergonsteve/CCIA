@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
+import { SendInAppNoticeTextButton } from "@/components/admin/send-in-app-notice-control";
 import {
   SendInAppNoticeDialog,
   type SendInAppNoticePreset,
@@ -591,24 +592,10 @@ export default function UnitClient({
               {isLiveWorkshopUnit ? "Webinar" : "Self-paced"}
             </Badge>
             {isAdmin ? (
-              <Button
-                type="button"
-                variant="ruby"
-                size="sm"
-                className="gap-2 shadow-md"
-                onClick={() => {
-                  setInAppPreset({
-                    kind: "unit",
-                    unitId,
-                    levelId,
-                  });
-                  setInAppPresetSummary(unit.title);
-                  setInAppNotifOpen(true);
-                }}
-              >
-                <Bell className="h-4 w-4" aria-hidden />
-                Send in-app notice…
-              </Button>
+              <SendInAppNoticeTextButton
+                preset={{ kind: "unit", unitId, levelId }}
+                presetSummary={unit.title}
+              />
             ) : null}
           </div>
         </div>

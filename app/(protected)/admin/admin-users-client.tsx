@@ -31,7 +31,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
-  Bell,
   Building2,
   Landmark,
   Plus,
@@ -40,7 +39,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
+import { SendInAppNoticeTextButton } from "@/components/admin/send-in-app-notice-control";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +89,6 @@ export default function AdminUsersClient() {
   const [userDeleteId, setUserDeleteId] = useState<Id<"users"> | null>(null);
 
   const isAdmin = sessionUser?.role === "admin";
-  const [inAppNotifOpen, setInAppNotifOpen] = useState(false);
   const companyUsers = useQuery(
     api.users.listByCompany,
     selectedCompanyId ? { companyId: selectedCompanyId } : "skip",
@@ -180,16 +178,11 @@ export default function AdminUsersClient() {
         </p>
         <div className="w-full max-w-[17.25rem] space-y-3">
           {isAdmin && sessionUser ? (
-            <Button
-              type="button"
-              variant="ruby"
-              size="sm"
-              className="w-full gap-2 px-5 shadow-md"
-              onClick={() => setInAppNotifOpen(true)}
-            >
-              <Bell className="h-4 w-4" aria-hidden />
-              Send in-app notice…
-            </Button>
+            <SendInAppNoticeTextButton
+              preset={null}
+              defaultCompanyId={selectedCompanyId ?? undefined}
+              className="w-full px-5 shadow-md"
+            />
           ) : null}
           <div
             className="flex w-full gap-1.5"
@@ -819,12 +812,6 @@ export default function AdminUsersClient() {
         </DialogContent>
       </Dialog>
 
-      <SendInAppNoticeDialog
-        open={inAppNotifOpen}
-        onOpenChange={setInAppNotifOpen}
-        preset={null}
-        defaultCompanyId={selectedCompanyId ?? undefined}
-      />
     </div>
   );
 }
