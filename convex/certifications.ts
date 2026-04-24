@@ -6,6 +6,7 @@ import {
   requireAdminOrCreator,
   requireUserId,
   userCanAccessLevel,
+  userCanAccessLevelWithUser,
 } from "./lib/auth";
 import {
   allocateUniqueCertificationCode,
@@ -41,8 +42,11 @@ async function buildDashboardCertRow(
   level: Doc<"certificationLevels">,
   progressByUnit: Map<Id<"units">, Doc<"userProgress">>,
 ): Promise<DashboardCertRow | null> {
-  const ok = await userCanAccessLevel(ctx, level._id);
-  if (!ok) {
+  const user = await ctx.db.get(userId);
+  if (!user) {
+    return null;
+  }
+  if (!userCanAccessLevelWithUser(user, level)) {
     return null;
   }
   const units = await collectUnitsForLevel(ctx, level._id);

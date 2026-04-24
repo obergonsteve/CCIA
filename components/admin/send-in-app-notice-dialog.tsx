@@ -991,12 +991,48 @@ export function SendInAppNoticeDialog({
                       "A matching note is already active or was dismissed for this send.",
                     );
                   }
-                } else if (inAppScope === "company" && "users" in r) {
-                  if (r.users === 0) {
-                    toast.message("No users in that company.");
+                } else if (
+                  (inAppScope === "all" || inAppScope === "company") &&
+                  "users" in r
+                ) {
+                  const batch = r as {
+                    users: number;
+                    created: number;
+                    skippedActive: number;
+                    skippedDismissed: number;
+                    skippedNotOnRoadmap?: number;
+                  };
+                  if (batch.users === 0) {
+                    toast.message(
+                      inAppScope === "company"
+                        ? "No users in that company."
+                        : "No user accounts to send to.",
+                    );
+                  } else if (
+                    batch.created === 0 &&
+                    (batch.skippedNotOnRoadmap ?? 0) === batch.users
+                  ) {
+                    toast.message(
+                      "No learners on a current or roadmap certification path for this link.",
+                    );
                   } else {
+                    const sn = batch.skippedNotOnRoadmap ?? 0;
+                    const dup = batch.skippedActive + batch.skippedDismissed;
+                    const parts: string[] = [];
+                    if (sn > 0) {
+                      parts.push(
+                        `${sn} not on a current/roadmap path for this item`,
+                      );
+                    }
+                    if (dup > 0) {
+                      parts.push(
+                        `${dup} duplicate or already dismissed`,
+                      );
+                    }
+                    const extra =
+                      parts.length > 0 ? ` (${parts.join("; ")})` : "";
                     toast.success(
-                      `Created ${r.created} new post-it(s) for ${r.users} user(s)${r.skippedActive + r.skippedDismissed > 0 ? ` (${r.skippedActive + r.skippedDismissed} skipped as duplicate or already dismissed)` : ""}.`,
+                      `Created ${batch.created} new post-it(s) for ${batch.users} user(s)${extra}.`,
                     );
                   }
                 } else {

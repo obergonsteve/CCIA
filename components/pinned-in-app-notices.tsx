@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
 import {
   Archive,
+  ArchiveRestore,
   ChevronDown,
   ExternalLink,
   GripVertical,
-  PinOff,
+  Video,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -21,8 +22,8 @@ import {
 } from "@/lib/notification-importance";
 import {
   postItCardWidthClass,
+  postItChromeForNotification,
   postItFirstRowClassName,
-  postItImportanceClassNames,
 } from "@/lib/notification-post-it-surface";
 import {
   CCIA_PINNED_HOVER_EVENT,
@@ -141,7 +142,7 @@ export function PinnedInAppNotices() {
           onClick={() => setExpanded((e) => !e)}
         >
           <span className="flex min-w-0 items-center gap-1.5">
-            <Archive className="size-3.5 shrink-0 text-brand-sky" aria-hidden />
+            <Archive className="size-4 shrink-0 text-brand-sky" aria-hidden />
             {count > 0 ? (
               <span
                 className="min-w-0 text-left text-[0.75rem] font-normal tabular-nums leading-tight text-[color-mix(in_srgb,var(--brand-gold),#0a0a0a_28%)] dark:text-[color-mix(in_srgb,var(--brand-gold),#000_14%)]"
@@ -156,7 +157,7 @@ export function PinnedInAppNotices() {
           </span>
           <ChevronDown
             className={cn(
-              "size-3.5 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
+              "size-4 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
               expanded && "rotate-180",
             )}
             aria-hidden
@@ -205,7 +206,11 @@ function PinnedLine({
 }) {
   const [expanded, setExpanded] = useState(false);
   const importance = (row.importance ?? "normal") as NotificationImportance;
-  const th = postItImportanceClassNames(importance);
+  const th = postItChromeForNotification(row);
+  const a11yIcon =
+    row.kind === "webinar_reminder"
+      ? "Webinar reminder"
+      : NOTIFICATION_IMPORTANCE[importance].human;
   const hasBody = Boolean(row.body != null && row.body.trim() !== "");
   const hasLink = Boolean(row.linkHref && row.linkHref.trim() !== "");
   const hasDetails = hasBody || hasLink;
@@ -244,14 +249,21 @@ function PinnedLine({
           </button>
           <span
             className="inline-flex shrink-0"
-            title={NOTIFICATION_IMPORTANCE[importance].human}
-            aria-label={NOTIFICATION_IMPORTANCE[importance].human}
+            title={a11yIcon}
+            aria-label={a11yIcon}
             role="img"
           >
-            <NotificationImportanceGlyph
-              level={importance}
-              className={th.icon}
-            />
+            {row.kind === "webinar_reminder" ? (
+              <Video
+                className={cn("h-3.5 w-3.5 shrink-0 opacity-90", th.icon)}
+                aria-hidden
+              />
+            ) : (
+              <NotificationImportanceGlyph
+                level={importance}
+                className={th.icon}
+              />
+            )}
           </span>
           <span
             className={cn(
@@ -289,10 +301,10 @@ function PinnedLine({
               e.stopPropagation();
               unpinToDesktop();
             }}
-            title="Unpin to desktop (top-right stack)"
-            aria-label="Unpin to desktop"
+            title="Unstash to desktop (top-right stack)"
+            aria-label="Unstash to desktop"
           >
-            <PinOff className="h-3.5 w-3.5" aria-hidden />
+            <ArchiveRestore className="h-3.5 w-3.5" aria-hidden />
           </button>
         </div>
         {hasDetails && (

@@ -14,6 +14,8 @@ import {
   query,
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { computeLearnerCertPathBuckets } from "./certifications";
+import { isLive } from "./lib/softDelete";
 
 /** Stored in `userIdKey` when `userId` is omitted = broadcast to all users. */
 export const NOTIFICATIONS_ALL_USER_KEY = "_all_";
@@ -788,6 +790,108 @@ export const dismissAll = mutation({
   },
 });
 
+type StoredInAppLinkRef = NonNullable<Doc<"userNotifications">["linkRef"]>;
+
+function inAppLinkRefUsesCertificationPath(
+  linkRef: Doc<"userNotifications">["linkRef"] | undefined,
+): linkRef is StoredInAppLinkRef {
+  if (linkRef == null) {
+    return false;
+  }
+  return (
+    linkRef.kind === "certificationLevel" ||
+    linkRef.kind === "unit" ||
+    linkRef.kind === "content" ||
+    linkRef.kind === "workshopSession"
+  );
+}
+
+async function getLevelIdsForUnitPath(
+  ctx: MutationCtx,
+  unitId: Id<"units">,
+  explicitLevelId: Id<"certificationLevels"> | undefined,
+): Promise<Id<"certificationLevels">[]> {
+  const links = await ctx.db
+    .query("certificationUnits")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+    .collect();
+  if (links.length === 0) {
+    return [];
+  }
+  if (explicitLevelId) {
+    const has = links.some((l) => l.levelId === explicitLevelId);
+    return has ? [explicitLevelId] : [];
+  }
+  const unique = new Set<Id<"certificationLevels">>();
+  for (const l of links) {
+    unique.add(l.levelId);
+  }
+  return [...unique];
+}
+
+async function getLevelIdsForInAppLinkRef(
+  ctx: MutationCtx,
+  linkRef: StoredInAppLinkRef,
+): Promise<Id<"certificationLevels">[]> {
+  switch (linkRef.kind) {
+    case "certificationLevel": {
+      const level = await ctx.db.get(linkRef.levelId);
+      if (!level || !isLive(level)) {
+        return [];
+      }
+      return [linkRef.levelId];
+    }
+    case "unit": {
+      return await getLevelIdsForUnitPath(
+        ctx,
+        linkRef.unitId,
+        linkRef.levelId,
+      );
+    }
+    case "content": {
+      return await getLevelIdsForUnitPath(
+        ctx,
+        linkRef.unitId,
+        linkRef.levelId,
+      );
+    }
+    case "workshopSession": {
+      const session = await ctx.db.get(linkRef.sessionId);
+      if (!session) {
+        return [];
+      }
+      return await getLevelIdsForUnitPath(ctx, session.workshopUnitId, undefined);
+    }
+  }
+}
+
+/**
+ * True when the user has this certification on **Current** or **Certification roadmap**
+ * (same as learner dashboard `current` ∪ `planned` buckets), for at least one of the
+ * link’s relevant level ids.
+ */
+async function userHasInAppLinkOnCurrentOrRoadmap(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  linkRef: StoredInAppLinkRef,
+): Promise<boolean> {
+  const levelIds = await getLevelIdsForInAppLinkRef(ctx, linkRef);
+  if (levelIds.length === 0) {
+    return false;
+  }
+  const buckets = await computeLearnerCertPathBuckets(ctx, userId);
+  const onPath = new Set<Id<"certificationLevels">>([
+    ...buckets.current.map((r) => r.level._id),
+    ...buckets.planned.map((r) => r.level._id),
+  ]);
+  for (const lid of levelIds) {
+    if (onPath.has(lid)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function assertIsAdminOrCreator(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
@@ -849,18 +953,73 @@ export const adminSendInAppNotification = mutation({
     const body = args.body?.trim() ? args.body.trim() : undefined;
 
     if (args.scope === "all") {
-      const dedupeKey = `admin:all:${Date.now()}:${Math.random().toString(36).slice(2, 12)}`;
-      return tryCreateOrSkip(ctx, {
-        userId: undefined,
-        kind,
-        title,
-        body,
-        linkHref: args.linkHref,
-        linkLabel: args.linkLabel,
-        linkRef: args.linkRef,
-        dedupeKey,
-        importance,
-      });
+      const linkRef = args.linkRef;
+      if (
+        linkRef == null ||
+        !inAppLinkRefUsesCertificationPath(linkRef)
+      ) {
+        const dedupeKey = `admin:all:${Date.now()}:${Math.random().toString(36).slice(2, 12)}`;
+        return tryCreateOrSkip(ctx, {
+          userId: undefined,
+          kind,
+          title,
+          body,
+          linkHref: args.linkHref,
+          linkLabel: args.linkLabel,
+          linkRef: args.linkRef,
+          dedupeKey,
+          importance,
+        });
+      }
+      const allUsers = await ctx.db.query("users").collect();
+      if (allUsers.length === 0) {
+        return {
+          scope: "all" as const,
+          users: 0,
+          created: 0,
+          skippedDismissed: 0,
+          skippedActive: 0,
+          skippedNotOnRoadmap: 0,
+        };
+      }
+      const ref: StoredInAppLinkRef = linkRef;
+      const base = `admin:allPath:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      let created = 0;
+      let skippedDismissed = 0;
+      let skippedActive = 0;
+      let skippedNotOnRoadmap = 0;
+      for (const u of allUsers) {
+        if (!(await userHasInAppLinkOnCurrentOrRoadmap(ctx, u._id, ref))) {
+          skippedNotOnRoadmap += 1;
+          continue;
+        }
+        const res = await tryCreateOrSkip(ctx, {
+          userId: u._id,
+          kind,
+          title,
+          body,
+          linkHref: args.linkHref,
+          linkLabel: args.linkLabel,
+          linkRef: args.linkRef,
+          dedupeKey: `${base}:${u._id}`,
+          importance,
+        });
+        if (res.status === "created") {
+          created += 1;
+        } else if (res.status === "skipped_dismissed") {
+          skippedDismissed += 1;
+        } else {
+          skippedActive += 1;
+        }
+      }
+      return {
+        scope: "all" as const,
+        users: allUsers.length,
+        created,
+        skippedDismissed,
+        skippedActive,
+        skippedNotOnRoadmap,
+      };
     }
 
     if (args.scope === "user") {
@@ -911,7 +1070,17 @@ export const adminSendInAppNotification = mutation({
     let created = 0;
     let skippedDismissed = 0;
     let skippedActive = 0;
+    let skippedNotOnRoadmap = 0;
+    const ref = args.linkRef;
+    const pathRef: StoredInAppLinkRef | null =
+      ref != null && inAppLinkRefUsesCertificationPath(ref) ? ref : null;
     for (const u of userRows) {
+      if (pathRef != null) {
+        if (!(await userHasInAppLinkOnCurrentOrRoadmap(ctx, u._id, pathRef))) {
+          skippedNotOnRoadmap += 1;
+          continue;
+        }
+      }
       const res = await tryCreateOrSkip(ctx, {
         userId: u._id,
         kind,
@@ -938,6 +1107,7 @@ export const adminSendInAppNotification = mutation({
       created,
       skippedDismissed,
       skippedActive,
+      skippedNotOnRoadmap,
     };
   },
 });

@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronDown, ExternalLink, GripVertical, X } from "lucide-react";
+import { ChevronDown, ExternalLink, GripVertical, Video, X } from "lucide-react";
 import Link from "next/link";
 import {
   useCallback,
@@ -29,8 +29,8 @@ import {
 } from "@/lib/notification-importance";
 import {
   postItCardWidthClass,
+  postItChromeForNotification,
   postItFirstRowClassName,
-  postItImportanceClassNames,
 } from "@/lib/notification-post-it-surface";
 import {
   CCIA_PINNED_SAVED_EVENT,
@@ -65,7 +65,11 @@ function DraggableNote({
   const cardRef = useRef<HTMLDivElement>(null);
   const gripRef = useRef<HTMLButtonElement>(null);
   const importance = (row.importance ?? "normal") as NotificationImportance;
-  const th = postItImportanceClassNames(importance);
+  const th = postItChromeForNotification(row);
+  const a11yIcon =
+    row.kind === "webinar_reminder"
+      ? "Webinar reminder"
+      : NOTIFICATION_IMPORTANCE[importance].human;
   const [expanded, setExpanded] = useState(false);
   const hasBody = Boolean(row.body != null && row.body.trim() !== "");
   const hasLink = Boolean(row.linkHref && row.linkHref.trim() !== "");
@@ -339,14 +343,21 @@ function DraggableNote({
           </button>
           <span
             className="inline-flex shrink-0"
-            title={NOTIFICATION_IMPORTANCE[importance].human}
-            aria-label={NOTIFICATION_IMPORTANCE[importance].human}
+            title={a11yIcon}
+            aria-label={a11yIcon}
             role="img"
           >
-            <NotificationImportanceGlyph
-              level={importance}
-              className={th.icon}
-            />
+            {row.kind === "webinar_reminder" ? (
+              <Video
+                className={cn("h-5 w-5 shrink-0 opacity-90", th.icon)}
+                aria-hidden
+              />
+            ) : (
+              <NotificationImportanceGlyph
+                level={importance}
+                className={th.icon}
+              />
+            )}
           </span>
           <span
             className={cn(

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import type { Doc } from "@/convex/_generated/dataModel";
 import type { NotificationImportance } from "@/lib/notification-importance";
 
 const glassShadow =
@@ -90,6 +91,42 @@ export function postItImportanceClassNames(
     default:
       return postItImportanceClassNames("normal");
   }
+}
+
+/** Webinar reminder post-its: purple/violet, independent of importance level. */
+function postItWebinarReminderClassNames() {
+  return {
+    shell: cn(
+      "rounded-2xl overflow-hidden",
+      "border border-violet-300/45 dark:border-violet-500/40",
+      "border-l-[2.5px] border-l-violet-600/90 dark:border-l-violet-300/88",
+      "bg-gradient-to-br from-violet-200/30 from-20% via-fuchsia-100/18 to-purple-300/20 " +
+        "dark:from-violet-500/22 dark:via-violet-900/18 dark:to-fuchsia-950/16",
+      glassShadow,
+    ),
+    hairline:
+      "border-b border-violet-500/20 bg-violet-50/16 dark:border-violet-400/14 dark:bg-violet-950/18",
+    icon: "text-violet-700 dark:text-violet-300",
+    title:
+      "text-violet-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-violet-50",
+    text: "text-violet-950/95 dark:text-violet-50/95",
+    muted: "text-violet-900/80 dark:text-violet-100/80",
+  };
+}
+
+/**
+ * Frosted post-it chrome: importance for most kinds; fixed purple for
+ * `webinar_reminder`.
+ */
+export function postItChromeForNotification(
+  row: Pick<Doc<"userNotifications">, "kind" | "importance">,
+) {
+  if (row.kind === "webinar_reminder") {
+    return postItWebinarReminderClassNames();
+  }
+  return postItImportanceClassNames(
+    (row.importance ?? "normal") as NotificationImportance,
+  );
 }
 
 /** Must match the floating `DraggableNote` outer: `w-64` in the app shell. */

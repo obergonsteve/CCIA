@@ -1,5 +1,5 @@
 import { ConvexError } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { isLive } from "./softDelete";
 
@@ -76,6 +76,20 @@ export async function requireAdminOrCreator(
   return userId;
 }
 
+/** Synchronous check for a known `users` + `certificationLevels` row (e.g. admin/mutations targeting other users). */
+export function userCanAccessLevelWithUser(
+  user: Doc<"users">,
+  level: Doc<"certificationLevels">,
+): boolean {
+  if (!isLive(level)) {
+    return false;
+  }
+  if (user.role === "admin" || user.role === "content_creator") {
+    return true;
+  }
+  return level.companyId == null || level.companyId === user.companyId;
+}
+
 export async function userCanAccessLevel(
   ctx: QueryCtx | MutationCtx,
   levelId: Id<"certificationLevels">,
@@ -89,10 +103,7 @@ export async function userCanAccessLevel(
   if (!isLive(level)) {
     return false;
   }
-  if (user.role === "admin" || user.role === "content_creator") {
-    return true;
-  }
-  return level.companyId == null || level.companyId === user.companyId;
+  return userCanAccessLevelWithUser(user, level);
 }
 
 export async function userCanAccessUnit(

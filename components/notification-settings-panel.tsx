@@ -20,11 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useMutation, useQuery } from "convex/react";
-import { Bell, BookOpen, CalendarClock, TrendingUp } from "lucide-react";
+import { Bell, CalendarClock, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useSessionUser } from "@/lib/use-session-user";
-import { cn } from "@/lib/utils";
 
 function fromStoredHours(
   h: number,
@@ -55,7 +55,6 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
   const [value, setValue] = useState(24);
   const [unit, setUnit] = useState<"hours" | "days">("hours");
   const [almostThere, setAlmostThere] = useState(80);
-  const [roadmapOnly, setRoadmapOnly] = useState(true);
   const [formBootstrapped, setFormBootstrapped] = useState(false);
 
   useEffect(() => {
@@ -68,7 +67,6 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
     setValue(a.value);
     setUnit(a.unit);
     setAlmostThere(settings.unitAlmostTherePercent);
-    setRoadmapOnly(settings.notifyNewContentRoadmapOnly);
     setFormBootstrapped(true);
   }, [settings, formBootstrapped]);
 
@@ -76,7 +74,7 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
     unit === "days" ? MAX_DAYS : Math.min(MAX_HOURS, MAX_DAYS * 24);
 
   async function handleSave() {
-    if (!forUserId) return;
+    if (!forUserId || !settings) return;
     const raw = toHours(value, unit);
     const hours = Math.min(30 * 24, Math.max(1, Math.round(raw)));
     setSaving(true);
@@ -85,7 +83,7 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
         forUserId,
         webinarReminderHoursBefore: hours,
         unitAlmostTherePercent: almostThere,
-        notifyNewContentRoadmapOnly: roadmapOnly,
+        notifyNewContentRoadmapOnly: settings.notifyNewContentRoadmapOnly,
       });
       toast.success("Notification settings saved.");
     } catch (e) {
@@ -147,18 +145,21 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
           </h2>
           {showIntro === false ? (
             <p className="mt-1 text-sm text-muted-foreground">
-              Webinar reminders, progress nudges, and what counts as on your
-              certification roadmap.
+              Webinar reminders and progress nudges.
             </p>
           ) : null}
         </div>
 
         <div className="space-y-4">
-        <Card>
+        <Card
+          className={cn(
+            "border border-violet-300/50 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/50 to-purple-50/50 ring-1 ring-violet-200/50 dark:border-violet-500/40 dark:from-violet-950/45 dark:via-fuchsia-950/28 dark:to-purple-950/22 dark:ring-violet-500/25",
+          )}
+        >
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <CalendarClock
-                className="h-5 w-5 text-brand-sky"
+                className="h-5 w-5 text-violet-600 dark:text-violet-300"
                 aria-hidden
               />
               Webinar you registered for
@@ -234,7 +235,7 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
               &quot;Almost there!&quot; on your progress
             </CardTitle>
             <CardDescription>
-              When your completion for a course hits this high, we can show an
+              When your completion for a unit hits this high, we can show an
               encouraging nudge in the app.
             </CardDescription>
           </CardHeader>
@@ -252,38 +253,10 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
                   setAlmostThere(Math.min(99, Math.max(50, Math.round(n))));
                 }}
                 className="w-20"
-                aria-label="Show nudge at this percent complete"
+                aria-label="Show nudge at this percent of unit completion"
               />
               <span className="text-sm text-muted-foreground">% complete</span>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <BookOpen className="h-5 w-5 text-brand-gold" aria-hidden />
-              New or updated cert, unit, or content
-            </CardTitle>
-            <CardDescription>
-              Limit alerts to content tied to a certification you have on your
-              roadmap (the levels you selected on the dashboard).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <label className="flex cursor-pointer items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={roadmapOnly}
-                onChange={(e) => setRoadmapOnly(e.target.checked)}
-                className={cn(
-                  "mt-0.5 h-4 w-4 shrink-0 rounded border border-input",
-                )}
-              />
-              <span>
-                Only notify me for certifications and units on my roadmap
-              </span>
-            </label>
           </CardContent>
         </Card>
         </div>
@@ -296,13 +269,6 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
           >
             {saving ? "Saving…" : "Save notification settings"}
           </Button>
-          <p className="text-xs text-muted-foreground max-w-md">
-            <Bell
-              className="inline h-3.5 w-3.5 -translate-y-px mr-1"
-              aria-hidden
-            />
-            Post-it alerts use these when reminders and digests are created.
-          </p>
         </div>
       </section>
     </div>
