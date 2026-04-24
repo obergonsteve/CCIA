@@ -50,6 +50,12 @@ const EDGE = 6;
  */
 const ASSUMED_HEADER_H = 72;
 
+/**
+ * Nudge the default post-it a few px **down** from strict header center so it
+ * doesn’t read as high/cut at the top edge of the “slot.”
+ */
+const DEFAULT_NOTIF_Y_NUDGE_PX = 24;
+
 /** Same id as `app-shell` `<header id="…">` — post-its default centered on this bar. */
 export const CCIA_APP_HEADER_ID = "ccia-app-header" as const;
 
@@ -88,7 +94,7 @@ export function defaultNotifPosition(
         Math.max(EDGE, idealX),
         Math.max(EDGE, vw - NOTE_W - EDGE),
       );
-      const idealY = centerY - NOTE_H / 2;
+      const idealY = centerY - NOTE_H / 2 + DEFAULT_NOTIF_Y_NUDGE_PX;
       const y = clampYToViewport(idealY, vh, NOTE_H);
       return { x, y };
     }
@@ -100,7 +106,11 @@ export function defaultNotifPosition(
       Math.max(EDGE, (vw - NOTE_W) / 2),
       Math.max(EDGE, vw - NOTE_W - EDGE),
     ),
-    y: clampYToViewport(headerCenterY - NOTE_H / 2, vh, NOTE_H),
+    y: clampYToViewport(
+      headerCenterY - NOTE_H / 2 + DEFAULT_NOTIF_Y_NUDGE_PX,
+      vh,
+      NOTE_H,
+    ),
   };
 }
 

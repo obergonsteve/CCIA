@@ -61,7 +61,9 @@ export function PinnedInAppNotices() {
 
   const count = pinned?.length ?? 0;
   const noticeCountLabel =
-    count === 1 ? "1 pinned" : `${count} pinned`;
+    count === 1
+      ? "1 pinned notice"
+      : `${count} pinned notices`;
 
   useEffect(() => {
     const onHover = (e: Event) => {
@@ -175,8 +177,7 @@ export function PinnedInAppNotices() {
             side="bottom"
             className="w-64 max-w-[min(16rem,calc(100vw-0.5rem))] px-2 py-1 text-left text-[0.7rem] font-normal leading-snug text-popover-foreground"
           >
-            Drag a post-it here to pin it in the header. Oldest first when
-            opened.
+            Drag a notice here to pin it. Oldest first when opened.
           </TooltipContent>
         </Tooltip>
         </TooltipProvider>
