@@ -3,12 +3,6 @@
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useMutation, useQuery } from "convex/react";
 import {
   ChevronDown,
@@ -44,6 +38,9 @@ import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
 const DRAG_TYPE_PREFIX = "cciaNotification:";
+
+const PIN_CONTROL_HINT =
+  "Drag a notice here to pin it. Oldest first when opened.";
 
 export function PinnedInAppNotices() {
   const { user: sessionUser } = useSessionUser();
@@ -127,65 +124,49 @@ export function PinnedInAppNotices() {
         )}
         data-pinned-drop-hint={over || undefined}
       >
-        <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-8 w-full min-w-0 justify-between gap-1.5 px-1.5 text-[0.75rem] leading-tight text-foreground/88",
-                /* `ghost` sets `hover:bg-muted` and `aria-expanded:bg-muted` — override so the chip never picks up that gray. */
-                "!bg-transparent hover:!bg-black/[0.06] dark:hover:!bg-white/[0.08]",
-                "aria-expanded:!bg-transparent dark:aria-expanded:!bg-transparent",
-                "data-[state=instant-open]:!bg-transparent data-[state=delayed-open]:!bg-transparent",
-                "focus-visible:!bg-transparent",
-              )}
-              aria-expanded={expanded}
-              aria-label={`Pinned in header — ${noticeCountLabel}`}
-              onClick={() => setExpanded((e) => !e)}
-            >
-              <span className="flex min-w-0 items-center gap-1.5">
-                <Pin
-                  className="size-3.5 shrink-0 text-brand-sky"
-                  aria-hidden
-                />
-                {count > 0 ? (
-                  <span
-                    className="min-w-0 text-left text-[0.75rem] font-normal tabular-nums leading-tight text-[color-mix(in_srgb,var(--brand-gold),#0a0a0a_28%)] dark:text-[color-mix(in_srgb,var(--brand-gold),#000_14%)]"
-                    aria-label={noticeCountLabel}
-                  >
-                    {noticeCountLabel}
-                  </span>
-                ) : (
-                  <span className="text-[0.75rem] text-muted-foreground/80">
-                    {noticeCountLabel}
-                  </span>
-                )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-8 w-full min-w-0 justify-between gap-1.5 px-1.5 text-[0.75rem] leading-tight text-foreground/88",
+            /* `ghost` sets `hover:bg-muted` and `aria-expanded:bg-muted` — override so the chip never picks up that gray. */
+            "!bg-transparent hover:!bg-black/[0.06] dark:hover:!bg-white/[0.08]",
+            "aria-expanded:!bg-transparent dark:aria-expanded:!bg-transparent",
+            "focus-visible:!bg-transparent",
+          )}
+          aria-expanded={expanded}
+          title={PIN_CONTROL_HINT}
+          aria-label={`Pinned in header — ${noticeCountLabel}. ${PIN_CONTROL_HINT}`}
+          onClick={() => setExpanded((e) => !e)}
+        >
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Pin className="size-3.5 shrink-0 text-brand-sky" aria-hidden />
+            {count > 0 ? (
+              <span
+                className="min-w-0 text-left text-[0.75rem] font-normal tabular-nums leading-tight text-[color-mix(in_srgb,var(--brand-gold),#0a0a0a_28%)] dark:text-[color-mix(in_srgb,var(--brand-gold),#000_14%)]"
+              >
+                {noticeCountLabel}
               </span>
-              <ChevronDown
-                className={cn(
-                  "size-3.5 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
-                  expanded && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent
-            side="bottom"
-            className="w-64 max-w-[min(16rem,calc(100vw-0.5rem))] px-2 py-1 text-left text-[0.7rem] font-normal leading-snug text-popover-foreground"
-          >
-            Drag a notice here to pin it. Oldest first when opened.
-          </TooltipContent>
-        </Tooltip>
-        </TooltipProvider>
+            ) : (
+              <span className="text-[0.75rem] text-muted-foreground/80">
+                {noticeCountLabel}
+              </span>
+            )}
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-3.5 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
+              expanded && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </Button>
       </div>
 
       {expanded && (
         <div
-          className="absolute right-0 top-full z-50 mt-1 w-[min(100vw-2rem,18rem)] rounded-lg border border-slate-300/85 bg-slate-200/90 p-1.5 text-foreground shadow-lg ring-1 ring-slate-400/25 dark:border-slate-600/55 dark:bg-slate-800/65 dark:ring-slate-600/30"
+          className="absolute right-0 top-full z-50 mt-0.5 w-max min-w-0 max-w-[min(100vw-2rem,18rem)] overflow-x-hidden rounded-lg border border-slate-300/88 bg-slate-200/92 p-1.5 text-foreground shadow-lg ring-1 ring-slate-400/28 dark:border-slate-600/58 dark:bg-slate-800/70 dark:ring-slate-600/32"
         >
           {pinned === undefined ? (
             <p className="px-1 py-3 text-center text-xs text-muted-foreground">
@@ -196,7 +177,7 @@ export function PinnedInAppNotices() {
               Drag a notice here to pin it
             </p>
           ) : (
-            <ol className="m-0 max-h-[min(50vh,22rem)] list-none space-y-1.5 overflow-y-auto p-0 pr-0.5">
+            <ol className="m-0 list-none space-y-1.5 p-0">
               {pinned.map((row) => (
                 <PinnedLine
                   key={row._id}
@@ -244,14 +225,12 @@ function PinnedLine({
 
   return (
     <li className="list-none">
-      <div
-        className={cn("mx-auto w-full min-w-0 overflow-hidden", postItCardWidthClass, th.shell)}
-      >
+      <div className={cn(postItCardWidthClass, "shrink-0")}>
+        <div className={cn("w-full overflow-hidden", th.shell)}>
         <div
-          className={postItFirstRowClassName(
-            th.hairline,
-            hasDetails,
-            expanded,
+          className={cn(
+            postItFirstRowClassName(th.hairline, hasDetails, expanded),
+            "gap-0",
           )}
         >
           <button
@@ -357,6 +336,7 @@ function PinnedLine({
             ) : null}
           </div>
         )}
+        </div>
       </div>
     </li>
   );

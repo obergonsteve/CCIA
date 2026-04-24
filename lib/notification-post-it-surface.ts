@@ -19,14 +19,14 @@ export function postItImportanceClassNames(
       return {
         shell: cn(
           "rounded-2xl overflow-hidden",
-          "border border-slate-300/28 dark:border-slate-500/20",
+          "border border-slate-300/40 dark:border-slate-500/32",
           "border-l-[2.5px] border-l-slate-500/90 dark:border-l-slate-300/88",
-          "bg-gradient-to-br from-sky-100/16 via-slate-100/10 to-slate-300/8 " +
-            "dark:from-slate-500/12 dark:via-slate-800/10 dark:to-slate-900/8",
+          "bg-gradient-to-br from-sky-100/26 via-slate-100/16 to-slate-300/14 " +
+            "dark:from-slate-500/20 dark:via-slate-800/16 dark:to-slate-900/14",
           glassShadow,
         ),
         hairline:
-          "border-b border-slate-400/12 bg-white/[0.05] dark:border-white/[0.06] dark:bg-slate-900/8",
+          "border-b border-slate-400/18 bg-white/[0.08] dark:border-white/[0.1] dark:bg-slate-900/12",
         icon: "text-slate-600 dark:text-slate-300",
         title:
           "text-slate-900/95 [text-shadow:0_1px_0_rgba(255,255,255,0.45)] dark:text-slate-50",
@@ -37,14 +37,14 @@ export function postItImportanceClassNames(
       return {
         shell: cn(
           "rounded-2xl overflow-hidden",
-          "border border-amber-300/26 dark:border-amber-600/20",
+          "border border-amber-300/40 dark:border-amber-600/32",
           "border-l-[2.5px] border-l-amber-500/90 dark:border-l-amber-300/88",
-          "bg-gradient-to-br from-amber-200/16 from-20% via-amber-100/10 to-amber-300/12 " +
-            "dark:from-amber-500/12 dark:via-amber-800/9 dark:to-amber-950/8",
+          "bg-gradient-to-br from-amber-200/28 from-20% via-amber-100/18 to-amber-300/20 " +
+            "dark:from-amber-500/20 dark:via-amber-800/16 dark:to-amber-950/14",
           glassShadow,
         ),
         hairline:
-          "border-b border-amber-500/12 bg-amber-50/10 dark:border-amber-400/8 dark:bg-amber-900/10",
+          "border-b border-amber-500/20 bg-amber-50/16 dark:border-amber-400/14 dark:bg-amber-900/16",
         icon: "text-amber-700 dark:text-amber-300",
         title:
           "text-amber-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-amber-50",
@@ -55,14 +55,14 @@ export function postItImportanceClassNames(
       return {
         shell: cn(
           "rounded-2xl overflow-hidden",
-          "border border-orange-300/28 dark:border-orange-500/22",
+          "border border-orange-300/40 dark:border-orange-500/34",
           "border-l-[2.5px] border-l-orange-500/90 dark:border-l-orange-300/88",
-          "bg-gradient-to-br from-orange-200/17 from-20% via-orange-100/10 to-orange-300/12 " +
-            "dark:from-orange-500/12 dark:via-orange-800/9 dark:to-orange-950/9",
+          "bg-gradient-to-br from-orange-200/28 from-20% via-orange-100/18 to-orange-300/20 " +
+            "dark:from-orange-500/20 dark:via-orange-800/16 dark:to-orange-950/16",
           glassShadow,
         ),
         hairline:
-          "border-b border-orange-500/12 bg-orange-50/8 dark:border-orange-400/8 dark:bg-orange-950/10",
+          "border-b border-orange-500/20 bg-orange-50/14 dark:border-orange-400/14 dark:bg-orange-950/16",
         icon: "text-orange-700 dark:text-orange-300",
         title:
           "text-orange-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-orange-50",
@@ -73,14 +73,14 @@ export function postItImportanceClassNames(
       return {
         shell: cn(
           "rounded-2xl overflow-hidden",
-          "border border-rose-300/26 dark:border-rose-500/22",
+          "border border-rose-300/40 dark:border-rose-500/34",
           "border-l-[2.5px] border-l-rose-500/90 dark:border-l-rose-300/88",
-          "bg-gradient-to-br from-rose-200/18 from-20% via-rose-100/10 to-rose-300/12 " +
-            "dark:from-rose-500/12 dark:via-rose-800/9 dark:to-rose-950/9",
+          "bg-gradient-to-br from-rose-200/30 from-20% via-rose-100/18 to-rose-300/20 " +
+            "dark:from-rose-500/20 dark:via-rose-800/16 dark:to-rose-950/16",
           glassShadow,
         ),
         hairline:
-          "border-b border-rose-500/12 bg-rose-50/8 dark:border-rose-400/8 dark:bg-rose-950/10",
+          "border-b border-rose-500/20 bg-rose-50/14 dark:border-rose-400/14 dark:bg-rose-950/16",
         icon: "text-rose-700 dark:text-rose-300",
         title:
           "text-rose-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-rose-50",

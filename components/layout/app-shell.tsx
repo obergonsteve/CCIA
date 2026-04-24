@@ -8,6 +8,7 @@ import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useQuery } from "convex/react";
 import { LogOut, Menu, Moon, Sun, X } from "lucide-react";
 import Image from "next/image";
@@ -226,6 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="flex h-svh flex-row overflow-hidden bg-background">
       {!isWorkshopSimShell ? (
         <aside
@@ -371,5 +373,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
       <NotificationStack />
     </div>
+    </TooltipProvider>
   );
 }

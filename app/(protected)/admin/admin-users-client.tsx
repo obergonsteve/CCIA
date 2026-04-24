@@ -45,7 +45,6 @@ import {
   SendInAppNoticeTextButton,
 } from "@/components/admin/send-in-app-notice-control";
 import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
@@ -176,7 +175,6 @@ export default function AdminUsersClient() {
   }, [selectedCompany]);
 
   return (
-    <TooltipProvider delayDuration={300}>
     <div
       className={cn(
         "space-y-6 -mt-2",
@@ -906,6 +904,5 @@ export default function AdminUsersClient() {
         </>
       ) : null}
     </div>
-    </TooltipProvider>
   );
 }
