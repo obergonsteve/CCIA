@@ -41,13 +41,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const NOTE_W = 256;
-/**
- * Opacity transition for note enter / exit (ms). Must match `duration-500` on the
- * DraggableNote shell and the dismiss timeouts below.
- */
-const NOTIF_FADE_MS = 500;
-/** Extra wait after fade so opacity finishes before unmount / mutation. */
-const NOTIF_FADE_COMPLETE_BUFFER_MS = 60;
 const PIN_POINTER_SLOP_PX = 4;
 
 function DraggableNote({
@@ -59,8 +52,6 @@ function DraggableNote({
   onPositionChange,
   onDismiss,
   onFocusNote,
-  /** Parent-driven fade (e.g. “Dismiss all”) before rows unmount. */
-  bulkExiting = false,
 }: {
   row: Doc<"userNotifications">;
   x: number;
@@ -70,12 +61,9 @@ function DraggableNote({
   onPositionChange: (x: number, y: number) => void;
   onDismiss: () => void;
   onFocusNote: () => void;
-  bulkExiting?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const gripRef = useRef<HTMLButtonElement>(null);
-  const [entered, setEntered] = useState(false);
-  const [localExiting, setLocalExiting] = useState(false);
   const importance = (row.importance ?? "normal") as NotificationImportance;
   const th = postItImportanceClassNames(importance);
   const [expanded, setExpanded] = useState(false);
@@ -98,22 +86,6 @@ function DraggableNote({
     up: (e: PointerEvent) => void;
   } | null>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setEntered(true);
-      return;
-    }
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setEntered(true));
-    });
-    return () => cancelAnimationFrame(id);
-  }, []);
-
-  const fadeOut = bulkExiting || localExiting;
-  const visible = entered && !fadeOut;
   const dismissOnceRef = useRef(false);
   const finishDismiss = useCallback(() => {
     if (dismissOnceRef.current) {
@@ -123,17 +95,6 @@ function DraggableNote({
     removeNotifPosition(forUserId, row._id);
     onDismiss();
   }, [forUserId, onDismiss, row._id]);
-
-  useEffect(() => {
-    if (!localExiting) {
-      return;
-    }
-    const t = window.setTimeout(
-      finishDismiss,
-      NOTIF_FADE_MS + NOTIF_FADE_COMPLETE_BUFFER_MS,
-    );
-    return () => window.clearTimeout(t);
-  }, [localExiting, finishDismiss]);
 
   const onHandlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) {
@@ -347,9 +308,6 @@ function DraggableNote({
       className={cn(
         "fixed cursor-grab select-none active:cursor-grabbing",
         postItCardWidthClass,
-        "transition-opacity duration-500 ease-out motion-reduce:duration-0",
-        visible ? "opacity-100" : "opacity-0",
-        !visible && "pointer-events-none",
       )}
       style={{
         left: 0,
@@ -428,14 +386,7 @@ function DraggableNote({
             onClick={(e) => {
               e.stopPropagation();
               onFocusNote();
-              if (
-                typeof window !== "undefined" &&
-                window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-              ) {
-                finishDismiss();
-                return;
-              }
-              setLocalExiting(true);
+              finishDismiss();
             }}
             title="Dismiss"
             aria-label="Dismiss notification"
@@ -512,8 +463,6 @@ export function NotificationStack() {
   const dismissAllM = useMutation(api.userNotifications.dismissAll);
 
   const [mounted, setMounted] = useState(false);
-  /** “Dismiss all” — fade every note, then run bulk mutation. */
-  const [bulkExiting, setBulkExiting] = useState(false);
   const [positions, setPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
@@ -682,7 +631,6 @@ export function NotificationStack() {
                 onPositionChange={(nx, ny) => setPosition(id, nx, ny)}
                 onDismiss={() => onDismiss(id)}
                 onFocusNote={() => bringToFront(id)}
-                bulkExiting={bulkExiting}
               />
             </div>
           );
@@ -694,34 +642,16 @@ export function NotificationStack() {
             <Button
               type="button"
               size="sm"
-              disabled={bulkExiting}
               className={cn(
                 "text-xs font-medium shadow-md",
                 "border border-brand-lime/60 bg-brand-lime/90 text-foreground",
                 "hover:bg-brand-lime dark:border-brand-lime/50 dark:bg-brand-lime/80 dark:hover:bg-brand-lime/90",
               )}
               onClick={() => {
-                if (bulkExiting) {
-                  return;
+                for (const r of rows) {
+                  removeNotifPosition(forUserKey, r._id);
                 }
-                if (
-                  typeof window !== "undefined" &&
-                  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-                ) {
-                  for (const r of rows) {
-                    removeNotifPosition(forUserKey, r._id);
-                  }
-                  void dismissAllM({ forUserId });
-                  return;
-                }
-                setBulkExiting(true);
-                window.setTimeout(() => {
-                  for (const r of rows) {
-                    removeNotifPosition(forUserKey, r._id);
-                  }
-                  void dismissAllM({ forUserId });
-                  setBulkExiting(false);
-                }, NOTIF_FADE_MS + NOTIF_FADE_COMPLETE_BUFFER_MS);
+                void dismissAllM({ forUserId });
               }}
             >
               Dismiss all
