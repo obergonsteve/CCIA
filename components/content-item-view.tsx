@@ -35,6 +35,7 @@ export function ContentItemView({
   isActive = true,
   expandFromHash = false,
   pathStripNavTick = 0,
+  certProgressRecordBlocked = false,
 }: {
   item: Doc<"contentItems">;
   /** Required to submit tests/assignments on the unit page. */
@@ -47,6 +48,11 @@ export function ContentItemView({
   expandFromHash?: boolean;
   /** Bumps on every strip link click so re-clicking the same step re-expands. */
   pathStripNavTick?: number;
+  /**
+   * When true, cert order blocks progress (same as roadmap) — skip recordContentStart.
+   * Avoids server errors if lock state and URL level are briefly out of sync.
+   */
+  certProgressRecordBlocked?: boolean;
 }) {
   const storageUrl = useQuery(
     api.content.getUrl,
@@ -133,7 +139,13 @@ export function ContentItemView({
   }, [expandFromHash, pathStripNavTick]);
 
   useEffect(() => {
-    if (!unitId || locked || !isActive || isWorkshopSession) {
+    if (
+      !unitId ||
+      locked ||
+      !isActive ||
+      isWorkshopSession ||
+      certProgressRecordBlocked
+    ) {
       return;
     }
     void recordContentStart({ unitId, contentId: item._id, levelId }).catch(
@@ -149,6 +161,7 @@ export function ContentItemView({
     levelId,
     recordContentStart,
     isWorkshopSession,
+    certProgressRecordBlocked,
   ]);
 
   const typeLabel =

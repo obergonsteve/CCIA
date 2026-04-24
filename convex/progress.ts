@@ -6,7 +6,7 @@ import {
   applyAssessmentContentAfterSubmit,
   applyLegacyAssignmentAfterSubmit,
   assertPreviousStepsComplete,
-  assertSequentialUnitAccess,
+  assertSequentialUnitAccessForProgress,
   getOrderedStepsForUnit,
   unitStepsFullyDone,
 } from "./contentProgress";
@@ -210,7 +210,12 @@ export const submitAssignment = mutation({
     if (stepIdx < 0) {
       throw new Error("This assessment is not part of this unit’s sequence");
     }
-    await assertSequentialUnitAccess(ctx, userId, levelId, assignment.unitId);
+    await assertSequentialUnitAccessForProgress(
+      ctx,
+      userId,
+      levelId,
+      assignment.unitId,
+    );
     await assertPreviousStepsComplete(ctx, userId, assignment.unitId, stepIdx);
 
     const { score, passed, passingScore } = scoreFromAnswers(
@@ -280,7 +285,7 @@ export const submitAssessmentContent = mutation({
     if (stepIdx < 0) {
       throw new Error("This assessment is not part of this unit’s sequence");
     }
-    await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    await assertSequentialUnitAccessForProgress(ctx, userId, levelId, unitId);
     await assertPreviousStepsComplete(ctx, userId, unitId, stepIdx);
     const content = await ctx.db.get(assessmentContentId);
     if (

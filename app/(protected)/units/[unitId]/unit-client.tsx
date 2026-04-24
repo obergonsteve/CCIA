@@ -536,6 +536,12 @@ export default function UnitClient({
   const blocked =
     lockedByPrereq ||
     (sequentialBlockedMessage !== null && !workshopSequentialBypass);
+  /** Matches server: do not call recordContentStart when cert order blocks self-paced progress. */
+  const certProgressRecordBlocked = Boolean(
+    levelId != null &&
+      sequentialBlockedMessage != null &&
+      !workshopSequentialBypass,
+  );
 
   async function onSubmitLegacyAssignment(assignmentId: Id<"assignments">) {
     const assignment = assignmentsById.get(assignmentId);
@@ -897,6 +903,7 @@ export default function UnitClient({
                   levelId={levelId}
                   locked={blocked || row.locked}
                   isActive={row.active}
+                  certProgressRecordBlocked={certProgressRecordBlocked}
                   expandFromHash={stepHash === `#step-${st.contentId}`}
                   pathStripNavTick={pathStripNavTick}
                 />

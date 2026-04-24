@@ -1,4 +1,4 @@
-const STORAGE_KEY = "ccia-notif-positions-v1";
+const STORAGE_KEY = "ccia-notif-positions-v2";
 
 export type NotifPositionMap = Record<string, { x: number; y: number }>;
 
@@ -40,18 +40,18 @@ export function removeNotifPosition(userId: string, notifId: string) {
 }
 
 const NOTE_W = 256;
-const NOTE_MIN_TOP = 56;
+/** Tight to viewport so notes sit in the top-right corner. */
+const EDGE = 6;
 
 export function defaultNotifPosition(
   index: number,
   vw: number,
   vh: number,
 ): { x: number; y: number } {
-  const margin = 12;
-  const x = Math.max(margin, vw - NOTE_W - margin - index * 16);
+  const x = Math.max(EDGE, vw - NOTE_W - EDGE - index * 8);
   const y = Math.max(
-    NOTE_MIN_TOP,
-    Math.min(vh * 0.12 + index * 18, vh - 120),
+    EDGE,
+    Math.min(EDGE + index * 12, vh - 100),
   );
   return { x, y };
 }
@@ -64,9 +64,8 @@ export function clampNotifPosition(
   cardWidth: number,
   cardHeight: number,
 ) {
-  const m = 4;
   return {
-    x: Math.min(Math.max(m, x), Math.max(m, vw - cardWidth - m)),
-    y: Math.min(Math.max(m, y), Math.max(m, vh - cardHeight - m)),
+    x: Math.min(Math.max(EDGE, x), Math.max(EDGE, vw - cardWidth - EDGE)),
+    y: Math.min(Math.max(EDGE, y), Math.max(EDGE, vh - cardHeight - EDGE)),
   };
 }

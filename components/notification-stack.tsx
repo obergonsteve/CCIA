@@ -36,15 +36,19 @@ const glassShadow =
   "dark:shadow-[0_3px_20px_rgba(0,0,0,0.16),0_0_0_1px_rgba(255,255,255,0.04)_inset] " +
   "backdrop-blur-xl";
 
-/** One frosted “bubble” with stronger, distinct importance tints. */
+/**
+ * Frosted “bubble” with distinct importance tints.
+ * Left accent is always `border-l-[2.5px]` (keep in sync across all levels).
+ */
 function importanceClassNames(level: NotificationImportance | undefined) {
   const n = (level ?? "normal") as NotificationImportance;
   switch (n) {
     case "low":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-slate-500/40",
-          "border border-slate-300/28 border-l-slate-500/38 dark:border-slate-500/20 dark:border-l-slate-400/42",
+          "rounded-2xl overflow-hidden",
+          "border border-slate-300/28 dark:border-slate-500/20",
+          "border-l-[2.5px] border-l-slate-500/90 dark:border-l-slate-300/88",
           "bg-gradient-to-br from-sky-100/16 via-slate-100/10 to-slate-300/8 " +
             "dark:from-slate-500/12 dark:via-slate-800/10 dark:to-slate-900/8",
           glassShadow,
@@ -60,8 +64,9 @@ function importanceClassNames(level: NotificationImportance | undefined) {
     case "normal":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-amber-500/38",
-          "border border-amber-300/26 border-l-amber-500/40 dark:border-amber-600/20 dark:border-l-amber-400/38",
+          "rounded-2xl overflow-hidden",
+          "border border-amber-300/26 dark:border-amber-600/20",
+          "border-l-[2.5px] border-l-amber-500/90 dark:border-l-amber-300/88",
           "bg-gradient-to-br from-amber-200/16 from-20% via-amber-100/10 to-amber-300/12 " +
             "dark:from-amber-500/12 dark:via-amber-800/9 dark:to-amber-950/8",
           glassShadow,
@@ -77,8 +82,9 @@ function importanceClassNames(level: NotificationImportance | undefined) {
     case "high":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-orange-500/40",
-          "border border-orange-300/28 border-l-orange-500/44 dark:border-orange-500/22 dark:border-l-orange-400/40",
+          "rounded-2xl overflow-hidden",
+          "border border-orange-300/28 dark:border-orange-500/22",
+          "border-l-[2.5px] border-l-orange-500/90 dark:border-l-orange-300/88",
           "bg-gradient-to-br from-orange-200/17 from-20% via-orange-100/10 to-orange-300/12 " +
             "dark:from-orange-500/12 dark:via-orange-800/9 dark:to-orange-950/9",
           glassShadow,
@@ -94,8 +100,9 @@ function importanceClassNames(level: NotificationImportance | undefined) {
     case "urgent":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-rose-500/40",
-          "border border-rose-300/26 border-l-rose-500/44 dark:border-rose-500/22 dark:border-rose-400/40",
+          "rounded-2xl overflow-hidden",
+          "border border-rose-300/26 dark:border-rose-500/22",
+          "border-l-[2.5px] border-l-rose-500/90 dark:border-l-rose-300/88",
           "bg-gradient-to-br from-rose-200/18 from-20% via-rose-100/10 to-rose-300/12 " +
             "dark:from-rose-500/12 dark:via-rose-800/9 dark:to-rose-950/9",
           glassShadow,
@@ -135,7 +142,7 @@ function DraggableNote({
   const cardRef = useRef<HTMLDivElement>(null);
   const importance = (row.importance ?? "normal") as NotificationImportance;
   const th = importanceClassNames(importance);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const hasBody = Boolean(row.body != null && row.body.trim() !== "");
   const hasLink = Boolean(row.linkHref && row.linkHref.trim() !== "");
   /** Step link / body text live in the same collapsible area. */
@@ -191,7 +198,7 @@ function DraggableNote({
       <div className={cn("overflow-hidden", th.shell)}>
         <div
           className={cn(
-            "flex min-h-8 items-center gap-0.5 px-2",
+            "flex min-h-7 items-center gap-0.5 px-2 py-0",
             th.hairline,
             hasDetails && !expanded && "border-b-0",
           )}

@@ -171,7 +171,7 @@ export async function assertPreviousStepsComplete(
 }
 
 export async function assertSequentialUnitAccess(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
   levelId: Id<"certificationLevels"> | undefined,
   unitId: Id<"units">,
@@ -179,7 +179,10 @@ export async function assertSequentialUnitAccess(
   if (!levelId) {
     return;
   }
-  const units = await collectUnitsForLevel(ctx, levelId);
+  const units = await collectUnitsForLevel(
+    ctx as QueryCtx,
+    levelId,
+  );
   const idx = units.findIndex((u) => u._id === unitId);
   if (idx <= 0) {
     return;
@@ -198,6 +201,36 @@ export async function assertSequentialUnitAccess(
       );
     }
   }
+}
+
+/**
+ * Used by progress mutations after prerequisite checks. Matches
+ * {@link roadmapForUnit}: `live_workshop` units allow recording progress when
+ * earlier cert units in the same level are incomplete (browse + webinar flow).
+ */
+export async function assertSequentialUnitAccessForProgress(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  levelId: Id<"certificationLevels"> | undefined,
+  unitId: Id<"units">,
+) {
+  if (!levelId) {
+    return;
+  }
+  const unitDoc = await ctx.db.get(unitId);
+  const isLiveWorkshop =
+    unitDoc != null &&
+    isLive(unitDoc) &&
+    unitDoc.deliveryMode === "live_workshop";
+  if (isLiveWorkshop) {
+    try {
+      await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    } catch {
+      // Same bypass as `workshopSequentialBypass` in roadmapForUnit.
+    }
+    return;
+  }
+  await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
 }
 
 async function logProgressEvent(
@@ -909,6 +942,7 @@ export const recordContentStart = mutation({
     contentId: v.id("contentItems"),
     levelId: v.optional(v.id("certificationLevels")),
   },
+  returns: v.union(v.id("userContentProgress"), v.null()),
   handler: async (ctx, { unitId, contentId, levelId }) => {
     const userId = await requireUserId(ctx);
     const ok = await userCanAccessUnit(ctx, unitId);
@@ -923,7 +957,17 @@ export const recordContentStart = mutation({
           .join(", ")}`,
       );
     }
-    await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    try {
+      await assertSequentialUnitAccessForProgress(ctx, userId, levelId, unitId);
+    } catch {
+      const existing = await ctx.db
+        .query("userContentProgress")
+        .withIndex("by_user_unit_content", (q) =>
+          q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
+        )
+        .unique();
+      return existing?._id ?? null;
+    }
     const steps = await getOrderedStepsForUnit(ctx, unitId);
     const stepIdx = steps.findIndex(
       (st) => st.kind === "content" && st.contentId === contentId,
@@ -1013,7 +1057,7 @@ export const recordContentComplete = mutation({
           .join(", ")}`,
       );
     }
-    await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    await assertSequentialUnitAccessForProgress(ctx, userId, levelId, unitId);
     const items = await collectContentInUnit(ctx, unitId);
     const item = items.find((c) => c._id === contentId);
     if (!item) {
@@ -1114,7 +1158,7 @@ export const reopenContentStep = mutation({
           .join(", ")}`,
       );
     }
-    await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    await assertSequentialUnitAccessForProgress(ctx, userId, levelId, unitId);
     const items = await collectContentInUnit(ctx, unitId);
     const item = items.find((c) => c._id === contentId);
     if (!item) {
@@ -1207,7 +1251,7 @@ export const recordLegacyAssignmentStart = mutation({
           .join(", ")}`,
       );
     }
-    await assertSequentialUnitAccess(ctx, userId, levelId, unitId);
+    await assertSequentialUnitAccessForProgress(ctx, userId, levelId, unitId);
     const steps = await getOrderedStepsForUnit(ctx, unitId);
     const idx = steps.findIndex(
       (s) => s.kind === "legacy_assignment" && s.assignmentId === assignmentId,
