@@ -101,6 +101,10 @@ export default function AdminUsersClient() {
     email: string;
   } | null>(null);
 
+  const [companyNoticeOpen, setCompanyNoticeOpen] = useState(false);
+  const [companyNoticeCompanyId, setCompanyNoticeCompanyId] =
+    useState<Id<"companies"> | null>(null);
+
   const isAdmin = sessionUser?.role === "admin";
   const companyUsers = useQuery(
     api.users.listByCompany,
@@ -280,11 +284,22 @@ export default function AdminUsersClient() {
                             </span>
                           </button>
                           <div className="flex flex-col border-l shrink-0">
+                            {isAdmin && sessionUser ? (
+                              <SendInAppNoticeRowIconButton
+                                onOpen={() => {
+                                  setCompanyNoticeCompanyId(c._id);
+                                  setCompanyNoticeOpen(true);
+                                }}
+                                title="Send in-app notice for this company"
+                                tooltip="Notify everyone in this company, or pick one person in the form."
+                                className="!h-7 !w-7 min-h-0 min-w-0 rounded-none !text-brand-sky hover:!bg-brand-sky/12 hover:!text-brand-sky dark:!text-brand-sky/85 dark:hover:!bg-brand-sky/18 dark:hover:!text-brand-sky"
+                              />
+                            ) : null}
                             <Button
                               type="button"
                               variant="ghost"
-                              size="icon"
-                              className="h-10 w-10 rounded-none text-destructive hover:text-destructive"
+                              size="icon-sm"
+                              className="h-7 w-7 min-h-0 min-w-0 rounded-none text-destructive hover:text-destructive"
                               title="Delete company"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -292,7 +307,7 @@ export default function AdminUsersClient() {
                                 setCompanyDeleteOpen(true);
                               }}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="size-3.5" aria-hidden />
                             </Button>
                           </div>
                         </div>
@@ -846,23 +861,37 @@ export default function AdminUsersClient() {
       </Dialog>
 
       {isAdmin && sessionUser ? (
-        <SendInAppNoticeDialog
-          open={userNoticeOpen}
-          onOpenChange={(o) => {
-            setUserNoticeOpen(o);
-            if (!o) {
-              setUserNoticeTarget(null);
+        <>
+          <SendInAppNoticeDialog
+            open={userNoticeOpen}
+            onOpenChange={(o) => {
+              setUserNoticeOpen(o);
+              if (!o) {
+                setUserNoticeTarget(null);
+              }
+            }}
+            preset={null}
+            targetUserId={userNoticeTarget?._id}
+            targetUserSummary={
+              userNoticeTarget
+                ? `${userNoticeTarget.name} (${userNoticeTarget.email})`
+                : undefined
             }
-          }}
-          preset={null}
-          targetUserId={userNoticeTarget?._id}
-          targetUserSummary={
-            userNoticeTarget
-              ? `${userNoticeTarget.name} (${userNoticeTarget.email})`
-              : undefined
-          }
-          defaultCompanyId={selectedCompanyId ?? undefined}
-        />
+            defaultCompanyId={selectedCompanyId ?? undefined}
+          />
+          <SendInAppNoticeDialog
+            open={companyNoticeOpen}
+            onOpenChange={(o) => {
+              setCompanyNoticeOpen(o);
+              if (!o) {
+                setCompanyNoticeCompanyId(null);
+              }
+            }}
+            preset={null}
+            defaultCompanyId={companyNoticeCompanyId ?? undefined}
+            initialAudience="company"
+          />
+        </>
       ) : null}
     </div>
     </TooltipProvider>

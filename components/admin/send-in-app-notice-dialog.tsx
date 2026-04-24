@@ -57,6 +57,11 @@ type SendInAppNoticeDialogProps = {
   /** Default company when scope is "company" (e.g. Users admin page). */
   defaultCompanyId?: Id<"companies">;
   /**
+   * When the dialog opens, set “Who receives it” to the matching scope.
+   * Use `"company"` with `defaultCompanyId` from a company row (Users admin).
+   */
+  initialAudience?: "all" | "company";
+  /**
    * When set, the notice is sent only to this user; audience pickers are hidden.
    * Use with `preset={null}` for a full link form targeted at one person.
    */
@@ -71,6 +76,7 @@ export function SendInAppNoticeDialog({
   preset,
   presetSummary,
   defaultCompanyId,
+  initialAudience = "all",
   targetUserId,
   targetUserSummary,
 }: SendInAppNoticeDialogProps) {
@@ -340,7 +346,16 @@ export function SendInAppNoticeDialog({
     if (defaultCompanyId && !singleUserTarget) {
       setInAppCompanyId(defaultCompanyId);
     }
-  }, [open, defaultCompanyId, resetForm, singleUserTarget]);
+    if (initialAudience === "company" && !singleUserTarget) {
+      setInAppScope("company");
+    }
+  }, [
+    open,
+    defaultCompanyId,
+    initialAudience,
+    resetForm,
+    singleUserTarget,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
