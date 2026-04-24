@@ -265,7 +265,7 @@ export default function AdminUsersClient() {
                       <li key={c._id} className="p-0.5">
                         <div
                           className={cn(
-                            "flex rounded-md border transition-colors",
+                            "group flex rounded-md border transition-colors",
                             active
                               ? "border-brand-lime/50 bg-brand-lime/10"
                               : "border-transparent hover:bg-muted/60",
@@ -283,7 +283,14 @@ export default function AdminUsersClient() {
                               {count} user{count === 1 ? "" : "s"}
                             </span>
                           </button>
-                          <div className="flex flex-col border-l shrink-0">
+                          <div
+                            className={cn(
+                              "flex flex-col border-l shrink-0 self-stretch transition-opacity duration-150",
+                              "opacity-100 md:pointer-events-none md:opacity-0",
+                              "md:group-hover:pointer-events-auto md:group-hover:opacity-100",
+                              "md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100",
+                            )}
+                          >
                             {isAdmin && sessionUser ? (
                               <SendInAppNoticeRowIconButton
                                 onOpen={() => {
@@ -292,7 +299,7 @@ export default function AdminUsersClient() {
                                 }}
                                 title="Send in-app notice for this company"
                                 tooltip="Notify everyone in this company, or pick one person in the form."
-                                className="!h-7 !w-7 min-h-0 min-w-0 rounded-none !text-brand-sky hover:!bg-brand-sky/12 hover:!text-brand-sky dark:!text-brand-sky/85 dark:hover:!bg-brand-sky/18 dark:hover:!text-brand-sky"
+                                className="!h-7 !w-7 min-h-0 min-w-0 rounded-none"
                               />
                             ) : null}
                             <Button
@@ -573,7 +580,7 @@ export default function AdminUsersClient() {
                       {(companyUsers ?? []).map((u) => (
                         <li
                           key={u._id}
-                          className="flex items-center gap-2 px-3 py-2 text-sm"
+                          className="group flex items-center gap-2 px-3 py-2 text-sm"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="font-medium truncate">{u.name}</div>
@@ -581,7 +588,14 @@ export default function AdminUsersClient() {
                               {u.email} · {u.role}
                             </div>
                           </div>
-                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                          <div
+                            className={cn(
+                              "flex shrink-0 flex-wrap items-center justify-end gap-1 self-start transition-opacity duration-150",
+                              "opacity-100 md:pointer-events-none md:opacity-0",
+                              "md:group-hover:pointer-events-auto md:group-hover:opacity-100",
+                              "md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100",
+                            )}
+                          >
                             {isAdmin ? (
                               <SendInAppNoticeRowIconButton
                                 onOpen={() => {
@@ -594,7 +608,7 @@ export default function AdminUsersClient() {
                                 }}
                                 title="Send in-app notice to this user"
                                 tooltip="Send in-app notice to this user"
-                                className="rounded-md text-brand-sky/90 hover:bg-brand-sky/12 hover:text-brand-sky dark:text-brand-sky/80 dark:hover:bg-brand-sky/15 dark:hover:text-brand-sky"
+                                className="rounded-md"
                               />
                             ) : null}
                             <Button

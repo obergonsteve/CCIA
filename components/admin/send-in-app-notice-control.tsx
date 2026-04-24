@@ -115,7 +115,7 @@ export function SendInAppNoticeRowIconButton({
           variant="ghost"
           size="icon"
           className={cn(
-            "rounded-none text-red-800/90 hover:bg-red-500/15 hover:text-red-900 dark:text-red-400/95 dark:hover:bg-red-500/20 dark:hover:text-red-200",
+            "rounded-none text-brand-gold hover:bg-brand-gold/15 hover:text-brand-gold dark:text-brand-gold/90 dark:hover:bg-brand-gold/22 dark:hover:text-brand-gold",
             compact ? "h-6 w-6" : "h-7 w-7",
             className,
           )}
