@@ -333,7 +333,8 @@ async function resolveNotificationLink(
   }
 }
 
-async function tryCreateOrSkip(
+/** Also used by `webinarReminders` in-process so `runDue` is one fast transaction, not N nested `runMutation`s. */
+export async function tryCreateOrSkip(
   ctx: MutationCtx,
   args: {
     userId: Id<"users"> | undefined;

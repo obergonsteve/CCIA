@@ -5,7 +5,7 @@ const crons = cronJobs();
 
 crons.interval(
   "webinar reminder in-app post-its",
-  { minutes: 10 },
+  { minutes: 2 },
   internal.webinarReminders.runDue,
   {},
 );

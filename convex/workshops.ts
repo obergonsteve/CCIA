@@ -1004,6 +1004,11 @@ export const registerForSession = mutation({
       sessionId,
       registeredAt: Date.now(),
     });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.webinarReminders.ensureDueReminderForUserSession,
+      { sessionId, userId },
+    );
     await syncUnitsContainingWorkshopSession(ctx, userId, sessionId);
     if (session.conferenceProvider === "microsoft_teams") {
       if (isWorkshopTeamsSimulationEnabled()) {

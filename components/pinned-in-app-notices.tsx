@@ -41,7 +41,7 @@ import { cn } from "@/lib/utils";
 const DRAG_TYPE_PREFIX = "cciaNotification:";
 
 const PIN_CONTROL_HINT =
-  "Drag a note here to stash it. Oldest first when opened.";
+  "Drag a note above to stash it for later. Oldest first when opened.";
 
 export function PinnedInAppNotices() {
   const { user: sessionUser } = useSessionUser();
@@ -175,7 +175,7 @@ export function PinnedInAppNotices() {
             </p>
           ) : pinned.length === 0 ? (
             <p className="px-1 py-3 text-center text-xs text-muted-foreground">
-              Drag a note here to stash it
+              Drag a note above to stash it for later
             </p>
           ) : (
             <ol className="m-0 list-none space-y-1.5 p-0">
