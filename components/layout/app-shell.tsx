@@ -2,6 +2,7 @@
 
 import { api } from "@/convex/_generated/api";
 import { NotificationStack } from "@/components/notification-stack";
+import { PinnedInAppNotices } from "@/components/pinned-in-app-notices";
 import { OfflineTrainingBanner } from "@/components/offline-training-banner";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -88,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             width={138}
             height={137}
             unoptimized
-            className="size-[2.1rem] shrink-0 object-contain object-left"
+            className="size-[2.1rem] shrink-0 rounded-sm object-contain object-left"
             priority
           />
         </div>
@@ -168,7 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
           {showAdmin && (
             <div className="space-y-0.5 pt-2 mt-2 border-t border-white/10">
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/45">
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-brand-gold/85">
                 Admin
               </p>
               {adminSidebarNav.map(({ href, label, icon: Icon }) => {
@@ -288,43 +289,50 @@ export function AppShell({ children }: { children: ReactNode }) {
             </>
           ) : (
             <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
-                aria-label={navOpen ? "Toggle navigation" : "Open navigation"}
-                aria-expanded={navOpen}
-                aria-controls="app-sidebar-nav"
-                onClick={() => setNavOpen((o) => !o)}
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <Image
-                  src="/LLLIA_trans.png"
-                  alt={SITE_APP_NAME}
-                  width={632}
-                  height={186}
-                  className="h-[60px] w-auto max-h-[60px] max-w-full shrink-0 object-contain object-left"
-                  priority
-                />
+              <div className="grid w-full min-w-0 flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+                    aria-label={navOpen ? "Toggle navigation" : "Open navigation"}
+                    aria-expanded={navOpen}
+                    aria-controls="app-sidebar-nav"
+                    onClick={() => setNavOpen((o) => !o)}
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                  <Image
+                    src="/LLLIA_trans.png"
+                    alt={SITE_APP_NAME}
+                    width={632}
+                    height={186}
+                    className="h-[60px] w-auto max-h-[60px] max-w-[min(100%,12rem)] shrink-0 object-contain object-left sm:max-w-[min(100%,16rem)]"
+                    priority
+                  />
+                </div>
+                <div className="flex min-w-0 justify-center">
+                  <PinnedInAppNotices />
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+                    onClick={() =>
+                      setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                    }
+                    aria-label="Toggle theme"
+                  >
+                    {resolvedTheme === "dark" ? (
+                      <Sun className="h-4 w-4" />
+                    ) : (
+                      <Moon className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="ml-auto shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
-                onClick={() =>
-                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                }
-                aria-label="Toggle theme"
-              >
-                {resolvedTheme === "dark" ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
-              </Button>
             </>
           )}
         </header>

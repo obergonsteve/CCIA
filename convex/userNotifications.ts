@@ -98,6 +98,75 @@ function isBroadcastRow(
   );
 }
 
+const MAX_PINNED_IN_APP = 20;
+
+async function getBroadcastHiddenIdsForUser(
+  ctx: QueryCtx | MutationCtx,
+  forUserId: Id<"users">,
+): Promise<Set<string>> {
+  const myDismissed = await ctx.db
+    .query("userNotificationBroadcastDismissals")
+    .withIndex("by_user", (q) => q.eq("userId", forUserId))
+    .collect();
+  return new Set(myDismissed.map((d) => String(d.notificationId)));
+}
+
+/** Same visibility as {@link listActiveForUser} for a single row. */
+function isNotificationVisiblyActiveForUser(
+  forUserId: Id<"users">,
+  row: Doc<"userNotifications">,
+  broadcastHidden: Set<string>,
+): boolean {
+  if (row.dismissed) {
+    return false;
+  }
+  if (row.userId != null) {
+    return row.userId === forUserId;
+  }
+  if (isBroadcastRow(row)) {
+    return !broadcastHidden.has(String(row._id));
+  }
+  return false;
+}
+
+async function filterUserPinnedToActive(
+  ctx: MutationCtx,
+  forUserId: Id<"users">,
+  current: Id<"userNotifications">[] | undefined,
+  broadcastHidden: Set<string>,
+): Promise<Id<"userNotifications">[]> {
+  if (current == null || current.length === 0) {
+    return [];
+  }
+  const next: Id<"userNotifications">[] = [];
+  for (const id of current) {
+    const row = await ctx.db.get(id);
+    if (
+      row == null ||
+      !isNotificationVisiblyActiveForUser(forUserId, row, broadcastHidden)
+    ) {
+      continue;
+    }
+    next.push(id);
+  }
+  return next;
+}
+
+async function removeNotificationIdFromUserPins(
+  ctx: MutationCtx,
+  forUserId: Id<"users">,
+  notificationId: Id<"userNotifications">,
+) {
+  const u = await ctx.db.get(forUserId);
+  const pins = u?.pinnedInAppNotificationIds;
+  if (pins == null || !pins.some((x) => x === notificationId)) {
+    return;
+  }
+  await ctx.db.patch(forUserId, {
+    pinnedInAppNotificationIds: pins.filter((x) => x !== notificationId),
+  });
+}
+
 function userIdKeyFor(
   userId: Id<"users"> | undefined,
 ): string {
@@ -314,11 +383,15 @@ export const listActiveForUser = query({
     if (forUserId == null) {
       return [];
     }
-    if (!(await ctx.db.get(forUserId))) {
+    const user = await ctx.db.get(forUserId);
+    if (user == null) {
       return [];
     }
     const cap = Math.min(50, Math.max(1, limit));
     const key = String(forUserId);
+    const pinned = new Set(
+      (user.pinnedInAppNotificationIds ?? []).map((id) => String(id)),
+    );
 
     const fromKey = await ctx.db
       .query("userNotifications")
@@ -365,7 +438,8 @@ export const listActiveForUser = query({
 
     const merged = [...userTargeted, ...broadcastVisible];
     merged.sort((a, b) => b.createdAt - a.createdAt);
-    const slice = merged.slice(0, cap);
+    const notPinned = merged.filter((row) => !pinned.has(String(row._id)));
+    const slice = notPinned.slice(0, cap);
     return await Promise.all(
       slice.map(async (row) => {
         if (row.linkRef == null) {
@@ -379,6 +453,128 @@ export const listActiveForUser = query({
         }
       }),
     );
+  },
+});
+
+/**
+ * Pinned post-its for the app shell (order: oldest received first).
+ */
+export const listPinnedForUser = query({
+  args: { forUserId: v.id("users") },
+  handler: async (ctx, { forUserId }) => {
+    if (!(await ctx.db.get(forUserId))) {
+      return [];
+    }
+    const u = await ctx.db.get(forUserId);
+    const raw = u?.pinnedInAppNotificationIds ?? [];
+    if (raw.length === 0) {
+      return [];
+    }
+    const broadcastHidden = await getBroadcastHiddenIdsForUser(
+      ctx,
+      forUserId,
+    );
+    const rows: Doc<"userNotifications">[] = [];
+    for (const id of raw) {
+      const row = await ctx.db.get(id);
+      if (
+        row == null ||
+        !isNotificationVisiblyActiveForUser(
+          forUserId,
+          row,
+          broadcastHidden,
+        )
+      ) {
+        continue;
+      }
+      rows.push(row);
+    }
+    rows.sort((a, b) => a.createdAt - b.createdAt);
+    return await Promise.all(
+      rows.map(async (row) => {
+        if (row.linkRef == null) {
+          return row;
+        }
+        try {
+          const resolved = await resolveNotificationLink(ctx, row.linkRef);
+          return { ...row, linkLabel: resolved.defaultLabel };
+        } catch {
+          return row;
+        }
+      }),
+    );
+  },
+});
+
+export const pinInApp = mutation({
+  args: {
+    forUserId: v.id("users"),
+    notificationId: v.id("userNotifications"),
+  },
+  handler: async (ctx, { forUserId, notificationId }) => {
+    if (!(await ctx.db.get(forUserId))) {
+      return { ok: false as const, reason: "user_not_found" as const };
+    }
+    const row = await ctx.db.get(notificationId);
+    if (row == null) {
+      return { ok: false as const, reason: "not_found" as const };
+    }
+    const broadcastHidden = await getBroadcastHiddenIdsForUser(
+      ctx,
+      forUserId,
+    );
+    if (
+      !isNotificationVisiblyActiveForUser(forUserId, row, broadcastHidden)
+    ) {
+      return { ok: false as const, reason: "not_active" as const };
+    }
+    const u = await ctx.db.get(forUserId);
+    const pruned = await filterUserPinnedToActive(
+      ctx,
+      forUserId,
+      u?.pinnedInAppNotificationIds,
+      broadcastHidden,
+    );
+    if (pruned.some((x) => x === notificationId)) {
+      return { ok: true as const, already: true as const };
+    }
+    if (pruned.length >= MAX_PINNED_IN_APP) {
+      return { ok: false as const, reason: "max_pins" as const };
+    }
+    await ctx.db.patch(forUserId, {
+      pinnedInAppNotificationIds: [...pruned, notificationId],
+    });
+    return { ok: true as const, already: false as const };
+  },
+});
+
+export const unpinInApp = mutation({
+  args: {
+    forUserId: v.id("users"),
+    notificationId: v.id("userNotifications"),
+  },
+  handler: async (ctx, { forUserId, notificationId }) => {
+    if (!(await ctx.db.get(forUserId))) {
+      return { ok: false as const, reason: "user_not_found" as const };
+    }
+    const u = await ctx.db.get(forUserId);
+    const current = u?.pinnedInAppNotificationIds ?? [];
+    if (!current.some((x) => x === notificationId)) {
+      return { ok: true as const, already: true as const };
+    }
+    const broadcastHidden = await getBroadcastHiddenIdsForUser(
+      ctx,
+      forUserId,
+    );
+    const pruned = await filterUserPinnedToActive(
+      ctx,
+      forUserId,
+      current,
+      broadcastHidden,
+    );
+    const next = pruned.filter((x) => x !== notificationId);
+    await ctx.db.patch(forUserId, { pinnedInAppNotificationIds: next });
+    return { ok: true as const, already: false as const };
   },
 });
 
@@ -401,6 +597,11 @@ export const dismiss = mutation({
         return { ok: false as const, reason: "not_found" as const };
       }
       if (row.dismissed) {
+        await removeNotificationIdFromUserPins(
+          ctx,
+          forUserId,
+          notificationId,
+        );
         return { ok: true as const, already: true as const };
       }
       const now = Date.now();
@@ -408,26 +609,31 @@ export const dismiss = mutation({
         dismissed: true,
         dismissedAt: now,
       });
-      return { ok: true as const, already: false as const };
-    }
-    if (!isBroadcastRow(row)) {
+    } else if (isBroadcastRow(row)) {
+      const now = Date.now();
+      const existing = await ctx.db
+        .query("userNotificationBroadcastDismissals")
+        .withIndex("by_user_notification", (q) =>
+          q.eq("userId", forUserId).eq("notificationId", notificationId),
+        )
+        .first();
+      if (existing) {
+        await removeNotificationIdFromUserPins(
+          ctx,
+          forUserId,
+          notificationId,
+        );
+        return { ok: true as const, already: true as const };
+      }
+      await ctx.db.insert("userNotificationBroadcastDismissals", {
+        userId: forUserId,
+        notificationId,
+        createdAt: now,
+      });
+    } else {
       return { ok: false as const, reason: "not_found" as const };
     }
-    const now = Date.now();
-    const existing = await ctx.db
-      .query("userNotificationBroadcastDismissals")
-      .withIndex("by_user_notification", (q) =>
-        q.eq("userId", forUserId).eq("notificationId", notificationId),
-      )
-      .first();
-    if (existing) {
-      return { ok: true as const, already: true as const };
-    }
-    await ctx.db.insert("userNotificationBroadcastDismissals", {
-      userId: forUserId,
-      notificationId,
-      createdAt: now,
-    });
+    await removeNotificationIdFromUserPins(ctx, forUserId, notificationId);
     return { ok: true as const, already: false as const };
   },
 });
@@ -496,6 +702,7 @@ export const dismissAll = mutation({
         broadcastDismissed += 1;
       }
     }
+    await ctx.db.patch(forUserId, { pinnedInAppNotificationIds: [] });
     return {
       count: toPatch.size,
       broadcastDismissed,

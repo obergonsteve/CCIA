@@ -47,6 +47,13 @@ export default defineSchema({
      * item is tied to a certification level on the user’s roadmap.
      */
     notifyNewContentRoadmapOnly: v.optional(v.boolean()),
+    /**
+     * Post-it `userNotifications` the user has pinned in the app shell (drag-to-pin).
+     * Stale ids are ignored in list UI; pruned on successful pin.
+     */
+    pinnedInAppNotificationIds: v.optional(
+      v.array(v.id("userNotifications")),
+    ),
   })
     .index("by_email", ["email"])
     .index("by_company", ["companyId"]),

@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronDown, ExternalLink, GripVertical, X } from "lucide-react";
+import { ChevronDown, ExternalLink, GripVertical, Pin, X } from "lucide-react";
 import Link from "next/link";
 import {
   useCallback,
@@ -27,98 +27,24 @@ import {
   NOTIFICATION_IMPORTANCE,
   NotificationImportanceGlyph,
 } from "@/lib/notification-importance";
+import { postItImportanceClassNames } from "@/lib/notification-post-it-surface";
+import {
+  CCIA_PINNED_SAVED_EVENT,
+  isPointOverPinnedInAppDrop,
+  setPinnedInAppDropHover,
+} from "@/lib/pinned-in-app-drop";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const NOTE_W = 256;
-
-const glassShadow =
-  "shadow-[0_2px_12px_rgba(0,0,0,0.04),0_6px_24px_-4px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.35)] " +
-  "dark:shadow-[0_3px_20px_rgba(0,0,0,0.16),0_0_0_1px_rgba(255,255,255,0.04)_inset] " +
-  "backdrop-blur-xl";
-
 /**
- * Frosted “bubble” with distinct importance tints.
- * Left accent is always `border-l-[2.5px]` (keep in sync across all levels).
+ * Opacity transition for note enter / exit (ms). Must match `duration-500` on the
+ * DraggableNote shell and the dismiss timeouts below.
  */
-function importanceClassNames(level: NotificationImportance | undefined) {
-  const n = (level ?? "normal") as NotificationImportance;
-  switch (n) {
-    case "low":
-      return {
-        shell: cn(
-          "rounded-2xl overflow-hidden",
-          "border border-slate-300/28 dark:border-slate-500/20",
-          "border-l-[2.5px] border-l-slate-500/90 dark:border-l-slate-300/88",
-          "bg-gradient-to-br from-sky-100/16 via-slate-100/10 to-slate-300/8 " +
-            "dark:from-slate-500/12 dark:via-slate-800/10 dark:to-slate-900/8",
-          glassShadow,
-        ),
-        hairline:
-          "border-b border-slate-400/12 bg-white/[0.05] dark:border-white/[0.06] dark:bg-slate-900/8",
-        icon: "text-slate-600 dark:text-slate-300",
-        title:
-          "text-slate-900/95 [text-shadow:0_1px_0_rgba(255,255,255,0.45)] dark:text-slate-50",
-        text: "text-slate-800/95 dark:text-slate-100/95",
-        muted: "text-slate-600/88 dark:text-slate-300/85",
-      };
-    case "normal":
-      return {
-        shell: cn(
-          "rounded-2xl overflow-hidden",
-          "border border-amber-300/26 dark:border-amber-600/20",
-          "border-l-[2.5px] border-l-amber-500/90 dark:border-l-amber-300/88",
-          "bg-gradient-to-br from-amber-200/16 from-20% via-amber-100/10 to-amber-300/12 " +
-            "dark:from-amber-500/12 dark:via-amber-800/9 dark:to-amber-950/8",
-          glassShadow,
-        ),
-        hairline:
-          "border-b border-amber-500/12 bg-amber-50/10 dark:border-amber-400/8 dark:bg-amber-900/10",
-        icon: "text-amber-700 dark:text-amber-300",
-        title:
-          "text-amber-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-amber-50",
-        text: "text-amber-950/95 dark:text-amber-50/95",
-        muted: "text-amber-900/80 dark:text-amber-100/80",
-      };
-    case "high":
-      return {
-        shell: cn(
-          "rounded-2xl overflow-hidden",
-          "border border-orange-300/28 dark:border-orange-500/22",
-          "border-l-[2.5px] border-l-orange-500/90 dark:border-l-orange-300/88",
-          "bg-gradient-to-br from-orange-200/17 from-20% via-orange-100/10 to-orange-300/12 " +
-            "dark:from-orange-500/12 dark:via-orange-800/9 dark:to-orange-950/9",
-          glassShadow,
-        ),
-        hairline:
-          "border-b border-orange-500/12 bg-orange-50/8 dark:border-orange-400/8 dark:bg-orange-950/10",
-        icon: "text-orange-700 dark:text-orange-300",
-        title:
-          "text-orange-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-orange-50",
-        text: "text-orange-950/95 dark:text-orange-50/95",
-        muted: "text-orange-900/80 dark:text-orange-100/80",
-      };
-    case "urgent":
-      return {
-        shell: cn(
-          "rounded-2xl overflow-hidden",
-          "border border-rose-300/26 dark:border-rose-500/22",
-          "border-l-[2.5px] border-l-rose-500/90 dark:border-l-rose-300/88",
-          "bg-gradient-to-br from-rose-200/18 from-20% via-rose-100/10 to-rose-300/12 " +
-            "dark:from-rose-500/12 dark:via-rose-800/9 dark:to-rose-950/9",
-          glassShadow,
-        ),
-        hairline:
-          "border-b border-rose-500/12 bg-rose-50/8 dark:border-rose-400/8 dark:bg-rose-950/10",
-        icon: "text-rose-700 dark:text-rose-300",
-        title:
-          "text-rose-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-rose-50",
-        text: "text-rose-950/95 dark:text-rose-50/95",
-        muted: "text-rose-900/80 dark:text-rose-100/80",
-      };
-    default:
-      return importanceClassNames("normal");
-  }
-}
+const NOTIF_FADE_MS = 500;
+/** Extra wait after fade so opacity finishes before unmount / mutation. */
+const NOTIF_FADE_COMPLETE_BUFFER_MS = 60;
+const PIN_POINTER_SLOP_PX = 4;
 
 function DraggableNote({
   row,
@@ -129,6 +55,8 @@ function DraggableNote({
   onPositionChange,
   onDismiss,
   onFocusNote,
+  /** Parent-driven fade (e.g. “Dismiss all”) before rows unmount. */
+  bulkExiting = false,
 }: {
   row: Doc<"userNotifications">;
   x: number;
@@ -138,16 +66,70 @@ function DraggableNote({
   onPositionChange: (x: number, y: number) => void;
   onDismiss: () => void;
   onFocusNote: () => void;
+  bulkExiting?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const gripRef = useRef<HTMLButtonElement>(null);
+  const [entered, setEntered] = useState(false);
+  const [localExiting, setLocalExiting] = useState(false);
   const importance = (row.importance ?? "normal") as NotificationImportance;
-  const th = importanceClassNames(importance);
+  const th = postItImportanceClassNames(importance);
   const [expanded, setExpanded] = useState(false);
   const hasBody = Boolean(row.body != null && row.body.trim() !== "");
   const hasLink = Boolean(row.linkHref && row.linkHref.trim() !== "");
   /** Step link / body text live in the same collapsible area. */
   const hasDetails = hasBody || hasLink;
   const linkLabel = row.linkLabel?.trim() || "Open";
+  const pinM = useMutation(api.userNotifications.pinInApp);
+  const pinUserId = forUserId as Id<"users">;
+  const pinTrackRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    slopMet: boolean;
+  } | null>(null);
+  /** document capture listeners (see onCardPointerDown) */
+  const pinDocListenersRef = useRef<{
+    move: (e: PointerEvent) => void;
+    up: (e: PointerEvent) => void;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setEntered(true);
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setEntered(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const fadeOut = bulkExiting || localExiting;
+  const visible = entered && !fadeOut;
+  const dismissOnceRef = useRef(false);
+  const finishDismiss = useCallback(() => {
+    if (dismissOnceRef.current) {
+      return;
+    }
+    dismissOnceRef.current = true;
+    removeNotifPosition(forUserId, row._id);
+    onDismiss();
+  }, [forUserId, onDismiss, row._id]);
+
+  useEffect(() => {
+    if (!localExiting) {
+      return;
+    }
+    const t = window.setTimeout(
+      finishDismiss,
+      NOTIF_FADE_MS + NOTIF_FADE_COMPLETE_BUFFER_MS,
+    );
+    return () => window.clearTimeout(t);
+  }, [localExiting, finishDismiss]);
 
   const onHandlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) {
@@ -156,11 +138,19 @@ function DraggableNote({
     e.preventDefault();
     e.stopPropagation();
     onFocusNote();
+    const pointerId = e.pointerId;
+    const startClientX0 = e.clientX;
+    const startClientY0 = e.clientY;
     const startX = e.clientX - x;
     const startY = e.clientY - y;
     const el = e.currentTarget;
+    /** Slop for “drag onto Pinned” (same as card); moving the handle counts as a drag. */
+    const slop = { met: false };
 
     const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) {
+        return;
+      }
       const w = cardRef.current?.offsetWidth ?? NOTE_W;
       const h = cardRef.current?.offsetHeight ?? 100;
       const { innerWidth, innerHeight } = window;
@@ -168,32 +158,202 @@ function DraggableNote({
       const ny = ev.clientY - startY;
       const c = clampNotifPosition(nx, ny, innerWidth, innerHeight, w, h);
       onPositionChange(c.x, c.y);
+
+      const d2FromStart =
+        (ev.clientX - startClientX0) * (ev.clientX - startClientX0) +
+        (ev.clientY - startClientY0) * (ev.clientY - startClientY0);
+      const slop2 = PIN_POINTER_SLOP_PX * PIN_POINTER_SLOP_PX;
+      if (d2FromStart >= slop2) {
+        slop.met = true;
+      }
+      const movedEnough = slop.met || d2FromStart >= slop2;
+      setPinnedInAppDropHover(
+        movedEnough && isPointOverPinnedInAppDrop(ev.clientX, ev.clientY),
+      );
     };
 
     const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) {
+        return;
+      }
       if (el.hasPointerCapture?.(ev.pointerId)) {
         el.releasePointerCapture(ev.pointerId);
       }
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointermove", onMove, true);
+      document.removeEventListener("pointerup", onUp, true);
+      document.removeEventListener("pointercancel", onUp, true);
+
+      setPinnedInAppDropHover(false);
+      const d2 =
+        (ev.clientX - startClientX0) * (ev.clientX - startClientX0) +
+        (ev.clientY - startClientY0) * (ev.clientY - startClientY0);
+      const slop2 = PIN_POINTER_SLOP_PX * PIN_POINTER_SLOP_PX;
+      const movedEnough = slop.met || d2 >= slop2;
+      if (
+        movedEnough &&
+        isPointOverPinnedInAppDrop(ev.clientX, ev.clientY)
+      ) {
+        void runPinInHeader();
+        return;
+      }
     };
 
-    el.setPointerCapture(e.pointerId);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
+    el.setPointerCapture(pointerId);
+    document.addEventListener("pointermove", onMove, { capture: true, passive: true });
+    document.addEventListener("pointerup", onUp, { capture: true });
+    document.addEventListener("pointercancel", onUp, { capture: true });
+  };
+
+  const endPinToHeaderListeners = useCallback(() => {
+    const w = pinDocListenersRef.current;
+    if (w != null) {
+      document.removeEventListener("pointermove", w.move, true);
+      document.removeEventListener("pointerup", w.up, true);
+      document.removeEventListener("pointercancel", w.up, true);
+      pinDocListenersRef.current = null;
+    }
+    pinTrackRef.current = null;
+    setPinnedInAppDropHover(false);
+  }, []);
+
+  const runPinInHeader = useCallback(async () => {
+    try {
+      const r = await pinM({
+        forUserId: pinUserId,
+        notificationId: row._id,
+      });
+      if (r.ok) {
+        if (r.already) {
+          toast.message("Already in Pinned.");
+        } else {
+          window.dispatchEvent(
+            new CustomEvent(CCIA_PINNED_SAVED_EVENT, {
+              detail: { expand: true } as { expand: boolean },
+            }),
+          );
+        }
+      } else if (r.reason === "max_pins") {
+        toast.error("Pinned list is full (20). Unpin one first.");
+      } else if (r.reason === "not_active") {
+        toast.error("That notice is no longer available.");
+      } else {
+        toast.error("Could not add to Pinned.");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not add to Pinned.",
+      );
+    }
+  }, [pinM, pinUserId, row._id]);
+
+  useEffect(() => {
+    return () => {
+      setPinnedInAppDropHover(false);
+      const w = pinDocListenersRef.current;
+      if (w != null) {
+        document.removeEventListener("pointermove", w.move, true);
+        document.removeEventListener("pointerup", w.up, true);
+        document.removeEventListener("pointercancel", w.up, true);
+        pinDocListenersRef.current = null;
+      }
+    };
+  }, []);
+
+  const onCardPointerDown = (e: React.PointerEvent) => {
+    onFocusNote();
+    if (e.button !== 0) {
+      return;
+    }
+    const t = e.target;
+    if (!(t instanceof Element)) {
+      return;
+    }
+    if (gripRef.current != null && gripRef.current.contains(t)) {
+      return;
+    }
+    if (t.closest("button, a[href]")) {
+      return;
+    }
+
+    endPinToHeaderListeners();
+    const session = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      slopMet: false,
+    };
+    pinTrackRef.current = session;
+    /** `document` + capture phase: we always see pointer position even when
+     *  the note (z-200) covers the header; the card’s own listeners do not. */
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== session.pointerId) {
+        return;
+      }
+      const s = pinTrackRef.current;
+      if (s == null) {
+        return;
+      }
+      const d2FromStart =
+        (ev.clientX - s.startX) * (ev.clientX - s.startX) +
+        (ev.clientY - s.startY) * (ev.clientY - s.startY);
+      const slop2 = PIN_POINTER_SLOP_PX * PIN_POINTER_SLOP_PX;
+      if (d2FromStart >= slop2) {
+        s.slopMet = true;
+      }
+      const movedEnough = s.slopMet || d2FromStart >= slop2;
+      const onTarget = isPointOverPinnedInAppDrop(ev.clientX, ev.clientY);
+      setPinnedInAppDropHover(movedEnough && onTarget);
+    };
+
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== session.pointerId) {
+        return;
+      }
+      const s = pinTrackRef.current;
+      const startX = s?.startX ?? 0;
+      const startY = s?.startY ?? 0;
+      endPinToHeaderListeners();
+      if (s == null) {
+        return;
+      }
+      const d2 =
+        (ev.clientX - startX) * (ev.clientX - startX) +
+        (ev.clientY - startY) * (ev.clientY - startY);
+      const slop2 = PIN_POINTER_SLOP_PX * PIN_POINTER_SLOP_PX;
+      const movedEnough = s.slopMet || d2 >= slop2;
+      if (!movedEnough) {
+        return;
+      }
+      if (!isPointOverPinnedInAppDrop(ev.clientX, ev.clientY)) {
+        return;
+      }
+      void runPinInHeader();
+    };
+
+    pinDocListenersRef.current = { move: onMove, up: onUp };
+    document.addEventListener("pointermove", onMove, { capture: true, passive: true });
+    document.addEventListener("pointerup", onUp, { capture: true });
+    document.addEventListener("pointercancel", onUp, { capture: true });
   };
 
   return (
     <div
       ref={cardRef}
-      className="fixed w-64 max-w-[min(16rem,calc(100vw-0.5rem))] select-none"
+      className={cn(
+        "fixed w-64 max-w-[min(16rem,calc(100vw-0.5rem))] cursor-grab select-none active:cursor-grabbing",
+        "transition-opacity duration-500 ease-out motion-reduce:duration-0",
+        visible ? "opacity-100" : "opacity-0",
+        !visible && "pointer-events-none",
+      )}
       style={{
         left: 0,
         top: 0,
         transform: `translate(${x}px, ${y}px)`,
         zIndex: z,
       }}
-      onPointerDown={() => onFocusNote()}
+      title="Click the pin, or drag the handle (or the card) onto Pinned in the header"
+      onPointerDown={onCardPointerDown}
     >
       <div className={cn("overflow-hidden", th.shell)}>
         <div
@@ -204,13 +364,28 @@ function DraggableNote({
           )}
         >
           <button
+            ref={gripRef}
             type="button"
-            className="touch-none rounded p-0.5 text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10 cursor-grab active:cursor-grabbing"
-            title="Drag"
+            className="cursor-grab touch-none rounded p-0.5 text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10 active:cursor-grabbing"
+            title="Drag to move; release over Pinned in the header to save"
             aria-label="Drag to move"
+            draggable={false}
             onPointerDown={onHandlePointerDown}
           >
             <GripVertical className="h-3.5 w-3.5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="touch-none rounded p-0.5 text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
+            title="Add to Pinned in header (click — no drag required)"
+            aria-label="Pin to header"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFocusNote();
+              void runPinInHeader();
+            }}
+          >
+            <Pin className="h-3.5 w-3.5" aria-hidden />
           </button>
           <span
             className="inline-flex shrink-0"
@@ -234,7 +409,8 @@ function DraggableNote({
           {hasDetails ? (
             <button
               type="button"
-              className="shrink-0 rounded p-0.5 text-foreground/80 hover:bg-black/10 dark:hover:bg-white/15"
+              draggable={false}
+              className="shrink-0 cursor-default rounded p-0.5 text-foreground/80 hover:bg-black/10 dark:hover:bg-white/15"
               onClick={(e) => {
                 e.stopPropagation();
                 onFocusNote();
@@ -255,12 +431,19 @@ function DraggableNote({
           ) : null}
           <button
             type="button"
-            className="rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/15"
+            draggable={false}
+            className="cursor-default rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/15"
             onClick={(e) => {
               e.stopPropagation();
               onFocusNote();
-              removeNotifPosition(forUserId, row._id);
-              onDismiss();
+              if (
+                typeof window !== "undefined" &&
+                window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+              ) {
+                finishDismiss();
+                return;
+              }
+              setLocalExiting(true);
             }}
             title="Dismiss"
             aria-label="Dismiss notification"
@@ -290,8 +473,9 @@ function DraggableNote({
               >
                 <Link
                   href={row.linkHref}
+                  draggable={false}
                   className={cn(
-                    "inline-flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden",
+                    "inline-flex w-full min-w-0 max-w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden",
                     "rounded-md border border-current/18 bg-foreground/5 py-1 text-center text-[0.65rem] font-medium leading-tight",
                     th.muted,
                     "hover:bg-foreground/10 focus-visible:outline focus-visible:ring-2 focus-visible:ring-foreground/25",
@@ -336,6 +520,8 @@ export function NotificationStack() {
   const dismissAllM = useMutation(api.userNotifications.dismissAll);
 
   const [mounted, setMounted] = useState(false);
+  /** “Dismiss all” — fade every note, then run bulk mutation. */
+  const [bulkExiting, setBulkExiting] = useState(false);
   const [positions, setPositions] = useState<
     Record<string, { x: number; y: number }>
   >({});
@@ -504,6 +690,7 @@ export function NotificationStack() {
                 onPositionChange={(nx, ny) => setPosition(id, nx, ny)}
                 onDismiss={() => onDismiss(id)}
                 onFocusNote={() => bringToFront(id)}
+                bulkExiting={bulkExiting}
               />
             </div>
           );
@@ -515,16 +702,34 @@ export function NotificationStack() {
             <Button
               type="button"
               size="sm"
+              disabled={bulkExiting}
               className={cn(
                 "text-xs font-medium shadow-md",
                 "border border-brand-lime/60 bg-brand-lime/90 text-foreground",
                 "hover:bg-brand-lime dark:border-brand-lime/50 dark:bg-brand-lime/80 dark:hover:bg-brand-lime/90",
               )}
               onClick={() => {
-                for (const r of rows) {
-                  removeNotifPosition(forUserKey, r._id);
+                if (bulkExiting) {
+                  return;
                 }
-                void dismissAllM({ forUserId });
+                if (
+                  typeof window !== "undefined" &&
+                  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+                ) {
+                  for (const r of rows) {
+                    removeNotifPosition(forUserKey, r._id);
+                  }
+                  void dismissAllM({ forUserId });
+                  return;
+                }
+                setBulkExiting(true);
+                window.setTimeout(() => {
+                  for (const r of rows) {
+                    removeNotifPosition(forUserKey, r._id);
+                  }
+                  void dismissAllM({ forUserId });
+                  setBulkExiting(false);
+                }, NOTIF_FADE_MS + NOTIF_FADE_COMPLETE_BUFFER_MS);
               }}
             >
               Dismiss all
