@@ -153,7 +153,7 @@ export function PinnedInAppNotices() {
                 />
                 {count > 0 ? (
                   <span
-                    className="min-w-0 text-left text-[0.75rem] font-bold tabular-nums leading-tight text-foreground"
+                    className="min-w-0 text-left text-[0.75rem] font-normal tabular-nums leading-tight text-[color-mix(in_srgb,var(--brand-gold),#0a0a0a_28%)] dark:text-[color-mix(in_srgb,var(--brand-gold),#000_14%)]"
                     aria-label={noticeCountLabel}
                   >
                     {noticeCountLabel}
@@ -193,7 +193,7 @@ export function PinnedInAppNotices() {
             </p>
           ) : pinned.length === 0 ? (
             <p className="px-1 py-3 text-center text-xs text-muted-foreground">
-              No pinned notices
+              Drag a notice here to pin it
             </p>
           ) : (
             <ol className="m-0 max-h-[min(50vh,22rem)] list-none space-y-1.5 overflow-y-auto p-0 pr-0.5">
