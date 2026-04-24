@@ -48,8 +48,8 @@ export default defineSchema({
      */
     notifyNewContentRoadmapOnly: v.optional(v.boolean()),
     /**
-     * Post-it `userNotifications` the user has pinned in the app shell (drag-to-pin).
-     * Stale ids are ignored in list UI; pruned on successful pin.
+     * @deprecated Legacy — use `userInAppNotificationPins` table. Migrated on first
+     * pin/unpin/dismiss that touches pins.
      */
     pinnedInAppNotificationIds: v.optional(
       v.array(v.id("userNotifications")),
@@ -534,4 +534,17 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_notification", ["userId", "notificationId"]),
+
+  /**
+   * Per-user in-app “pinned to header” (Convex-persisted; survives sessions).
+   * Cleared on unpin, single dismiss, or dismiss-all. Legacy `users.pinnedInAppNotificationIds`
+   * is backfilled into this table on first pin/unpin/dismiss.
+   */
+  userInAppNotificationPins: defineTable({
+    userId: v.id("users"),
+    notificationId: v.id("userNotifications"),
+    pinnedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_notification", ["userId", "notificationId"]),
 });
