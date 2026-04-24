@@ -38,6 +38,15 @@ export default defineSchema({
     plannedCertificationLevelIds: v.optional(
       v.array(v.id("certificationLevels")),
     ),
+    /** In-app: remind this many hours before a registered webinar (default 24). */
+    webinarReminderHoursBefore: v.optional(v.number()),
+    /** In-app: show “almost there!” at or above this unit completion % (default 80). */
+    unitAlmostTherePercent: v.optional(v.number()),
+    /**
+     * In-app: for new/updated cert, unit, or library content, only notify when the
+     * item is tied to a certification level on the user’s roadmap.
+     */
+    notifyNewContentRoadmapOnly: v.optional(v.boolean()),
   })
     .index("by_email", ["email"])
     .index("by_company", ["companyId"]),
@@ -427,9 +436,17 @@ export default defineSchema({
    * In-app notifications (not toasts): reminders, nudges, new content, etc.
    * `dedupeKey` is stable per logical item (e.g. `webinar:sessionId`) so crons/events
    * can upsert without spamming; dismissed rows are not re-inserted.
+   * When `userId` is missing, the row is a broadcast: everyone sees it until they dismiss
+   * (see `userNotificationBroadcastDismissals`).
    */
   userNotifications: defineTable({
-    userId: v.id("users"),
+    /** Omitted = all users; otherwise one target user. */
+    userId: v.optional(v.id("users")),
+    /**
+     * Index key: `String(userId)` for targeted, or `NOTIFICATIONS_ALL_USER_KEY` for
+     * broadcast. Required on all new rows (run `backfillUserIdKeys` once for legacy data).
+     */
+    userIdKey: v.optional(v.string()),
     kind: v.union(
       v.literal("webinar_reminder"),
       v.literal("unit_progress_nudge"),
@@ -449,18 +466,65 @@ export default defineSchema({
     ),
     title: v.string(),
     body: v.optional(v.string()),
-    /** In-app link (e.g. `/workshops`, `/units/{id}`). */
+    /** In-app link (e.g. `/workshops`, `/units/{id}`). Filled from `linkRef` when that is set. */
     linkHref: v.optional(v.string()),
+    /** Post-it chip label; defaults are set when using `linkRef` only. */
+    linkLabel: v.optional(v.string()),
     /**
-     * One row per (user, dedupeKey). Used by internal creators to avoid duplicates
-     * and to remember dismissals.
+     * Structured target: resolved to `linkHref` (+ default label) at insert if `linkHref` omitted.
+     * Stored for auditing; prefer `linkHref` if both are set.
+     */
+    linkRef: v.optional(
+      v.union(
+        v.object({
+          kind: v.literal("certificationLevel"),
+          levelId: v.id("certificationLevels"),
+        }),
+        v.object({
+          kind: v.literal("unit"),
+          unitId: v.id("units"),
+          levelId: v.optional(v.id("certificationLevels")),
+        }),
+        v.object({
+          kind: v.literal("content"),
+          contentId: v.id("contentItems"),
+          unitId: v.id("units"),
+          levelId: v.optional(v.id("certificationLevels")),
+          workshopSessionId: v.optional(v.id("workshopSessions")),
+        }),
+        v.object({
+          kind: v.literal("workshopSession"),
+          sessionId: v.id("workshopSessions"),
+        }),
+      ),
+    ),
+    /**
+     * For targeted rows, one per (userIdKey, dedupeKey). For broadcast, one per
+     * (NOTIFICATIONS_ALL_USER_KEY, dedupeKey).
      */
     dedupeKey: v.string(),
     createdAt: v.number(),
+    /**
+     * For `userId` set: on dismiss, patch to true. For broadcast rows, leave false
+     * and use `userNotificationBroadcastDismissals` for per-user dismiss.
+     */
     dismissed: v.boolean(),
     dismissedAt: v.optional(v.number()),
   })
+    .index("by_userIdKey_dismissed", ["userIdKey", "dismissed"])
+    .index("by_userIdKey_dedupe", ["userIdKey", "dedupeKey"])
+    /** Legacy rows + migration: targeted rows with `userId` set. */
+    .index("by_user_dismissed", ["userId", "dismissed"]),
+
+  /**
+   * Per-user dismiss of broadcast (`userId` null) notifications — does not mutate
+   * the `userNotifications` row.
+   */
+  userNotificationBroadcastDismissals: defineTable({
+    userId: v.id("users"),
+    notificationId: v.id("userNotifications"),
+    createdAt: v.number(),
+  })
     .index("by_user", ["userId"])
-    .index("by_user_dismissed", ["userId", "dismissed"])
-    .index("by_user_dedupe", ["userId", "dedupeKey"]),
+    .index("by_user_notification", ["userId", "notificationId"]),
 });

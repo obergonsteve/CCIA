@@ -30,12 +30,22 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Building2, Landmark, Plus, Trash2, Users as UsersIcon } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  Landmark,
+  Plus,
+  Trash2,
+  Users as UsersIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
+import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
 export default function AdminUsersClient() {
+  const { user: sessionUser } = useSessionUser();
   const companies = useQuery(api.companies.list);
   const users = useQuery(api.users.listAll);
 
@@ -46,7 +56,6 @@ export default function AdminUsersClient() {
   const adminDeleteUser = useMutation(api.users.adminDelete);
   const adminSetPassword = useAction(api.auth.adminSetPassword);
   const adminCreateUser = useAction(api.auth.adminCreateUser);
-
   const [selectedCompanyId, setSelectedCompanyId] =
     useState<Id<"companies"> | null>(null);
   const [companyName, setCompanyName] = useState("");
@@ -80,6 +89,8 @@ export default function AdminUsersClient() {
   const [userDeleteOpen, setUserDeleteOpen] = useState(false);
   const [userDeleteId, setUserDeleteId] = useState<Id<"users"> | null>(null);
 
+  const isAdmin = sessionUser?.role === "admin";
+  const [inAppNotifOpen, setInAppNotifOpen] = useState(false);
   const companyUsers = useQuery(
     api.users.listByCompany,
     selectedCompanyId ? { companyId: selectedCompanyId } : "skip",
@@ -92,6 +103,19 @@ export default function AdminUsersClient() {
     }
     return m;
   }, [users]);
+
+  const userEditCompanyTriggerLabel = useMemo(() => {
+    if (!userEditCompanyId) {
+      return null;
+    }
+    if (companies === undefined) {
+      return "Loading…";
+    }
+    return (
+      companies.find((c) => c._id === userEditCompanyId)?.name ??
+      "Unknown company"
+    );
+  }, [companies, userEditCompanyId]);
 
   useEffect(() => {
     if (!companies?.length) {
@@ -139,7 +163,7 @@ export default function AdminUsersClient() {
   return (
     <div
       className={cn(
-        "space-y-6",
+        "space-y-6 -mt-2",
         "[&_[data-slot=input]]:bg-white/55",
         "[&_[data-slot=textarea]]:bg-white/55",
         "[&_[data-slot=select-trigger]]:bg-white/55",
@@ -148,19 +172,33 @@ export default function AdminUsersClient() {
         "dark:[&_[data-slot=select-trigger]]:bg-white/[0.04]",
       )}
     >
-      <div>
-        <p className="text-muted-foreground">
+      <div className="space-y-3">
+        <p className="text-muted-foreground min-w-0 max-w-3xl">
           Companies and people — select a company to edit its profile and manage
           accounts. Use <strong>Add user</strong> to invite someone to the selected
           company.
         </p>
-        <div
-          className="mt-3 flex max-w-md gap-1.5"
-          aria-hidden
-        >
-          <span className="h-0.5 flex-1 max-w-[5.5rem] rounded-full bg-brand-lime/85 dark:bg-brand-lime/70" />
-          <span className="h-0.5 flex-1 max-w-[5.5rem] rounded-full bg-brand-gold/90 dark:bg-brand-gold/75" />
-          <span className="h-0.5 flex-1 max-w-[5.5rem] rounded-full bg-brand-sky/85 dark:bg-brand-sky/70" />
+        <div className="w-full max-w-[17.25rem] space-y-3">
+          {isAdmin && sessionUser ? (
+            <Button
+              type="button"
+              variant="ruby"
+              size="sm"
+              className="w-full gap-2 px-5 shadow-md"
+              onClick={() => setInAppNotifOpen(true)}
+            >
+              <Bell className="h-4 w-4" aria-hidden />
+              Send in-app notice…
+            </Button>
+          ) : null}
+          <div
+            className="flex w-full gap-1.5"
+            aria-hidden
+          >
+            <span className="h-0.5 w-[5.5rem] shrink-0 rounded-full bg-brand-lime/85 dark:bg-brand-lime/70" />
+            <span className="h-0.5 w-[5.5rem] shrink-0 rounded-full bg-brand-gold/90 dark:bg-brand-gold/75" />
+            <span className="h-0.5 w-[5.5rem] shrink-0 rounded-full bg-brand-sky/85 dark:bg-brand-sky/70" />
+          </div>
         </div>
       </div>
 
@@ -664,7 +702,9 @@ export default function AdminUsersClient() {
                 onValueChange={(v) => setUserEditCompanyId(v ?? "")}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select company" />
+                  <SelectValue placeholder="Select company">
+                    {userEditCompanyTriggerLabel}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(companies ?? []).map((c) => (
@@ -778,6 +818,13 @@ export default function AdminUsersClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SendInAppNoticeDialog
+        open={inAppNotifOpen}
+        onOpenChange={setInAppNotifOpen}
+        preset={null}
+        defaultCompanyId={selectedCompanyId ?? undefined}
+      />
     </div>
   );
 }

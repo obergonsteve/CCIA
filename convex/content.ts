@@ -109,6 +109,118 @@ export const listAllAdmin = query({
   },
 });
 
+/**
+ * Admin: ordered content steps for a unit (same as learner `listByUnit` but no company gate).
+ * Used to pick a content link for in-app notifications, etc.
+ */
+export const listInUnitForAdmin = query({
+  args: { unitId: v.id("units") },
+  handler: async (ctx, { unitId }): Promise<ContentInUnit[]> => {
+    await requireAdminOrCreator(ctx);
+    return collectContentInUnit(ctx, unitId);
+  },
+});
+
+export type ContentRowForLinkPicker = {
+  contentId: Id<"contentItems">;
+  unitId: Id<"units">;
+  label: string;
+  /** First certification level linked to this unit (for URL `?level=`). */
+  levelId: Id<"certificationLevels"> | null;
+  workshopSessionId: Id<"workshopSessions"> | null;
+};
+
+/**
+ * Deduplicated content×unit rows for link pickers, optional content-category filter.
+ */
+export const listRowsForLinkPickerAdmin = query({
+  args: {
+    contentCategoryId: v.optional(v.id("contentCategories")),
+    /** When set, only content rows linked to this unit are included. */
+    unitId: v.optional(v.id("units")),
+  },
+  handler: async (ctx, { contentCategoryId, unitId }): Promise<ContentRowForLinkPicker[]> => {
+    await requireAdminOrCreator(ctx);
+    const allContent = (await ctx.db.query("contentItems").collect()).filter((c) =>
+      isLive(c),
+    );
+    const filtered =
+      contentCategoryId != null
+        ? allContent.filter((c) => c.contentCategoryId === contentCategoryId)
+        : allContent;
+    const seen = new Set<string>();
+    const raw: {
+      contentId: Id<"contentItems">;
+      unitId: Id<"units">;
+      c: Doc<"contentItems">;
+    }[] = [];
+    for (const c of filtered) {
+      const links = await ctx.db
+        .query("unitContents")
+        .withIndex("by_content", (q) => q.eq("contentId", c._id))
+        .collect();
+      for (const link of links) {
+        const u = await ctx.db.get(link.unitId);
+        if (!u || !isLive(u)) {
+          continue;
+        }
+        const key = `${c._id}|${link.unitId}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        raw.push({ contentId: c._id, unitId: link.unitId, c });
+      }
+      if (c.unitId) {
+        const u = await ctx.db.get(c.unitId);
+        if (u && isLive(u)) {
+          const key = `${c._id}|${c.unitId}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            raw.push({ contentId: c._id, unitId: c.unitId, c });
+          }
+        }
+      }
+    }
+
+    const firstLevelByUnit = new Map<Id<"units">, Id<"certificationLevels"> | null>();
+    const out: ContentRowForLinkPicker[] = [];
+    for (const row of raw) {
+      if (unitId != null && row.unitId !== unitId) {
+        continue;
+      }
+      if (!firstLevelByUnit.has(row.unitId)) {
+        const cul = await ctx.db
+          .query("certificationUnits")
+          .withIndex("by_unit", (q) => q.eq("unitId", row.unitId))
+          .collect();
+        cul.sort((a, b) => a.order - b.order);
+        let lid: Id<"certificationLevels"> | null = null;
+        for (const cr of cul) {
+          const lev = await ctx.db.get(cr.levelId);
+          if (lev && isLive(lev)) {
+            lid = cr.levelId;
+            break;
+          }
+        }
+        firstLevelByUnit.set(row.unitId, lid);
+      }
+      const levelId = firstLevelByUnit.get(row.unitId) ?? null;
+      const u = await ctx.db.get(row.unitId);
+      const title = u?.title ?? "Unit";
+      out.push({
+        contentId: row.c._id,
+        unitId: row.unitId,
+        label: `${row.c.title} — ${title}`,
+        levelId,
+        workshopSessionId: row.c.workshopSessionId ?? null,
+      });
+    }
+    out.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+    return out;
+  },
+});
+
 export const getUrl = query({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, { storageId }) => {

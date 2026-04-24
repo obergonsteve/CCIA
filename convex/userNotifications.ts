@@ -1,6 +1,7 @@
 // User-facing stack notifications (not toasts). Enqueue with:
 //   import { internal } from "./_generated/api"
 //   await ctx.runMutation(internal.userNotifications.createOrSkipForUser, { ... })
+//   await ctx.runMutation(internal.userNotifications.createOrSkipForAll, { ... })
 //
 // Public list/dismiss use `forUserId` from the browser session (this app has no
 // per-session Convex JWT; `lib/auth` resolveDeploymentUserId is not the logged-in user).
@@ -12,7 +13,10 @@ import {
   mutation,
   query,
 } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+
+/** Stored in `userIdKey` when `userId` is omitted = broadcast to all users. */
+export const NOTIFICATIONS_ALL_USER_KEY = "_all_";
 
 const kindValidator = v.union(
   v.literal("webinar_reminder"),
@@ -32,12 +36,49 @@ const importanceValidator = v.optional(
   ),
 );
 
+export const userNotificationLinkRef = v.union(
+  v.object({
+    kind: v.literal("certificationLevel"),
+    levelId: v.id("certificationLevels"),
+  }),
+  v.object({
+    kind: v.literal("unit"),
+    unitId: v.id("units"),
+    levelId: v.optional(v.id("certificationLevels")),
+  }),
+  v.object({
+    kind: v.literal("content"),
+    contentId: v.id("contentItems"),
+    unitId: v.id("units"),
+    levelId: v.optional(v.id("certificationLevels")),
+    workshopSessionId: v.optional(v.id("workshopSessions")),
+  }),
+  v.object({
+    kind: v.literal("workshopSession"),
+    sessionId: v.id("workshopSessions"),
+  }),
+);
+
 const createArgs = {
   userId: v.id("users"),
   kind: kindValidator,
   title: v.string(),
   body: v.optional(v.string()),
   linkHref: v.optional(v.string()),
+  linkLabel: v.optional(v.string()),
+  linkRef: v.optional(userNotificationLinkRef),
+  dedupeKey: v.string(),
+  createdAt: v.optional(v.number()),
+  importance: importanceValidator,
+};
+
+const createForAllArgs = {
+  kind: kindValidator,
+  title: v.string(),
+  body: v.optional(v.string()),
+  linkHref: v.optional(v.string()),
+  linkLabel: v.optional(v.string()),
+  linkRef: v.optional(userNotificationLinkRef),
   dedupeKey: v.string(),
   createdAt: v.optional(v.number()),
   importance: importanceValidator,
@@ -48,10 +89,132 @@ type CreateOrSkipResult =
   | { status: "skipped_active"; id: Id<"userNotifications"> }
   | { status: "created"; id: Id<"userNotifications"> };
 
+function isBroadcastRow(
+  row: Pick<Doc<"userNotifications">, "userId" | "userIdKey">,
+) {
+  return (
+    row.userId == null ||
+    row.userIdKey === NOTIFICATIONS_ALL_USER_KEY
+  );
+}
+
+function userIdKeyFor(
+  userId: Id<"users"> | undefined,
+): string {
+  return userId != null
+    ? String(userId)
+    : NOTIFICATIONS_ALL_USER_KEY;
+}
+
+type NotificationLinkRefIn =
+  | { kind: "certificationLevel"; levelId: Id<"certificationLevels"> }
+  | { kind: "unit"; unitId: Id<"units">; levelId?: Id<"certificationLevels"> }
+  | {
+      kind: "content";
+      contentId: Id<"contentItems">;
+      unitId: Id<"units">;
+      levelId?: Id<"certificationLevels">;
+      workshopSessionId?: Id<"workshopSessions">;
+    }
+  | { kind: "workshopSession"; sessionId: Id<"workshopSessions"> };
+
+type LinkResolverCtx = QueryCtx | MutationCtx;
+
+/** Button label: entity title (list query re-resolves for up-to-date names). */
+async function resolveNotificationLink(
+  ctx: LinkResolverCtx,
+  ref: NotificationLinkRefIn,
+): Promise<{ href: string; defaultLabel: string }> {
+  switch (ref.kind) {
+    case "certificationLevel": {
+      const level = await ctx.db.get(ref.levelId);
+      if (!level) {
+        throw new ConvexError("Certification level not found");
+      }
+      return {
+        href: `/certifications/${ref.levelId}`,
+        defaultLabel: level.name,
+      };
+    }
+    case "unit": {
+      const unit = await ctx.db.get(ref.unitId);
+      if (!unit) {
+        throw new ConvexError("Unit not found");
+      }
+      const q = new URLSearchParams();
+      if (ref.levelId) {
+        q.set("level", ref.levelId);
+      }
+      const qs = q.toString();
+      return {
+        href: `/units/${ref.unitId}${qs ? `?${qs}` : ""}`,
+        defaultLabel: unit.title,
+      };
+    }
+    case "content": {
+      const [content, uc] = await Promise.all([
+        ctx.db.get(ref.contentId),
+        ctx.db
+          .query("unitContents")
+          .withIndex("by_unit_and_content", (q) =>
+            q.eq("unitId", ref.unitId).eq("contentId", ref.contentId),
+          )
+          .first(),
+      ]);
+      if (!content) {
+        throw new ConvexError("Content not found");
+      }
+      if (!uc) {
+        throw new ConvexError("Content is not attached to this unit");
+      }
+      const q = new URLSearchParams();
+      if (ref.levelId) {
+        q.set("level", ref.levelId);
+      }
+      if (ref.workshopSessionId) {
+        q.set("session", ref.workshopSessionId);
+        q.set("from", "workshops");
+      }
+      const qs = q.toString();
+      const base = `/units/${ref.unitId}${qs ? `?${qs}` : ""}`;
+      return {
+        href: `${base}#step-${ref.contentId}`,
+        defaultLabel: content.title,
+      };
+    }
+    case "workshopSession": {
+      const session = await ctx.db.get(ref.sessionId);
+      if (!session) {
+        throw new ConvexError("Workshop session not found");
+      }
+      const wu = await ctx.db.get(session.workshopUnitId);
+      const q = new URLSearchParams();
+      q.set("session", ref.sessionId);
+      q.set("from", "workshops");
+      const cu = await ctx.db
+        .query("certificationUnits")
+        .withIndex("by_unit", (q) => q.eq("unitId", session.workshopUnitId))
+        .first();
+      if (cu) {
+        q.set("level", cu.levelId);
+      }
+      const qs = q.toString();
+      const defaultLabel =
+        (session.titleOverride && session.titleOverride.trim()) ||
+        wu?.title ||
+        "Workshop";
+      return {
+        href: `/units/${session.workshopUnitId}?${qs}`,
+        defaultLabel,
+      };
+    }
+  }
+}
+
 async function tryCreateOrSkip(
   ctx: MutationCtx,
   args: {
-    userId: Id<"users">;
+    userId: Id<"users"> | undefined;
     kind:
       | "webinar_reminder"
       | "unit_progress_nudge"
@@ -62,16 +225,19 @@ async function tryCreateOrSkip(
     title: string;
     body?: string;
     linkHref?: string;
+    linkLabel?: string;
+    linkRef?: NotificationLinkRefIn;
     dedupeKey: string;
     createdAt?: number;
     importance?: "low" | "normal" | "high" | "urgent";
   },
 ): Promise<CreateOrSkipResult> {
   const createdAt = args.createdAt ?? Date.now();
+  const userIdKey = userIdKeyFor(args.userId);
   const existing = await ctx.db
     .query("userNotifications")
-    .withIndex("by_user_dedupe", (q) =>
-      q.eq("userId", args.userId).eq("dedupeKey", args.dedupeKey),
+    .withIndex("by_userIdKey_dedupe", (q) =>
+      q.eq("userIdKey", userIdKey).eq("dedupeKey", args.dedupeKey),
     )
     .first();
 
@@ -82,19 +248,60 @@ async function tryCreateOrSkip(
     return { status: "skipped_active", id: existing._id };
   }
 
+  const rawHref = args.linkHref?.trim() ? args.linkHref.trim() : undefined;
+  if (rawHref != null && (rawHref.length > 0 && (!rawHref.startsWith("/") || rawHref.startsWith("//")))) {
+    throw new ConvexError("Link must be a relative in-app path starting with /");
+  }
+  let linkHref = rawHref && rawHref.length > 0 ? rawHref : undefined;
+  let linkLabel = args.linkLabel?.trim() ? args.linkLabel.trim() : undefined;
+  const linkRef = args.linkRef;
+  if (args.linkRef) {
+    const resolved = await resolveNotificationLink(ctx, args.linkRef);
+    if (!linkHref) {
+      linkHref = resolved.href;
+    }
+    if (!linkLabel) {
+      linkLabel = resolved.defaultLabel;
+    }
+  }
+
   const id = await ctx.db.insert("userNotifications", {
     userId: args.userId,
+    userIdKey,
     kind: args.kind,
     importance: args.importance ?? "normal",
     title: args.title.trim(),
     body: args.body?.trim() ? args.body.trim() : undefined,
-    linkHref: args.linkHref?.trim() ? args.linkHref.trim() : undefined,
+    linkHref: linkHref || undefined,
+    linkLabel: linkLabel || undefined,
+    linkRef: linkRef ?? undefined,
     dedupeKey: args.dedupeKey,
     createdAt,
     dismissed: false,
   });
   return { status: "created", id };
 }
+
+/** One-time: set `userIdKey` on rows created before this field existed. */
+export const backfillUserIdKeys = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("userNotifications").collect();
+    let patched = 0;
+    for (const r of rows) {
+      if (r.userIdKey != null) {
+        continue;
+      }
+      const k =
+        r.userId != null
+          ? String(r.userId)
+          : NOTIFICATIONS_ALL_USER_KEY;
+      await ctx.db.patch(r._id, { userIdKey: k });
+      patched += 1;
+    }
+    return { scanned: rows.length, patched };
+  },
+});
 
 /** Browser passes session `users` id (see `useSessionUser` / `/api/auth/session`). */
 export const listActiveForUser = query({
@@ -111,20 +318,73 @@ export const listActiveForUser = query({
       return [];
     }
     const cap = Math.min(50, Math.max(1, limit));
-    const rows = await ctx.db
+    const key = String(forUserId);
+
+    const fromKey = await ctx.db
+      .query("userNotifications")
+      .withIndex("by_userIdKey_dismissed", (q) =>
+        q.eq("userIdKey", key).eq("dismissed", false),
+      )
+      .collect();
+
+    const fromLegacy = await ctx.db
       .query("userNotifications")
       .withIndex("by_user_dismissed", (q) =>
         q.eq("userId", forUserId).eq("dismissed", false),
       )
       .collect();
-    rows.sort((a, b) => b.createdAt - a.createdAt);
-    return rows.slice(0, cap);
+
+    const byId = new Map<string, Doc<"userNotifications">>();
+    for (const r of fromKey) {
+      byId.set(r._id, r);
+    }
+    for (const r of fromLegacy) {
+      if (!byId.has(r._id)) {
+        byId.set(r._id, r);
+      }
+    }
+    const userTargeted = [...byId.values()];
+
+    const broadcast = await ctx.db
+      .query("userNotifications")
+      .withIndex("by_userIdKey_dismissed", (q) =>
+        q.eq("userIdKey", NOTIFICATIONS_ALL_USER_KEY).eq("dismissed", false),
+      )
+      .collect();
+
+    const myDismissed = await ctx.db
+      .query("userNotificationBroadcastDismissals")
+      .withIndex("by_user", (q) => q.eq("userId", forUserId))
+      .collect();
+    const hidden = new Set(
+      myDismissed.map((d) => String(d.notificationId)),
+    );
+    const broadcastVisible = broadcast.filter(
+      (r) => !hidden.has(String(r._id)) && isBroadcastRow(r),
+    );
+
+    const merged = [...userTargeted, ...broadcastVisible];
+    merged.sort((a, b) => b.createdAt - a.createdAt);
+    const slice = merged.slice(0, cap);
+    return await Promise.all(
+      slice.map(async (row) => {
+        if (row.linkRef == null) {
+          return row;
+        }
+        try {
+          const resolved = await resolveNotificationLink(ctx, row.linkRef);
+          return { ...row, linkLabel: resolved.defaultLabel };
+        } catch {
+          return row;
+        }
+      }),
+    );
   },
 });
 
 /**
- * Dismiss a single notification. `forUserId` must match the notification row’s userId
- * and the client session user.
+ * Dismiss a single notification. Targeted: patch row. Broadcast: per-user
+ * `userNotificationBroadcastDismissals` row.
  */
 export const dismiss = mutation({
   args: {
@@ -133,38 +393,113 @@ export const dismiss = mutation({
   },
   handler: async (ctx, { forUserId, notificationId }) => {
     const row = await ctx.db.get(notificationId);
-    if (!row || row.userId !== forUserId) {
+    if (!row) {
       return { ok: false as const, reason: "not_found" as const };
     }
-    if (row.dismissed) {
-      return { ok: true as const, already: true as const };
+    if (row.userId != null) {
+      if (row.userId !== forUserId) {
+        return { ok: false as const, reason: "not_found" as const };
+      }
+      if (row.dismissed) {
+        return { ok: true as const, already: true as const };
+      }
+      const now = Date.now();
+      await ctx.db.patch(notificationId, {
+        dismissed: true,
+        dismissedAt: now,
+      });
+      return { ok: true as const, already: false as const };
+    }
+    if (!isBroadcastRow(row)) {
+      return { ok: false as const, reason: "not_found" as const };
     }
     const now = Date.now();
-    await ctx.db.patch(notificationId, {
-      dismissed: true,
-      dismissedAt: now,
+    const existing = await ctx.db
+      .query("userNotificationBroadcastDismissals")
+      .withIndex("by_user_notification", (q) =>
+        q.eq("userId", forUserId).eq("notificationId", notificationId),
+      )
+      .first();
+    if (existing) {
+      return { ok: true as const, already: true as const };
+    }
+    await ctx.db.insert("userNotificationBroadcastDismissals", {
+      userId: forUserId,
+      notificationId,
+      createdAt: now,
     });
     return { ok: true as const, already: false as const };
   },
 });
 
 /**
- * Dismiss all active notifications for `forUserId` (session user).
+ * Dismiss all active notifications for `forUserId` (session user):
+ * targeted rows in `userNotifications`, and broadcast dismissals records.
  */
 export const dismissAll = mutation({
   args: { forUserId: v.id("users") },
   handler: async (ctx, { forUserId }) => {
-    const rows = await ctx.db
+    const now = Date.now();
+    const key = String(forUserId);
+    const userRows = await ctx.db
+      .query("userNotifications")
+      .withIndex("by_userIdKey_dismissed", (q) =>
+        q.eq("userIdKey", key).eq("dismissed", false),
+      )
+      .collect();
+    const legacy = await ctx.db
       .query("userNotifications")
       .withIndex("by_user_dismissed", (q) =>
         q.eq("userId", forUserId).eq("dismissed", false),
       )
       .collect();
-    const now = Date.now();
-    for (const r of rows) {
+    const toPatch = new Map<string, Doc<"userNotifications">>();
+    for (const r of userRows) {
+      if (r.userId != null) {
+        toPatch.set(r._id, r);
+      }
+    }
+    for (const r of legacy) {
+      if (r.userId != null && !toPatch.has(r._id)) {
+        toPatch.set(r._id, r);
+      }
+    }
+    for (const r of toPatch.values()) {
       await ctx.db.patch(r._id, { dismissed: true, dismissedAt: now });
     }
-    return { count: rows.length };
+
+    const broadcast = await ctx.db
+      .query("userNotifications")
+      .withIndex("by_userIdKey_dismissed", (q) =>
+        q
+          .eq("userIdKey", NOTIFICATIONS_ALL_USER_KEY)
+          .eq("dismissed", false),
+      )
+      .collect();
+    let broadcastDismissed = 0;
+    for (const r of broadcast) {
+      if (!isBroadcastRow(r)) {
+        continue;
+      }
+      const exists = await ctx.db
+        .query("userNotificationBroadcastDismissals")
+        .withIndex("by_user_notification", (q) =>
+          q.eq("userId", forUserId).eq("notificationId", r._id),
+        )
+        .first();
+      if (!exists) {
+        await ctx.db.insert("userNotificationBroadcastDismissals", {
+          userId: forUserId,
+          notificationId: r._id,
+          createdAt: now,
+        });
+        broadcastDismissed += 1;
+      }
+    }
+    return {
+      count: toPatch.size,
+      broadcastDismissed,
+    };
   },
 });
 
@@ -181,6 +516,117 @@ async function assertIsAdminOrCreator(
   }
 }
 
+async function assertIsAdmin(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+) {
+  const u = await ctx.db.get(userId);
+  if (!u) {
+    throw new ConvexError("User not found");
+  }
+  if (u.role !== "admin") {
+    throw new ConvexError("Forbidden");
+  }
+}
+
+/**
+ * Admin only: in-app post-it to everyone (one shared notice) or to every user
+ * in a single company (one row per user). Session `forUserId` must be an admin.
+ */
+export const adminSendInAppNotification = mutation({
+  args: {
+    forUserId: v.id("users"),
+    scope: v.union(v.literal("all"), v.literal("company")),
+    companyId: v.optional(v.id("companies")),
+    title: v.string(),
+    body: v.optional(v.string()),
+    importance: importanceValidator,
+    kind: v.optional(kindValidator),
+    linkHref: v.optional(v.string()),
+    linkLabel: v.optional(v.string()),
+    linkRef: v.optional(userNotificationLinkRef),
+  },
+  handler: async (ctx, args) => {
+    await assertIsAdmin(ctx, args.forUserId);
+    const title = args.title.trim();
+    if (!title) {
+      throw new ConvexError("Title is required");
+    }
+    const kind = args.kind ?? "general";
+    const importance = args.importance ?? "normal";
+    const body = args.body?.trim() ? args.body.trim() : undefined;
+
+    if (args.scope === "all") {
+      const dedupeKey = `admin:all:${Date.now()}:${Math.random().toString(36).slice(2, 12)}`;
+      return tryCreateOrSkip(ctx, {
+        userId: undefined,
+        kind,
+        title,
+        body,
+        linkHref: args.linkHref,
+        linkLabel: args.linkLabel,
+        linkRef: args.linkRef,
+        dedupeKey,
+        importance,
+      });
+    }
+
+    const companyId = args.companyId;
+    if (!companyId) {
+      throw new ConvexError("Select a company for company-only delivery");
+    }
+    if (!(await ctx.db.get(companyId))) {
+      throw new ConvexError("Company not found");
+    }
+    const userRows = await ctx.db
+      .query("users")
+      .withIndex("by_company", (q) => q.eq("companyId", companyId))
+      .collect();
+    if (userRows.length === 0) {
+      return {
+        scope: "company" as const,
+        companyId,
+        users: 0,
+        created: 0,
+        skippedDismissed: 0,
+        skippedActive: 0,
+      };
+    }
+    const base = `admin:co:${String(companyId)}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    let created = 0;
+    let skippedDismissed = 0;
+    let skippedActive = 0;
+    for (const u of userRows) {
+      const res = await tryCreateOrSkip(ctx, {
+        userId: u._id,
+        kind,
+        title,
+        body,
+        linkHref: args.linkHref,
+        linkLabel: args.linkLabel,
+        linkRef: args.linkRef,
+        dedupeKey: `${base}:${u._id}`,
+        importance,
+      });
+      if (res.status === "created") {
+        created += 1;
+      } else if (res.status === "skipped_dismissed") {
+        skippedDismissed += 1;
+      } else {
+        skippedActive += 1;
+      }
+    }
+    return {
+      scope: "company" as const,
+      companyId,
+      users: userRows.length,
+      created,
+      skippedDismissed,
+      skippedActive,
+    };
+  },
+});
+
 /**
  * TEMP: Settings page test only. Inserts into `userNotifications` for `forUserId`
  * (the logged-in user’s Convex `users` _id from the session). Remove when no longer needed.
@@ -191,8 +637,12 @@ export const createTestForCurrentUser = mutation({
     title: v.string(),
     body: v.optional(v.string()),
     importance: importanceValidator,
+    linkHref: v.optional(v.string()),
+    linkLabel: v.optional(v.string()),
+    linkRef: v.optional(userNotificationLinkRef),
   },
-  handler: async (ctx, { forUserId, title, body, importance }) => {
+  handler: async (ctx, args) => {
+    const { forUserId, title, body, importance } = args;
     await assertIsAdminOrCreator(ctx, forUserId);
     const dedupeKey = `test:settings:${Date.now()}:${Math.random().toString(36).slice(2, 12)}`;
     const t = title.trim() || "Test notification";
@@ -201,6 +651,42 @@ export const createTestForCurrentUser = mutation({
       kind: "general",
       title: t,
       body: body?.trim() ? body.trim() : undefined,
+      linkHref: args.linkHref,
+      linkLabel: args.linkLabel,
+      linkRef: args.linkRef,
+      dedupeKey,
+      importance: importance ?? "normal",
+    });
+  },
+});
+
+/**
+ * Admin test: one broadcast row (`userId` omitted) so every signed-in user sees
+ * a post-it until they dismiss. Uses a unique `dedupeKey` each time.
+ */
+export const createTestBroadcast = mutation({
+  args: {
+    forUserId: v.id("users"),
+    title: v.string(),
+    body: v.optional(v.string()),
+    importance: importanceValidator,
+    linkHref: v.optional(v.string()),
+    linkLabel: v.optional(v.string()),
+    linkRef: v.optional(userNotificationLinkRef),
+  },
+  handler: async (ctx, args) => {
+    const { forUserId, title, body, importance } = args;
+    await assertIsAdminOrCreator(ctx, forUserId);
+    const dedupeKey = `test:all:${Date.now()}:${Math.random().toString(36).slice(2, 12)}`;
+    const t = title.trim() || "Test broadcast";
+    return tryCreateOrSkip(ctx, {
+      userId: undefined,
+      kind: "general",
+      title: t,
+      body: body?.trim() ? body.trim() : undefined,
+      linkHref: args.linkHref,
+      linkLabel: args.linkLabel,
+      linkRef: args.linkRef,
       dedupeKey,
       importance: importance ?? "normal",
     });
@@ -215,7 +701,41 @@ export const createTestForCurrentUser = mutation({
 export const createOrSkipForUser = internalMutation({
   args: createArgs,
   handler: async (ctx, args) => {
-    return tryCreateOrSkip(ctx, args);
+    return tryCreateOrSkip(ctx, {
+      userId: args.userId,
+      kind: args.kind,
+      title: args.title,
+      body: args.body,
+      linkHref: args.linkHref,
+      linkLabel: args.linkLabel,
+      linkRef: args.linkRef,
+      createdAt: args.createdAt,
+      importance: args.importance ?? "normal",
+      dedupeKey: args.dedupeKey,
+    });
+  },
+});
+
+/**
+ * Internal: one `userNotifications` row with no `userId` — all accounts see it until
+ * they dismiss (tracked in `userNotificationBroadcastDismissals`).
+ * `dedupeKey` is global for this broadcast (one row per key).
+ */
+export const createOrSkipForAll = internalMutation({
+  args: createForAllArgs,
+  handler: async (ctx, args) => {
+    return tryCreateOrSkip(ctx, {
+      userId: undefined,
+      kind: args.kind,
+      title: args.title,
+      body: args.body,
+      linkHref: args.linkHref,
+      linkLabel: args.linkLabel,
+      linkRef: args.linkRef,
+      createdAt: args.createdAt,
+      importance: args.importance,
+      dedupeKey: args.dedupeKey,
+    });
   },
 });
 
@@ -230,6 +750,8 @@ export const createOrSkipForUsers = internalMutation({
     title: v.string(),
     body: v.optional(v.string()),
     linkHref: v.optional(v.string()),
+    linkLabel: v.optional(v.string()),
+    linkRef: v.optional(userNotificationLinkRef),
     importance: importanceValidator,
     /**
      * Base key; per user we store `${baseDedupeKey}:user` so one user dismissing
@@ -248,6 +770,8 @@ export const createOrSkipForUsers = internalMutation({
         title: args.title,
         body: args.body,
         linkHref: args.linkHref,
+        linkLabel: args.linkLabel,
+        linkRef: args.linkRef,
         importance: args.importance ?? "normal",
         dedupeKey: `${args.dedupeKey}:${userId}`,
       });

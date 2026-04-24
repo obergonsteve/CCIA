@@ -15,6 +15,7 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowRight,
+  Bell,
   CheckCircle2,
   Circle,
   CircleDashed,
@@ -23,6 +24,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
+import { useSessionUser } from "@/lib/use-session-user";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -178,6 +181,9 @@ export default function CertificationLevelClient({
   const [workshopPickerUnitId, setWorkshopPickerUnitId] =
     useState<Id<"units"> | null>(null);
   const [workshopPickerTitle, setWorkshopPickerTitle] = useState("");
+  const [inAppNotifOpen, setInAppNotifOpen] = useState(false);
+  const { user: sessionUser } = useSessionUser();
+  const isAdmin = sessionUser?.role === "admin";
 
   const level = useQuery(api.certifications.get, { levelId });
   const roadmap = useQuery(api.contentProgress.roadmapForCertification, {
@@ -276,6 +282,27 @@ export default function CertificationLevelClient({
           ) : null}
         </div>
       )}
+
+      {isAdmin ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="ruby"
+            size="sm"
+            className="gap-2 shadow-md"
+            onClick={() => setInAppNotifOpen(true)}
+          >
+            <Bell className="h-4 w-4" aria-hidden />
+            Send in-app notice…
+          </Button>
+          <SendInAppNoticeDialog
+            open={inAppNotifOpen}
+            onOpenChange={setInAppNotifOpen}
+            preset={{ kind: "certificationLevel", levelId }}
+            presetSummary={level.name}
+          />
+        </div>
+      ) : null}
 
       <section
         id="certification-path"

@@ -11,7 +11,12 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
+  SendInAppNoticeDialog,
+  type SendInAppNoticePreset,
+} from "@/components/admin/send-in-app-notice-dialog";
+import {
   ArrowRight,
+  Bell,
   CheckCircle2,
   ChevronDown,
   Circle,
@@ -22,7 +27,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   isMicrosoftTeamsSession,
@@ -30,6 +35,7 @@ import {
   workshopJoinHrefForLink,
 } from "@/lib/workshopConference";
 import { cn } from "@/lib/utils";
+import { useSessionUser } from "@/lib/use-session-user";
 import { LiveWorkshopRoomPanel } from "@/components/workshop/live-workshop-room-panel";
 
 function unitStepPathHref(
@@ -64,6 +70,22 @@ function unitStepPathHref(
     return `${base}#step-a-${st.assignmentId}`;
   }
   return base;
+}
+
+function useWindowHash() {
+  const [hash, setHash] = useState("");
+  const refreshHash = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setHash(window.location.hash);
+  }, []);
+  useEffect(() => {
+    refreshHash();
+    window.addEventListener("hashchange", refreshHash);
+    return () => window.removeEventListener("hashchange", refreshHash);
+  }, [refreshHash]);
+  return { hash, refreshHash };
 }
 
 function LegacyAssignmentStartRecorder({
@@ -116,6 +138,8 @@ function LegacyAssignmentStepBlock({
   answers,
   setAnswersByAssignment,
   onSubmitLegacyAssignment,
+  expandFromHash = false,
+  pathStripNavTick = 0,
 }: {
   row: { done: boolean; locked: boolean; active: boolean };
   assignment: Doc<"assignments">;
@@ -127,10 +151,20 @@ function LegacyAssignmentStepBlock({
     SetStateAction<Record<string, Record<string, string>>>
   >;
   onSubmitLegacyAssignment: (assignmentId: Id<"assignments">) => void;
+  /** When the unit path strip links to this step’s anchor, open the card. */
+  expandFromHash?: boolean;
+  /** Bumps on every strip link click so re-clicking the same step re-expands. */
+  pathStripNavTick?: number;
 }) {
   const [expanded, setExpanded] = useState<boolean | undefined>(undefined);
   const isOpen = expanded === undefined ? false : expanded;
   const bodyId = `legacy-step-body-${assignment._id}`;
+
+  useEffect(() => {
+    if (expandFromHash) {
+      setExpanded(true);
+    }
+  }, [expandFromHash, pathStripNavTick]);
 
   return (
     <Card
@@ -416,6 +450,29 @@ export default function UnitClient({
   >({});
   /** When true, completed steps appear in the strip and in the page list (default). */
   const [showCompletedSteps, setShowCompletedSteps] = useState(true);
+  const [inAppNotifOpen, setInAppNotifOpen] = useState(false);
+  const [inAppPreset, setInAppPreset] = useState<SendInAppNoticePreset | null>(
+    null,
+  );
+  const [inAppPresetSummary, setInAppPresetSummary] = useState("");
+  const { user: sessionUser } = useSessionUser();
+  const isAdmin = sessionUser?.role === "admin";
+  const { hash: stepHash, refreshHash } = useWindowHash();
+  const [pathStripNavTick, setPathStripNavTick] = useState(0);
+
+  useEffect(() => {
+    if (!stepHash || stepHash.length < 2) {
+      return;
+    }
+    const id = stepHash.slice(1);
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 120);
+    return () => clearTimeout(t);
+  }, [stepHash]);
 
   const itemsById = useMemo(() => {
     if (!items) {
@@ -511,21 +568,43 @@ export default function UnitClient({
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <h1 className="min-w-0 flex-1 text-2xl font-bold leading-snug tracking-tight">
             {unit.title}
           </h1>
-          <Badge
-            variant="outline"
-            className={cn(
-              "h-auto min-h-7 shrink-0 px-2.5 py-1 text-xs font-bold uppercase leading-tight tracking-wide",
-              isLiveWorkshopUnit
-                ? "border-2 border-purple-600/85 bg-purple-500/[0.14] text-purple-900 shadow-sm shadow-purple-500/10 dark:border-purple-400/80 dark:bg-purple-400/[0.12] dark:text-purple-100"
-                : "border border-brand-gold/55 bg-brand-gold/[0.18] text-foreground shadow-sm shadow-brand-gold/10 dark:border-brand-gold/45 dark:bg-brand-gold/[0.14] dark:text-foreground",
-            )}
-          >
-            {isLiveWorkshopUnit ? "Webinar" : "Self-paced"}
-          </Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "h-auto min-h-7 px-2.5 py-1 text-xs font-bold uppercase leading-tight tracking-wide",
+                isLiveWorkshopUnit
+                  ? "border-2 border-purple-600/85 bg-purple-500/[0.14] text-purple-900 shadow-sm shadow-purple-500/10 dark:border-purple-400/80 dark:bg-purple-400/[0.12] dark:text-purple-100"
+                  : "border border-brand-gold/55 bg-brand-gold/[0.18] text-foreground shadow-sm shadow-brand-gold/10 dark:border-brand-gold/45 dark:bg-brand-gold/[0.14] dark:text-foreground",
+              )}
+            >
+              {isLiveWorkshopUnit ? "Webinar" : "Self-paced"}
+            </Badge>
+            {isAdmin ? (
+              <Button
+                type="button"
+                variant="ruby"
+                size="sm"
+                className="gap-2 shadow-md"
+                onClick={() => {
+                  setInAppPreset({
+                    kind: "unit",
+                    unitId,
+                    levelId,
+                  });
+                  setInAppPresetSummary(unit.title);
+                  setInAppNotifOpen(true);
+                }}
+              >
+                <Bell className="h-4 w-4" aria-hidden />
+                Send in-app notice…
+              </Button>
+            ) : null}
+          </div>
         </div>
         {unit.code?.trim() ? (
           <p className="mt-1 font-mono text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -741,6 +820,15 @@ export default function UnitClient({
                           className="inline-flex flex-col items-center gap-1.5 rounded-md outline-none ring-offset-background transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-brand-sky/45"
                           title={title}
                           scroll
+                          onClick={() => {
+                            setPathStripNavTick((n) => n + 1);
+                            requestAnimationFrame(() => {
+                              refreshHash();
+                              requestAnimationFrame(() => {
+                                refreshHash();
+                              });
+                            });
+                          }}
                         >
                           {shell}
                           {caption}
@@ -779,12 +867,38 @@ export default function UnitClient({
                   row.active && "ring-2 ring-brand-sky/40 ring-offset-2 ring-offset-background",
                 )}
               >
+                {isAdmin ? (
+                  <div className="mb-2 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 px-2.5 text-xs"
+                      onClick={() => {
+                        setInAppPreset({
+                          kind: "content",
+                          contentId: st.contentId!,
+                          unitId,
+                          levelId,
+                          workshopSessionId: doc.workshopSessionId ?? undefined,
+                        });
+                        setInAppPresetSummary(doc.title);
+                        setInAppNotifOpen(true);
+                      }}
+                    >
+                      <Bell className="h-3.5 w-3.5" aria-hidden />
+                      In-app notice
+                    </Button>
+                  </div>
+                ) : null}
                 <ContentItemView
                   item={doc}
                   unitId={unitId}
                   levelId={levelId}
                   locked={blocked || row.locked}
                   isActive={row.active}
+                  expandFromHash={stepHash === `#step-${st.contentId}`}
+                  pathStripNavTick={pathStripNavTick}
                 />
               </div>
             );
@@ -812,6 +926,8 @@ export default function UnitClient({
                 answers={answers}
                 setAnswersByAssignment={setAnswersByAssignment}
                 onSubmitLegacyAssignment={onSubmitLegacyAssignment}
+                expandFromHash={stepHash === `#step-a-${st.assignmentId}`}
+                pathStripNavTick={pathStripNavTick}
               />
             </div>
           );
@@ -823,6 +939,21 @@ export default function UnitClient({
           No published steps for this unit yet. An administrator can add
           content and assessments.
         </p>
+      ) : null}
+
+      {isAdmin ? (
+        <SendInAppNoticeDialog
+          open={inAppNotifOpen}
+          onOpenChange={(o) => {
+            setInAppNotifOpen(o);
+            if (!o) {
+              setInAppPreset(null);
+              setInAppPresetSummary("");
+            }
+          }}
+          preset={inAppPreset}
+          presetSummary={inAppPresetSummary || undefined}
+        />
       ) : null}
     </div>
   );

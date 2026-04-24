@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowRight,
@@ -564,6 +565,12 @@ export default function DashboardClient() {
         emptyMessage="None completed yet. Finish all units in a certification to see it here."
       />
       </div>
+
+      {sessionUser.role === "operator" || sessionUser.role === "supervisor" ? (
+        <div className="border-t border-border/60 pt-5">
+          <NotificationSettingsPanel showIntro={false} />
+        </div>
+      ) : null}
     </div>
   );
 }

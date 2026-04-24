@@ -20,9 +20,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation } from "convex/react";
+import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { StickyNote, UserCog } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { NotificationImportanceLegend } from "@/lib/notification-importance";
 import { useSessionUser } from "@/lib/use-session-user";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -52,16 +54,14 @@ export default function AdminSettingsClient() {
   const [testImportance, setTestImportance] = useState<
     "low" | "normal" | "high" | "urgent"
   >("normal");
+  const [testLinkHref, setTestLinkHref] = useState("");
+  const [testLinkLabel, setTestLinkLabel] = useState("");
   const createTestNotif = useMutation(
     api.userNotifications.createTestForCurrentUser,
   );
 
   return (
     <div className="space-y-6">
-      <p className="text-muted-foreground">
-        Your current browser session.
-      </p>
-
       <div className="max-w-2xl">
         <Card>
           <CardHeader>
@@ -113,6 +113,8 @@ export default function AdminSettingsClient() {
         </Card>
       </div>
 
+      <NotificationSettingsPanel showIntro={false} />
+
       <Card className="max-w-2xl border-dashed border-amber-500/40 bg-amber-500/[0.04] dark:border-amber-500/30">
         <CardHeader>
           <CardTitle className="text-base text-amber-900 dark:text-amber-100/90">
@@ -132,6 +134,8 @@ export default function AdminSettingsClient() {
               setTestTitle("Test notification");
               setTestBody("");
               setTestImportance("normal");
+              setTestLinkHref("");
+              setTestLinkLabel("");
               setTestNotifOpen(true);
             }}
           >
@@ -185,6 +189,27 @@ export default function AdminSettingsClient() {
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
               </select>
+              <NotificationImportanceLegend />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="test-notif-link">Link (optional)</Label>
+              <Input
+                id="test-notif-link"
+                value={testLinkHref}
+                onChange={(e) => setTestLinkHref(e.target.value)}
+                placeholder="e.g. /dashboard"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="test-notif-link-label">Link label (optional)</Label>
+              <Input
+                id="test-notif-link-label"
+                value={testLinkLabel}
+                onChange={(e) => setTestLinkLabel(e.target.value)}
+                placeholder="e.g. Open dashboard"
+                autoComplete="off"
+              />
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -209,6 +234,8 @@ export default function AdminSettingsClient() {
                     title,
                     body: testBody.trim() || undefined,
                     importance: testImportance,
+                    linkHref: testLinkHref.trim() || undefined,
+                    linkLabel: testLinkLabel.trim() || undefined,
                   });
                   toast.success("Notification created — check the top-right.");
                   setTestNotifOpen(false);

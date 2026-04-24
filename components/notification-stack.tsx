@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronDown, GripVertical, StickyNote, X } from "lucide-react";
+import { ChevronDown, ExternalLink, GripVertical, X } from "lucide-react";
 import Link from "next/link";
 import {
   useCallback,
@@ -22,32 +22,35 @@ import {
   removeNotifPosition,
   saveNotifPositions,
 } from "@/lib/notification-positions";
+import {
+  type NotificationImportance,
+  NOTIFICATION_IMPORTANCE,
+  NotificationImportanceGlyph,
+} from "@/lib/notification-importance";
 import { cn } from "@/lib/utils";
 
 const NOTE_W = 256;
 
-type Importance = "low" | "normal" | "high" | "urgent";
-
 const glassShadow =
-  "shadow-[0_2px_16px_rgba(0,0,0,0.05),0_8px_32px_-4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)] " +
-  "dark:shadow-[0_4px_28px_rgba(0,0,0,0.24),0_0_0_1px_rgba(255,255,255,0.06)_inset] " +
-  "backdrop-blur-2xl";
+  "shadow-[0_2px_12px_rgba(0,0,0,0.04),0_6px_24px_-4px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.35)] " +
+  "dark:shadow-[0_3px_20px_rgba(0,0,0,0.16),0_0_0_1px_rgba(255,255,255,0.04)_inset] " +
+  "backdrop-blur-xl";
 
 /** One frosted “bubble” with stronger, distinct importance tints. */
-function importanceClassNames(level: Importance | undefined) {
-  const n = (level ?? "normal") as Importance;
+function importanceClassNames(level: NotificationImportance | undefined) {
+  const n = (level ?? "normal") as NotificationImportance;
   switch (n) {
     case "low":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-slate-500/50",
-          "border border-slate-300/45 border-l-slate-500/50 dark:border-slate-500/30 dark:border-l-slate-400/55",
-          "bg-gradient-to-br from-sky-100/35 via-slate-100/20 to-slate-300/15 " +
-            "dark:from-slate-500/22 dark:via-slate-800/20 dark:to-slate-900/16",
+          "rounded-2xl overflow-hidden border-l-[5px] border-slate-500/40",
+          "border border-slate-300/28 border-l-slate-500/38 dark:border-slate-500/20 dark:border-l-slate-400/42",
+          "bg-gradient-to-br from-sky-100/16 via-slate-100/10 to-slate-300/8 " +
+            "dark:from-slate-500/12 dark:via-slate-800/10 dark:to-slate-900/8",
           glassShadow,
         ),
         hairline:
-          "border-b border-slate-400/20 bg-white/12 dark:border-white/10 dark:bg-slate-900/15",
+          "border-b border-slate-400/12 bg-white/[0.05] dark:border-white/[0.06] dark:bg-slate-900/8",
         icon: "text-slate-600 dark:text-slate-300",
         title:
           "text-slate-900/95 [text-shadow:0_1px_0_rgba(255,255,255,0.45)] dark:text-slate-50",
@@ -57,14 +60,14 @@ function importanceClassNames(level: Importance | undefined) {
     case "normal":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-amber-500/50",
-          "border border-amber-300/40 border-l-amber-500/55 dark:border-amber-600/28 dark:border-l-amber-400/50",
-          "bg-gradient-to-br from-amber-200/35 from-20% via-amber-100/20 to-amber-300/22 " +
-            "dark:from-amber-500/22 dark:via-amber-800/18 dark:to-amber-950/18",
+          "rounded-2xl overflow-hidden border-l-[5px] border-amber-500/38",
+          "border border-amber-300/26 border-l-amber-500/40 dark:border-amber-600/20 dark:border-l-amber-400/38",
+          "bg-gradient-to-br from-amber-200/16 from-20% via-amber-100/10 to-amber-300/12 " +
+            "dark:from-amber-500/12 dark:via-amber-800/9 dark:to-amber-950/8",
           glassShadow,
         ),
         hairline:
-          "border-b border-amber-500/20 bg-amber-50/20 dark:border-amber-400/12 dark:bg-amber-900/20",
+          "border-b border-amber-500/12 bg-amber-50/10 dark:border-amber-400/8 dark:bg-amber-900/10",
         icon: "text-amber-700 dark:text-amber-300",
         title:
           "text-amber-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-amber-50",
@@ -74,14 +77,14 @@ function importanceClassNames(level: Importance | undefined) {
     case "high":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-orange-500/55",
-          "border border-orange-300/42 border-l-orange-500/60 dark:border-orange-500/32 dark:border-l-orange-400/50",
-          "bg-gradient-to-br from-orange-200/38 from-20% via-orange-100/22 to-orange-300/24 " +
-            "dark:from-orange-500/25 dark:via-orange-800/20 dark:to-orange-950/20",
+          "rounded-2xl overflow-hidden border-l-[5px] border-orange-500/40",
+          "border border-orange-300/28 border-l-orange-500/44 dark:border-orange-500/22 dark:border-l-orange-400/40",
+          "bg-gradient-to-br from-orange-200/17 from-20% via-orange-100/10 to-orange-300/12 " +
+            "dark:from-orange-500/12 dark:via-orange-800/9 dark:to-orange-950/9",
           glassShadow,
         ),
         hairline:
-          "border-b border-orange-500/22 bg-orange-50/18 dark:border-orange-400/12 dark:bg-orange-950/20",
+          "border-b border-orange-500/12 bg-orange-50/8 dark:border-orange-400/8 dark:bg-orange-950/10",
         icon: "text-orange-700 dark:text-orange-300",
         title:
           "text-orange-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-orange-50",
@@ -91,14 +94,14 @@ function importanceClassNames(level: Importance | undefined) {
     case "urgent":
       return {
         shell: cn(
-          "rounded-2xl overflow-hidden border-l-[5px] border-rose-500/55",
-          "border border-rose-300/40 border-l-rose-500/60 dark:border-rose-500/32 dark:border-l-rose-400/55",
-          "bg-gradient-to-br from-rose-200/40 from-20% via-rose-100/22 to-rose-300/25 " +
-            "dark:from-rose-500/26 dark:via-rose-800/20 dark:to-rose-950/20",
+          "rounded-2xl overflow-hidden border-l-[5px] border-rose-500/40",
+          "border border-rose-300/26 border-l-rose-500/44 dark:border-rose-500/22 dark:border-rose-400/40",
+          "bg-gradient-to-br from-rose-200/18 from-20% via-rose-100/10 to-rose-300/12 " +
+            "dark:from-rose-500/12 dark:via-rose-800/9 dark:to-rose-950/9",
           glassShadow,
         ),
         hairline:
-          "border-b border-rose-500/22 bg-rose-50/20 dark:border-rose-400/12 dark:bg-rose-950/20",
+          "border-b border-rose-500/12 bg-rose-50/8 dark:border-rose-400/8 dark:bg-rose-950/10",
         icon: "text-rose-700 dark:text-rose-300",
         title:
           "text-rose-950/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-rose-50",
@@ -130,12 +133,14 @@ function DraggableNote({
   onFocusNote: () => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const importance = (row.importance ?? "normal") as Importance;
+  const importance = (row.importance ?? "normal") as NotificationImportance;
   const th = importanceClassNames(importance);
   const [expanded, setExpanded] = useState(true);
-  const hasDetails = Boolean(
-    (row.body != null && row.body.trim() !== "") || row.linkHref,
-  );
+  const hasBody = Boolean(row.body != null && row.body.trim() !== "");
+  const hasLink = Boolean(row.linkHref && row.linkHref.trim() !== "");
+  /** Step link / body text live in the same collapsible area. */
+  const hasDetails = hasBody || hasLink;
+  const linkLabel = row.linkLabel?.trim() || "Open";
 
   const onHandlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) {
@@ -200,10 +205,17 @@ function DraggableNote({
           >
             <GripVertical className="h-3.5 w-3.5" aria-hidden />
           </button>
-          <StickyNote
-            className={cn("h-3 w-3 shrink-0 opacity-90", th.icon)}
-            aria-hidden
-          />
+          <span
+            className="inline-flex shrink-0"
+            title={NOTIFICATION_IMPORTANCE[importance].human}
+            aria-label={NOTIFICATION_IMPORTANCE[importance].human}
+            role="img"
+          >
+            <NotificationImportanceGlyph
+              level={importance}
+              className={th.icon}
+            />
+          </span>
           <span
             className={cn(
               "min-w-0 flex-1 truncate text-left text-[0.7rem] font-bold leading-tight",
@@ -266,16 +278,30 @@ function DraggableNote({
               </p>
             ) : null}
             {row.linkHref ? (
-              <p className={cn("pt-1.5 text-[0.7rem] leading-tight", th.muted)}>
+              <div
+                className={cn("px-0.5", hasBody && "mt-2")}
+              >
                 <Link
                   href={row.linkHref}
-                  className="font-medium underline"
+                  className={cn(
+                    "inline-flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden",
+                    "rounded-md border border-current/18 bg-foreground/5 py-1 text-center text-[0.65rem] font-medium leading-tight",
+                    th.muted,
+                    "hover:bg-foreground/10 focus-visible:outline focus-visible:ring-2 focus-visible:ring-foreground/25",
+                  )}
+                  title={
+                    linkLabel !== "Open" ? linkLabel : (row.linkHref ?? "Open")
+                  }
                   onClick={onFocusNote}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  Open link
+                  <ExternalLink
+                    className="h-3 w-3 shrink-0 opacity-80"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate">{linkLabel}</span>
                 </Link>
-              </p>
+              </div>
             ) : null}
           </div>
         )}

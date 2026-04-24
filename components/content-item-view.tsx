@@ -33,6 +33,8 @@ export function ContentItemView({
   levelId,
   locked = false,
   isActive = true,
+  expandFromHash = false,
+  pathStripNavTick = 0,
 }: {
   item: Doc<"contentItems">;
   /** Required to submit tests/assignments on the unit page. */
@@ -41,6 +43,10 @@ export function ContentItemView({
   levelId?: Id<"certificationLevels">;
   locked?: boolean;
   isActive?: boolean;
+  /** When the unit path strip navigates to this step’s anchor, open the card. */
+  expandFromHash?: boolean;
+  /** Bumps on every strip link click so re-clicking the same step re-expands. */
+  pathStripNavTick?: number;
 }) {
   const storageUrl = useQuery(
     api.content.getUrl,
@@ -119,6 +125,12 @@ export function ContentItemView({
   /** All steps start collapsed; learner expands to view or act. */
   const isOpen = expanded === undefined ? false : expanded;
   const stepBodyId = `step-body-${item._id}`;
+
+  useEffect(() => {
+    if (expandFromHash) {
+      setExpanded(true);
+    }
+  }, [expandFromHash, pathStripNavTick]);
 
   useEffect(() => {
     if (!unitId || locked || !isActive || isWorkshopSession) {
