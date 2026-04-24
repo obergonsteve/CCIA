@@ -115,7 +115,7 @@ export function PinnedInAppNotices() {
     >
       <div
         className={cn(
-          "flex min-h-10 w-full min-w-[9.25rem] max-w-full items-stretch justify-stretch gap-0 rounded-lg border border-dashed border-brand-sky/30 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-2 py-1 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150 sm:min-w-[10.25rem] sm:px-2.5",
+          "flex min-h-11 w-full min-w-[9.25rem] max-w-full items-stretch justify-stretch gap-0 rounded-lg border border-dashed border-brand-sky/30 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-2 py-1.5 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150 sm:min-w-[10.25rem] sm:px-2.5",
           "dark:border-brand-sky/25 dark:from-brand-sky/[0.14] dark:via-brand-lime/[0.09] dark:to-brand-gold/[0.11] dark:shadow-brand-sky/20",
           over && [
             "border-brand-sky/90 border-solid bg-brand-sky/20 dark:border-brand-sky/70",
@@ -132,32 +132,39 @@ export function PinnedInAppNotices() {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-9 w-full min-w-0 justify-between gap-1.5 px-1.5 text-xs text-foreground/88 bg-transparent hover:bg-black/[0.06] hover:text-foreground aria-expanded:bg-transparent dark:hover:bg-white/[0.08] dark:aria-expanded:bg-transparent"
+              className={cn(
+                "h-10 w-full min-w-0 justify-between gap-2 px-2 text-[0.8rem] leading-tight text-foreground/88",
+                /* `ghost` sets `hover:bg-muted` and `aria-expanded:bg-muted` — override so the chip never picks up that gray. */
+                "!bg-transparent hover:!bg-black/[0.06] dark:hover:!bg-white/[0.08]",
+                "aria-expanded:!bg-transparent dark:aria-expanded:!bg-transparent",
+                "data-[state=instant-open]:!bg-transparent data-[state=delayed-open]:!bg-transparent",
+                "focus-visible:!bg-transparent",
+              )}
               aria-expanded={expanded}
               aria-label={`Pinned in header — ${noticeCountLabel}`}
               onClick={() => setExpanded((e) => !e)}
             >
-              <span className="flex min-w-0 items-center gap-1.5">
+              <span className="flex min-w-0 items-center gap-2">
                 <Pin
-                  className="h-3.5 w-3.5 shrink-0 text-brand-sky"
+                  className="size-4 shrink-0 text-brand-sky"
                   aria-hidden
                 />
                 {count > 0 ? (
                   <span
-                    className="rounded bg-brand-sky/30 px-1.5 py-0.5 text-left text-[0.72rem] font-bold tabular-nums leading-tight text-foreground dark:bg-brand-sky/25"
+                    className="min-w-0 text-left text-[0.8rem] font-bold tabular-nums leading-tight text-foreground"
                     aria-label={noticeCountLabel}
                   >
                     {noticeCountLabel}
                   </span>
                 ) : (
-                  <span className="text-[0.7rem] text-muted-foreground/80">
+                  <span className="text-[0.8rem] text-muted-foreground/80">
                     {noticeCountLabel}
                   </span>
                 )}
               </span>
               <ChevronDown
                 className={cn(
-                  "h-3.5 w-3.5 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
+                  "size-4 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
                   expanded && "rotate-180",
                 )}
                 aria-hidden
