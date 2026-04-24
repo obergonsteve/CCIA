@@ -61,7 +61,7 @@ export function PinnedInAppNotices() {
 
   const count = pinned?.length ?? 0;
   const noticeCountLabel =
-    count === 1 ? "1 notice" : `${count} notices`;
+    count === 1 ? "1 pinned" : `${count} pinned`;
 
   useEffect(() => {
     const onHover = (e: Event) => {
