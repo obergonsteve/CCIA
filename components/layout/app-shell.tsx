@@ -242,7 +242,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-1 text-card-foreground sm:px-4 dark:border-white/10 dark:bg-white/[0.07] dark:text-foreground">
+        <header
+          id="ccia-app-header"
+          className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-border bg-card py-1 pl-3 pr-4 text-card-foreground sm:pl-4 sm:pr-6 dark:border-white/10 dark:bg-white/[0.07] dark:text-foreground"
+        >
           <div
             className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
             aria-hidden
@@ -289,8 +292,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </>
           ) : (
             <>
-              <div className="grid w-full min-w-0 flex-1 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
-                <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+              <div className="flex w-full min-w-0 flex-1 items-center justify-between gap-2 sm:gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
                   <Button
                     type="button"
                     variant="ghost"
@@ -312,10 +315,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                     priority
                   />
                 </div>
-                <div className="flex min-w-0 justify-center">
+                <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
                   <PinnedInAppNotices />
-                </div>
-                <div className="flex justify-end">
                   <Button
                     size="icon"
                     variant="ghost"

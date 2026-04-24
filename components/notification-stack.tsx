@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronDown, ExternalLink, GripVertical, Pin, X } from "lucide-react";
+import { ChevronDown, ExternalLink, GripVertical, X } from "lucide-react";
 import Link from "next/link";
 import {
   useCallback,
@@ -27,7 +27,11 @@ import {
   NOTIFICATION_IMPORTANCE,
   NotificationImportanceGlyph,
 } from "@/lib/notification-importance";
-import { postItImportanceClassNames } from "@/lib/notification-post-it-surface";
+import {
+  postItCardWidthClass,
+  postItFirstRowClassName,
+  postItImportanceClassNames,
+} from "@/lib/notification-post-it-surface";
 import {
   CCIA_PINNED_SAVED_EVENT,
   isPointOverPinnedInAppDrop,
@@ -341,7 +345,8 @@ function DraggableNote({
     <div
       ref={cardRef}
       className={cn(
-        "fixed w-64 max-w-[min(16rem,calc(100vw-0.5rem))] cursor-grab select-none active:cursor-grabbing",
+        "fixed cursor-grab select-none active:cursor-grabbing",
+        postItCardWidthClass,
         "transition-opacity duration-500 ease-out motion-reduce:duration-0",
         visible ? "opacity-100" : "opacity-0",
         !visible && "pointer-events-none",
@@ -352,15 +357,15 @@ function DraggableNote({
         transform: `translate(${x}px, ${y}px)`,
         zIndex: z,
       }}
-      title="Click the pin, or drag the handle (or the card) onto Pinned in the header"
+      title="Drag the handle or the card onto Pinned in the header to add this notice to Pinned"
       onPointerDown={onCardPointerDown}
     >
-      <div className={cn("overflow-hidden", th.shell)}>
+      <div className={cn("w-full overflow-hidden", th.shell)}>
         <div
-          className={cn(
-            "flex min-h-7 items-center gap-0.5 px-2 py-0",
+          className={postItFirstRowClassName(
             th.hairline,
-            hasDetails && !expanded && "border-b-0",
+            hasDetails,
+            expanded,
           )}
         >
           <button
@@ -373,19 +378,6 @@ function DraggableNote({
             onPointerDown={onHandlePointerDown}
           >
             <GripVertical className="h-3.5 w-3.5" aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="touch-none rounded p-0.5 text-foreground/70 hover:bg-black/5 dark:hover:bg-white/10"
-            title="Add to Pinned in header (click — no drag required)"
-            aria-label="Pin to header"
-            onClick={(e) => {
-              e.stopPropagation();
-              onFocusNote();
-              void runPinInHeader();
-            }}
-          >
-            <Pin className="h-3.5 w-3.5" aria-hidden />
           </button>
           <span
             className="inline-flex shrink-0"
@@ -549,10 +541,10 @@ export function NotificationStack() {
       const w = window.innerWidth;
       const h = window.innerHeight;
       const next: Record<string, { x: number; y: number }> = {};
-      for (let i = 0; i < rows.length; i += 1) {
-        const r = rows[i]!;
+      for (const r of rows) {
         const id = r._id;
-        const existing = prev[id] ?? stored[id];
+        /** `localStorage` first so unpin’s `saveNotifPositions` isn’t losing to stale `prev`. */
+        const existing = stored[id] ?? prev[id];
         if (existing) {
           next[id] = clampNotifPosition(
             existing.x,
@@ -563,7 +555,7 @@ export function NotificationStack() {
             100,
           );
         } else {
-          next[id] = defaultNotifPosition(i, w, h);
+          next[id] = defaultNotifPosition(0, w, h);
         }
       }
       saveNotifPositions(forUserKey, next);
@@ -670,7 +662,7 @@ export function NotificationStack() {
         {rows.map((row, i) => {
           const id = row._id;
           const pos = positions[id] ?? defaultNotifPosition(
-            i,
+            0,
             typeof window !== "undefined" ? window.innerWidth : 1200,
             typeof window !== "undefined" ? window.innerHeight : 800,
           );

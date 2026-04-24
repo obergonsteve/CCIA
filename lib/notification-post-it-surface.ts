@@ -91,3 +91,23 @@ export function postItImportanceClassNames(
       return postItImportanceClassNames("normal");
   }
 }
+
+/** Must match the floating `DraggableNote` outer: `w-64` in the app shell. */
+export const postItCardWidthClass = "w-64 max-w-[min(16rem,calc(100vw-0.5rem))]";
+
+/**
+ * Shared top row: **fixed h-7** and identical padding so every notice (floating or in the
+ * pinned list) has the same chrome. Use the same `hasDetails` / `expanded` pattern as
+ * the floating post-it.
+ */
+export function postItFirstRowClassName(
+  hairline: string,
+  hasDetails: boolean,
+  expanded: boolean,
+) {
+  return cn(
+    "box-border flex h-7 w-full shrink-0 items-center gap-0.5 px-2 py-0",
+    hairline,
+    hasDetails && !expanded && "border-b-0",
+  );
+}

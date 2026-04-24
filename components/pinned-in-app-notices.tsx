@@ -13,6 +13,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
   ChevronDown,
   ExternalLink,
+  GripVertical,
   Pin,
   PinOff,
 } from "lucide-react";
@@ -24,7 +25,11 @@ import {
   NotificationImportanceGlyph,
   type NotificationImportance,
 } from "@/lib/notification-importance";
-import { postItImportanceClassNames } from "@/lib/notification-post-it-surface";
+import {
+  postItCardWidthClass,
+  postItFirstRowClassName,
+  postItImportanceClassNames,
+} from "@/lib/notification-post-it-surface";
 import {
   CCIA_PINNED_HOVER_EVENT,
   CCIA_PINNED_SAVED_EVENT,
@@ -55,6 +60,8 @@ export function PinnedInAppNotices() {
   const unpinM = useMutation(api.userNotifications.unpinInApp);
 
   const count = pinned?.length ?? 0;
+  const noticeCountLabel =
+    count === 1 ? "1 notice" : `${count} notices`;
 
   useEffect(() => {
     const onHover = (e: Event) => {
@@ -108,7 +115,7 @@ export function PinnedInAppNotices() {
     >
       <div
         className={cn(
-          "flex min-w-0 items-center gap-0.5 rounded-lg border border-dashed border-brand-sky/30 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-1.5 py-0.5 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150",
+          "flex min-h-10 w-full min-w-[9.25rem] max-w-full items-stretch justify-stretch gap-0 rounded-lg border border-dashed border-brand-sky/30 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-2 py-1 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150 sm:min-w-[10.25rem] sm:px-2.5",
           "dark:border-brand-sky/25 dark:from-brand-sky/[0.14] dark:via-brand-lime/[0.09] dark:to-brand-gold/[0.11] dark:shadow-brand-sky/20",
           over && [
             "border-brand-sky/90 border-solid bg-brand-sky/20 dark:border-brand-sky/70",
@@ -125,27 +132,29 @@ export function PinnedInAppNotices() {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 gap-1.5 px-2 text-xs text-foreground/88 bg-transparent hover:bg-black/[0.06] hover:text-foreground aria-expanded:bg-transparent dark:hover:bg-white/[0.08] dark:aria-expanded:bg-transparent"
+              className="h-9 w-full min-w-0 justify-between gap-1.5 px-1.5 text-xs text-foreground/88 bg-transparent hover:bg-black/[0.06] hover:text-foreground aria-expanded:bg-transparent dark:hover:bg-white/[0.08] dark:aria-expanded:bg-transparent"
               aria-expanded={expanded}
-              aria-label="Pinned in header"
+              aria-label={`Pinned in header — ${noticeCountLabel}`}
               onClick={() => setExpanded((e) => !e)}
             >
-              <Pin
-                className="h-3.5 w-3.5 shrink-0 text-brand-sky"
-                aria-hidden
-              />
-              {count > 0 ? (
-                <span
-                  className="min-w-[1.1rem] rounded bg-brand-sky/30 px-1.5 text-center text-[0.7rem] font-bold tabular-nums text-foreground dark:bg-brand-sky/25"
-                  aria-label={`${count} pinned`}
-                >
-                  {count}
-                </span>
-              ) : (
-                <span className="text-[0.65rem] text-muted-foreground/80">
-                  0
-                </span>
-              )}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Pin
+                  className="h-3.5 w-3.5 shrink-0 text-brand-sky"
+                  aria-hidden
+                />
+                {count > 0 ? (
+                  <span
+                    className="rounded bg-brand-sky/30 px-1.5 py-0.5 text-left text-[0.72rem] font-bold tabular-nums leading-tight text-foreground dark:bg-brand-sky/25"
+                    aria-label={noticeCountLabel}
+                  >
+                    {noticeCountLabel}
+                  </span>
+                ) : (
+                  <span className="text-[0.7rem] text-muted-foreground/80">
+                    {noticeCountLabel}
+                  </span>
+                )}
+              </span>
               <ChevronDown
                 className={cn(
                   "h-3.5 w-3.5 shrink-0 text-foreground/45 transition-transform dark:text-foreground/50",
@@ -155,9 +164,12 @@ export function PinnedInAppNotices() {
               />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-xs text-xs">
-            Drop a post-it here, or use the pin on a notice, to keep it in the
-            header. Oldest first when expanded.
+          <TooltipContent
+            side="bottom"
+            className="w-64 max-w-[min(16rem,calc(100vw-0.5rem))] px-2 py-1 text-left text-[0.7rem] font-normal leading-snug text-popover-foreground"
+          >
+            Drag a post-it here to pin it in the header. Oldest first when
+            opened.
           </TooltipContent>
         </Tooltip>
         </TooltipProvider>
@@ -165,7 +177,7 @@ export function PinnedInAppNotices() {
 
       {expanded && (
         <div
-          className="absolute top-full left-1/2 z-50 mt-1 w-[min(100vw-2rem,20rem)] -translate-x-1/2 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-foreground/5 dark:border-white/12 dark:bg-[color-mix(in_oklab,var(--card)_95%,#0a0a0a)]"
+          className="absolute right-0 top-full z-50 mt-1 w-[min(100vw-2rem,18rem)] rounded-lg border border-slate-300/85 bg-slate-200/90 p-1.5 text-foreground shadow-lg ring-1 ring-slate-400/25 dark:border-slate-600/55 dark:bg-slate-800/65 dark:ring-slate-600/30"
         >
           {pinned === undefined ? (
             <p className="px-1 py-3 text-center text-xs text-muted-foreground">
@@ -224,14 +236,25 @@ function PinnedLine({
 
   return (
     <li className="list-none">
-      <div className={cn("w-full min-w-0", th.shell)}>
+      <div
+        className={cn("mx-auto w-full min-w-0 overflow-hidden", postItCardWidthClass, th.shell)}
+      >
         <div
-          className={cn(
-            "flex min-h-7 items-center gap-0.5 px-2 py-0",
+          className={postItFirstRowClassName(
             th.hairline,
-            hasDetails && !expanded && "border-b-0",
+            hasDetails,
+            expanded,
           )}
         >
+          <button
+            type="button"
+            tabIndex={-1}
+            className="invisible pointer-events-none touch-none rounded p-0.5"
+            disabled
+            aria-hidden
+          >
+            <GripVertical className="h-3.5 w-3.5" aria-hidden />
+          </button>
           <span
             className="inline-flex shrink-0"
             title={NOTIFICATION_IMPORTANCE[importance].human}
@@ -254,7 +277,7 @@ function PinnedLine({
           {hasDetails ? (
             <button
               type="button"
-              className="shrink-0 rounded p-0.5 text-foreground/80 hover:bg-black/10 dark:hover:bg-white/15"
+              className="shrink-0 cursor-default rounded p-0.5 text-foreground/80 hover:bg-black/10 dark:hover:bg-white/15"
               onClick={(e) => {
                 e.stopPropagation();
                 setExpanded((v) => !v);
@@ -274,7 +297,7 @@ function PinnedLine({
           ) : null}
           <button
             type="button"
-            className="rounded p-0.5 text-foreground/75 hover:bg-brand-sky/15 hover:text-brand-sky dark:hover:bg-brand-sky/20"
+            className="shrink-0 cursor-default rounded p-0.5 text-foreground/80 hover:bg-black/10 dark:hover:bg-white/15"
             onClick={(e) => {
               e.stopPropagation();
               unpinToDesktop();
