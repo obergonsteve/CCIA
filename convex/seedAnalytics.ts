@@ -205,7 +205,7 @@ type PerUserSummary = {
   testResultsInserted: number;
 };
 
-async function wipeProgressForUser(
+export async function wipeProgressForUser(
   ctx: MutationCtx,
   userId: Id<"users">,
 ): Promise<void> {
@@ -463,6 +463,144 @@ async function seedForUser(args: {
   return summary;
 }
 
+export type SeedAnalyticsDemoCoreArgs = {
+  userCount?: number;
+  weeksBack?: number;
+  reset?: boolean;
+};
+
+/** Shared body for `seed:seedAnalyticsDemo` and `seed:seedFullDemo` (no auth check). */
+export async function runSeedAnalyticsDemoCore(
+  ctx: MutationCtx,
+  args: SeedAnalyticsDemoCoreArgs,
+) {
+  const userCount = Math.max(1, args.userCount ?? DEFAULT_USER_COUNT);
+  const weeksBack = Math.max(1, args.weeksBack ?? DEFAULT_WEEKS_BACK);
+  const reset = args.reset === true;
+  const now = Date.now();
+  const rng = makeRng(0xc01a | userCount);
+
+  const seedCompanyId = await getOrInsertSeedCompany(ctx, now);
+  const otherCompanyIds = await listOtherRealCompanies(ctx);
+  const users = await ensureSeedUsers(
+    ctx,
+    userCount,
+    seedCompanyId,
+    otherCompanyIds,
+    rng,
+  );
+
+  if (reset) {
+    for (const u of users) {
+      await wipeProgressForUser(ctx, u._id);
+    }
+  }
+
+  const levels = await listLiveLevels(ctx);
+  if (levels.length === 0) {
+    return {
+      ok: false as const,
+      reason:
+        "No live certification levels found. Run seed:seedLandLeaseCurriculum first.",
+      userCount: users.length,
+    };
+  }
+
+  const summaries: PerUserSummary[] = [];
+  for (const u of users) {
+    const s = await seedForUser({
+      ctx,
+      user: u,
+      levels,
+      weeksBack,
+      now,
+      rng,
+    });
+    summaries.push(s);
+  }
+
+  // Coverage pass: every live unit across every cert should have at least
+  // `MIN_LEARNERS_PER_UNIT` seeded learners, otherwise admins who open a
+  // cold unit still see empty charts.
+  const MIN_LEARNERS_PER_UNIT = 4;
+  const allUnitDocs: Doc<"units">[] = [];
+  const seenUnitIds = new Set<string>();
+  for (const level of levels) {
+    const units = await listLevelUnits(ctx, level._id);
+    for (const u of units) {
+      const k = String(u._id);
+      if (seenUnitIds.has(k)) {
+        continue;
+      }
+      seenUnitIds.add(k);
+      allUnitDocs.push(u);
+    }
+  }
+
+  for (const unit of allUnitDocs) {
+    const existing = await ctx.db
+      .query("userProgress")
+      .withIndex("by_unit", (q) => q.eq("unitId", unit._id))
+      .collect();
+    const existingUserIds = new Set(existing.map((r) => String(r.userId)));
+    const shortfall = Math.max(0, MIN_LEARNERS_PER_UNIT - existingUserIds.size);
+    if (shortfall === 0) {
+      continue;
+    }
+    const candidates = users.filter(
+      (u) => !existingUserIds.has(String(u._id)),
+    );
+    if (candidates.length === 0) {
+      continue;
+    }
+    const picks = shuffled(rng, candidates).slice(0, shortfall);
+    for (const picked of picks) {
+      const s = await seedForUser({
+        ctx,
+        user: picked,
+        levels,
+        weeksBack,
+        now,
+        rng,
+        forcedUnits: [unit],
+      });
+      const agg = summaries.find((row) => row.userId === picked._id);
+      if (agg) {
+        agg.unitProgressInserted += s.unitProgressInserted;
+        agg.contentProgressInserted += s.contentProgressInserted;
+        agg.eventsInserted += s.eventsInserted;
+        agg.testResultsInserted += s.testResultsInserted;
+      } else {
+        summaries.push(s);
+      }
+    }
+  }
+
+  const totals = summaries.reduce(
+    (acc, s) => {
+      acc.unitProgressInserted += s.unitProgressInserted;
+      acc.contentProgressInserted += s.contentProgressInserted;
+      acc.eventsInserted += s.eventsInserted;
+      acc.testResultsInserted += s.testResultsInserted;
+      return acc;
+    },
+    {
+      unitProgressInserted: 0,
+      contentProgressInserted: 0,
+      eventsInserted: 0,
+      testResultsInserted: 0,
+    },
+  );
+
+  return {
+    ok: true as const,
+    userCount: users.length,
+    weeksBack,
+    reset,
+    ...totals,
+  };
+}
+
 export const seedAnalyticsDemo = mutation({
   args: {
     userCount: v.optional(v.number()),
@@ -472,137 +610,7 @@ export const seedAnalyticsDemo = mutation({
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
-
-    const userCount = Math.max(1, args.userCount ?? DEFAULT_USER_COUNT);
-    const weeksBack = Math.max(1, args.weeksBack ?? DEFAULT_WEEKS_BACK);
-    const reset = args.reset === true;
-    const now = Date.now();
-    const rng = makeRng(0xc01a | userCount);
-
-    const seedCompanyId = await getOrInsertSeedCompany(ctx, now);
-    const otherCompanyIds = await listOtherRealCompanies(ctx);
-    const users = await ensureSeedUsers(
-      ctx,
-      userCount,
-      seedCompanyId,
-      otherCompanyIds,
-      rng,
-    );
-
-    if (reset) {
-      for (const u of users) {
-        await wipeProgressForUser(ctx, u._id);
-      }
-    }
-
-    const levels = await listLiveLevels(ctx);
-    if (levels.length === 0) {
-      return {
-        ok: false as const,
-        reason:
-          "No live certification levels found. Run seed:seedLandLeaseCurriculum first.",
-        userCount: users.length,
-      };
-    }
-
-    const summaries: PerUserSummary[] = [];
-    for (const u of users) {
-      const s = await seedForUser({
-        ctx,
-        user: u,
-        levels,
-        weeksBack,
-        now,
-        rng,
-      });
-      summaries.push(s);
-    }
-
-    // Coverage pass: every live unit across every cert should have at least
-    // `MIN_LEARNERS_PER_UNIT` seeded learners, otherwise admins who open a
-    // cold unit still see empty charts.
-    const MIN_LEARNERS_PER_UNIT = 4;
-    const allUnitDocs: Doc<"units">[] = [];
-    const seenUnitIds = new Set<string>();
-    for (const level of levels) {
-      const units = await listLevelUnits(ctx, level._id);
-      for (const u of units) {
-        const k = String(u._id);
-        if (seenUnitIds.has(k)) {
-          continue;
-        }
-        seenUnitIds.add(k);
-        allUnitDocs.push(u);
-      }
-    }
-
-    for (const unit of allUnitDocs) {
-      const existing = await ctx.db
-        .query("userProgress")
-        .withIndex("by_unit", (q) => q.eq("unitId", unit._id))
-        .collect();
-      const existingUserIds = new Set(existing.map((r) => String(r.userId)));
-      const shortfall = Math.max(
-        0,
-        MIN_LEARNERS_PER_UNIT - existingUserIds.size,
-      );
-      if (shortfall === 0) {
-        continue;
-      }
-      // Prefer users whose company can access this unit's certs; fall back to
-      // all seeded users if no filter applies (curriculum levels are global).
-      const candidates = users.filter(
-        (u) => !existingUserIds.has(String(u._id)),
-      );
-      if (candidates.length === 0) {
-        continue;
-      }
-      const picks = shuffled(rng, candidates).slice(0, shortfall);
-      for (const picked of picks) {
-        const s = await seedForUser({
-          ctx,
-          user: picked,
-          levels,
-          weeksBack,
-          now,
-          rng,
-          forcedUnits: [unit],
-        });
-        const agg = summaries.find((row) => row.userId === picked._id);
-        if (agg) {
-          agg.unitProgressInserted += s.unitProgressInserted;
-          agg.contentProgressInserted += s.contentProgressInserted;
-          agg.eventsInserted += s.eventsInserted;
-          agg.testResultsInserted += s.testResultsInserted;
-        } else {
-          summaries.push(s);
-        }
-      }
-    }
-
-    const totals = summaries.reduce(
-      (acc, s) => {
-        acc.unitProgressInserted += s.unitProgressInserted;
-        acc.contentProgressInserted += s.contentProgressInserted;
-        acc.eventsInserted += s.eventsInserted;
-        acc.testResultsInserted += s.testResultsInserted;
-        return acc;
-      },
-      {
-        unitProgressInserted: 0,
-        contentProgressInserted: 0,
-        eventsInserted: 0,
-        testResultsInserted: 0,
-      },
-    );
-
-    return {
-      ok: true as const,
-      userCount: users.length,
-      weeksBack,
-      reset,
-      ...totals,
-    };
+    return await runSeedAnalyticsDemoCore(ctx, args);
   },
 });
 

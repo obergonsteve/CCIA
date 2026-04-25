@@ -1,3 +1,4 @@
+import { v } from "convex/values";
 import { mutation, type MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -17,6 +18,8 @@ import {
   syncLandLeaseCertificationTiersFromCurriculum,
 } from "./lib/landLeaseCertTiers";
 import { isLive } from "./lib/softDelete";
+import { collectUnitsForLevel } from "./units";
+import { runSeedAnalyticsDemoCore, wipeProgressForUser } from "./seedAnalytics";
 
 /** bcrypt cost 10 via bcryptjs — hashes for stevemoore / gillmoore (must match `auth.login`). */
 const HASH_STEVE = "$2b$10$q9aiw4mBWZLc.OKxISlyeuQydcRVExVRFIX611C1V.1V0QStXkNn2";
@@ -376,6 +379,10 @@ const CURRICULUM_MARKER = "Land Lease 101";
 const HASH_SEED_STUDENT =
   "$2b$10$GkooX//mw8YBaQIOcvbWfOfSw/wIieogG.0mZuOzo5XkKs6kJdLwC";
 
+/** bcrypt cost 10 — password `seedmember1` (demo / local use only). */
+const HASH_SEED_DEMO_MEMBER =
+  "$2b$10$r4ci1ZiCVxMgb72djX8Us.CP0mPZDjQwbg8G.hif5BC8pi8ktT7vW";
+
 /**
  * Demo student accounts: no company, `studentEntitledCertificationLevelIds` set to match
  * global curriculum course names (see `LAND_LEASE_CURRICULUM` in `curriculumSeedData.ts`).
@@ -394,6 +401,41 @@ const SEED_STUDENT_ACCOUNTS: ReadonlyArray<{
     email: "student.bob@ccia-landlease.com",
     name: "Bob (seed student)",
     courseNames: ["Land Lease 101", "Compliance & the Act"],
+  },
+];
+
+/**
+ * Member demo users on operator companies — password `seedmember1`.
+ * `plannedCertificationLevelIds` + optional first-unit `userProgress` for admin directory.
+ */
+const MEMBER_DEMO_ACCOUNTS: ReadonlyArray<{
+  email: string;
+  name: string;
+  companyName: string;
+  plannedCourseNames: readonly string[];
+  touchFirstUnits?: { courseName: string; count: number };
+}> = [
+  {
+    email: "member.roadmap@ccia-landlease.com",
+    name: "Dana Roadmap (demo member)",
+    companyName: PRIMARY_ORG_COMPANY_NAME,
+    plannedCourseNames: [
+      "Compliance & the Act",
+      "Resident Experience & Fair Dealing",
+    ],
+  },
+  {
+    email: "member.inprogress@ccia-landlease.com",
+    name: "Jules In-Progress (demo member)",
+    companyName: PRIMARY_ORG_COMPANY_NAME,
+    plannedCourseNames: [],
+    touchFirstUnits: { courseName: "Land Lease 101", count: 2 },
+  },
+  {
+    email: "member.riverside@ccia-landlease.com",
+    name: "Morgan Riverside (demo member)",
+    companyName: "Riverside Community Operators",
+    plannedCourseNames: ["Site Safety & WHS", "Land Lease 101"],
   },
 ];
 
@@ -636,6 +678,168 @@ async function runSeedStudentsWithCertEntitlements(
     details.push({ email: spec.email, levelCount: levelIds.length });
   }
   return { upserted, skippedNoCurriculum: false, details };
+}
+
+async function runSeedMemberDemoUsers(
+  ctx: MutationCtx,
+  companyIdsByName: Record<string, Id<"companies">>,
+): Promise<{
+  upserted: number;
+  skippedNoCurriculum: boolean;
+  workshopRegistrations: number;
+  details: { email: string; error?: string }[];
+}> {
+  const levelIdByCourseName = await levelIdByCourseNameForSeededCurriculum(ctx);
+  if (!levelIdByCourseName.has(CURRICULUM_MARKER)) {
+    return {
+      upserted: 0,
+      skippedNoCurriculum: true,
+      workshopRegistrations: 0,
+      details: [],
+    };
+  }
+
+  const now = Date.now();
+  const details: { email: string; error?: string }[] = [];
+  let upserted = 0;
+
+  for (const spec of MEMBER_DEMO_ACCOUNTS) {
+    const companyId = companyIdsByName[spec.companyName];
+    if (!companyId) {
+      details.push({ email: spec.email, error: "unknown company" });
+      continue;
+    }
+    const plannedLevelIds: Id<"certificationLevels">[] = [];
+    for (const cn of spec.plannedCourseNames) {
+      const id = levelIdByCourseName.get(cn);
+      if (id && !plannedLevelIds.some((x) => String(x) === String(id))) {
+        plannedLevelIds.push(id);
+      }
+    }
+    const email = spec.email.toLowerCase().trim();
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (existing && existing.accountType === "student") {
+      details.push({
+        email: spec.email,
+        error: "email already a student account",
+      });
+      continue;
+    }
+    if (spec.touchFirstUnits) {
+      if (!levelIdByCourseName.get(spec.touchFirstUnits.courseName)) {
+        details.push({
+          email: spec.email,
+          error: `missing level ${spec.touchFirstUnits.courseName}`,
+        });
+        continue;
+      }
+    }
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        name: spec.name,
+        companyId,
+        accountType: "member",
+        role: "operator",
+        passwordHash: HASH_SEED_DEMO_MEMBER,
+        plannedCertificationLevelIds:
+          plannedLevelIds.length > 0 ? plannedLevelIds : undefined,
+      });
+      await wipeProgressForUser(ctx, existing._id);
+    } else {
+      const id = await ctx.db.insert("users", {
+        email,
+        name: spec.name,
+        passwordHash: HASH_SEED_DEMO_MEMBER,
+        companyId,
+        accountType: "member",
+        role: "operator",
+        plannedCertificationLevelIds:
+          plannedLevelIds.length > 0 ? plannedLevelIds : undefined,
+      });
+      const row = await ctx.db.get(id);
+      if (row) {
+        await wipeProgressForUser(ctx, row._id);
+      }
+    }
+    const u = (await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique())!;
+    if (spec.touchFirstUnits) {
+      const levelId = levelIdByCourseName.get(
+        spec.touchFirstUnits.courseName,
+      )!;
+      const units = await collectUnitsForLevel(ctx, levelId);
+      const slice = units.slice(0, spec.touchFirstUnits.count);
+      for (const unit of slice) {
+        const hit = await ctx.db
+          .query("userProgress")
+          .withIndex("by_user_unit", (q) =>
+            q.eq("userId", u._id).eq("unitId", unit._id),
+          )
+          .unique();
+        if (hit) {
+          await ctx.db.patch(hit._id, {
+            completed: false,
+            completedAt: undefined,
+            lastAccessed: now,
+          });
+        } else {
+          await ctx.db.insert("userProgress", {
+            userId: u._id,
+            unitId: unit._id,
+            completed: false,
+            lastAccessed: now,
+          });
+        }
+      }
+    }
+    details.push({ email: spec.email });
+    upserted += 1;
+  }
+
+  let workshopRegistrations = 0;
+  const session = await ctx.db.query("workshopSessions").first();
+  if (session) {
+    const toRegister = [
+      "member.inprogress@ccia-landlease.com",
+      "steve.moore@ccia-landlease.com",
+    ];
+    for (const e of toRegister) {
+      const u = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", e.toLowerCase().trim()))
+        .unique();
+      if (!u) {
+        continue;
+      }
+      const ex = await ctx.db
+        .query("workshopRegistrations")
+        .withIndex("by_session_and_user", (q) =>
+          q.eq("sessionId", session._id).eq("userId", u._id),
+        )
+        .unique();
+      if (ex) {
+        continue;
+      }
+      await ctx.db.insert("workshopRegistrations", {
+        userId: u._id,
+        sessionId: session._id,
+        registeredAt: now,
+      });
+      workshopRegistrations += 1;
+    }
+  }
+
+  return {
+    upserted,
+    skippedNoCurriculum: false,
+    workshopRegistrations,
+    details,
+  };
 }
 
 /**
@@ -1074,6 +1278,62 @@ export const seedLandLeaseCurriculum = mutation({
       skipped: false as const,
       ...stats,
     };
+  },
+});
+
+/**
+ * Operator member demos (roadmap + in-progress) and sample webinar registration.
+ * Requires land-lease curriculum. Password: `seedmember1`.
+ * Run: `npx convex run seed:seedMemberDemoUsers`
+ */
+export const seedMemberDemoUsers = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const operators = await runSeedCommunityOperatorsAndAdmins(ctx);
+    const members = await runSeedMemberDemoUsers(ctx, operators.companyIds);
+    return { ok: true as const, operators, members };
+  },
+});
+
+/**
+ * One-shot: companies, admins, full Land Lease curriculum, seed students, member demos,
+ * analytics-seed company + users with progress, and sample webinar registrations.
+ * Idempotent. No login required (trusted CLI / `npx convex run`).
+ *
+ * - Students: `seedstudent1` (see `seedStudentsWithCertEntitlements`)
+ * - Member demos: `seedmember1` (see `MEMBER_DEMO_ACCOUNTS` in this file)
+ * - Analytics: `Analytics Seed Co` + `analytics-seed-*@seed.ccia.test` (non-login)
+ *
+ * Run: `npx convex run seed:seedFullDemo`  —  add `--prod` for production.
+ */
+export const seedFullDemo = mutation({
+  args: {
+    /** When false, skips `seed:seedAnalyticsDemo` traffic. Default: true. */
+    includeAnalytics: v.optional(v.boolean()),
+    analyticsUserCount: v.optional(v.number()),
+    analyticsWeeksBack: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const operators = await runSeedCommunityOperatorsAndAdmins(ctx);
+    const exists = await landLeaseCurriculumAlreadySeeded(ctx);
+    const curriculum = exists
+      ? {
+          skipped: true as const,
+          ...(await ensureLandLeasePostCurriculumState(ctx)),
+          seedStudents: await runSeedStudentsWithCertEntitlements(ctx),
+        }
+      : { skipped: false as const, ...(await runInsertLandLeaseCurriculum(ctx)) };
+
+    const members = await runSeedMemberDemoUsers(ctx, operators.companyIds);
+    const includeAnalytics = args.includeAnalytics !== false;
+    const analytics = includeAnalytics
+      ? await runSeedAnalyticsDemoCore(ctx, {
+          userCount: args.analyticsUserCount ?? 12,
+          weeksBack: args.analyticsWeeksBack ?? 8,
+          reset: false,
+        })
+      : null;
+    return { ok: true as const, operators, curriculum, members, analytics };
   },
 });
 
