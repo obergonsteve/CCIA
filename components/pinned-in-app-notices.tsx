@@ -118,7 +118,7 @@ export function PinnedInAppNotices() {
     >
       <div
         className={cn(
-          "flex min-h-0 w-full min-w-[9.25rem] max-w-full items-stretch justify-stretch gap-0 rounded-lg border border-dashed border-brand-sky/55 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-2 py-0.5 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150 sm:min-w-[10.25rem] sm:px-2.5",
+          "flex min-h-0 w-full min-w-[9.99rem] max-w-full items-stretch justify-stretch gap-0 rounded-lg border border-dashed border-brand-sky/55 bg-gradient-to-r from-brand-sky/18 via-brand-lime/[0.1] to-brand-gold/14 px-2 py-0.5 shadow-sm shadow-brand-sky/15 transition-[border-color,background-color,box-shadow,transform] duration-150 sm:min-w-[11.07rem] sm:px-2.5",
           "dark:border-brand-sky/50 dark:from-brand-sky/[0.14] dark:via-brand-lime/[0.09] dark:to-brand-gold/[0.11] dark:shadow-brand-sky/20",
           over && [
             "border-brand-sky/90 border-solid bg-brand-sky/20 dark:border-brand-sky/70",
