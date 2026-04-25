@@ -45,7 +45,11 @@ import {
   SendInAppNoticeTextButton,
 } from "@/components/admin/send-in-app-notice-control";
 import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
-import { isValidIanaTimeZone, listIanaTimeZones } from "@/lib/iana-timezone";
+import {
+  isValidAustraliaIanaTimeZone,
+  isValidIanaTimeZone,
+  listAustraliaIanaTimeZones,
+} from "@/lib/iana-timezone";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
@@ -74,9 +78,11 @@ export default function AdminUsersClient() {
   >("active");
   const [coDetailJoined, setCoDetailJoined] = useState("");
   const [coDetailTimezone, setCoDetailTimezone] = useState("");
-  const [coTimezoneFilter, setCoTimezoneFilter] = useState("");
 
-  const allIanaTimeZones = useMemo(() => listIanaTimeZones(), []);
+  const allIanaTimeZones = useMemo(
+    () => listAustraliaIanaTimeZones(),
+    [],
+  );
   const companyFormHydratedForId = useRef<Id<"companies"> | null>(null);
 
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -156,16 +162,13 @@ export default function AdminUsersClient() {
   );
 
   const coTimezoneSelectOptions = useMemo(() => {
-    const q = coTimezoneFilter.trim().toLowerCase();
-    const base = q
-      ? allIanaTimeZones.filter((z) => z.toLowerCase().includes(q))
-      : allIanaTimeZones;
+    const base = allIanaTimeZones;
     const v = coDetailTimezone.trim();
     if (v && isValidIanaTimeZone(v) && !base.includes(v)) {
       return [v, ...base].sort((a, b) => a.localeCompare(b));
     }
     return base;
-  }, [coTimezoneFilter, allIanaTimeZones, coDetailTimezone]);
+  }, [allIanaTimeZones, coDetailTimezone]);
 
   /**
    * Hydrate company form only when switching the selected company (or first load
@@ -207,7 +210,6 @@ export default function AdminUsersClient() {
     setCoDetailTimezone(
       c.timezone && c.timezone.trim() ? c.timezone.trim() : "",
     );
-    setCoTimezoneFilter("");
   }, [selectedCompanyId, companies]);
 
   return (
@@ -463,29 +465,20 @@ export default function AdminUsersClient() {
                     />
                   </div>
                   <div className="sm:col-span-2 space-y-2">
-                    <Label htmlFor="co-timezone">Time zone (IANA)</Label>
-                    <Input
-                      id="co-timezone-filter"
-                      name="co-timezone-filter"
-                      value={coTimezoneFilter}
-                      onChange={(e) => setCoTimezoneFilter(e.target.value)}
-                      placeholder="Type to filter the list (all IANA zones below)"
-                      autoComplete="off"
-                    />
+                    <Label htmlFor="co-timezone">Timezone</Label>
                     <select
                       id="co-timezone"
                       name="co-timezone"
                       value={coDetailTimezone}
                       onChange={(e) => {
                         setCoDetailTimezone(e.target.value);
-                        setCoTimezoneFilter("");
                       }}
                       className={cn(
                         "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm",
                         "shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
                         "md:text-sm dark:bg-input/30",
                       )}
-                      aria-label="Select company time zone; choose Not set to clear"
+                      aria-label="Select company timezone; choose Not set to clear"
                     >
                       <option value="">
                         Not set (user’s browser / local default)
@@ -496,10 +489,6 @@ export default function AdminUsersClient() {
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-muted-foreground">
-                      Full IANA list in the menu (scroll to browse). Use “Not
-                      set” to clear. Applied on sign-in and session refresh.
-                    </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -522,8 +511,10 @@ export default function AdminUsersClient() {
                         }
                         joinedAt = t;
                       }
-                      if (!isValidIanaTimeZone(coDetailTimezone)) {
-                        toast.error("Invalid time zone — use a valid IANA name.");
+                      if (!isValidAustraliaIanaTimeZone(coDetailTimezone)) {
+                        toast.error(
+                          "Time zone must be empty or a valid Australia IANA zone (e.g. Australia/Sydney).",
+                        );
                         return;
                       }
                       try {
