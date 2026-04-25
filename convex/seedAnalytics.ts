@@ -130,7 +130,11 @@ async function ensureSeedUsers(
     const hit = byEmail.get(email.toLowerCase());
     if (hit) {
       if (hit.companyId !== companyId || hit.name !== name) {
-        await ctx.db.patch(hit._id, { companyId, name });
+        await ctx.db.patch(hit._id, {
+          companyId,
+          name,
+          accountType: "member",
+        });
       }
       const refreshed = (await ctx.db.get(hit._id)) as Doc<"users">;
       result.push(refreshed);
@@ -140,6 +144,7 @@ async function ensureSeedUsers(
         name,
         passwordHash: SEED_PASSWORD_HASH,
         companyId,
+        accountType: "member",
         role: "operator",
       });
       const created = (await ctx.db.get(id)) as Doc<"users">;

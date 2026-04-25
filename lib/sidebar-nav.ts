@@ -107,8 +107,6 @@ export function sidebarMainPageHeading(
       label: "Students",
       icon: GraduationCap,
       iconClassName: "text-brand-gold",
-      subheading:
-        "Non-member accounts: subscribe to training in the app without a member org.",
     };
   }
   if (pathname.startsWith("/admin/courses")) {

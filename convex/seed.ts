@@ -196,6 +196,7 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
         name: a.name,
         role: "admin",
         companyId: primaryOrgId,
+        accountType: "member",
       });
     } else {
       await ctx.db.insert("users", {
@@ -203,6 +204,7 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
         name: a.name,
         passwordHash: a.passwordHash,
         companyId: primaryOrgId,
+        accountType: "member",
         role: "admin",
       });
     }

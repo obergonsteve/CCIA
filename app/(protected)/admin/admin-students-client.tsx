@@ -58,23 +58,15 @@ export default function AdminStudentsClient() {
     >
       <p className="w-full min-w-0 text-muted-foreground">
         People who registered without a member (company). They can sign in and
-        subscribe to training programs in the app. Member-linked accounts are
-        managed on{" "}
-        <a
-          href="/admin/users"
-          className="text-brand-sky underline underline-offset-2 hover:text-brand-sky/90"
-        >
-          Members
-        </a>
-        .
+        subscribe to training programs in the app.
       </p>
 
       <div className="space-y-4 max-w-4xl">
-        <Card className="border border-violet-400/35 border-l-4 border-l-violet-500 bg-violet-500/[0.05] shadow-sm ring-violet-500/10 dark:border-violet-500/30 dark:bg-violet-500/[0.08] dark:ring-violet-500/8">
+        <Card className="border border-brand-gold/40 border-l-4 border-l-brand-gold bg-brand-gold/[0.07] shadow-sm ring-brand-gold/15 dark:border-brand-gold/35 dark:bg-brand-gold/[0.10] dark:ring-brand-gold/10">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <GraduationCap
-                className="h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400"
+                className="h-4 w-4 shrink-0 text-brand-gold"
                 aria-hidden
               />
               Add a student
@@ -86,7 +78,7 @@ export default function AdminStudentsClient() {
           </CardHeader>
           <CardContent>
             {canWrite ? (
-              <div className="space-y-3 rounded-lg border border-violet-500/20 bg-violet-500/[0.04] p-4 dark:border-violet-500/15 dark:bg-violet-500/[0.06]">
+              <div className="space-y-3 rounded-lg border border-brand-gold/25 bg-brand-gold/[0.04] p-4 dark:border-brand-gold/20 dark:bg-brand-gold/[0.06]">
                 <div className="grid sm:grid-cols-2 gap-3 max-w-2xl">
                   <Input
                     placeholder="Name"
@@ -107,7 +99,6 @@ export default function AdminStudentsClient() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     autoComplete="new-password"
-                    className="sm:col-span-2"
                   />
                 </div>
                 <Button

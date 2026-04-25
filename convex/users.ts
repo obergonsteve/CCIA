@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -57,10 +58,13 @@ export const createInternal = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
+    const accountType: "member" | "student" =
+      args.companyId != null ? "member" : "student";
     return await ctx.db.insert("users", {
       email: args.email.toLowerCase().trim(),
       name: args.name.trim(),
       passwordHash: args.passwordHash,
+      accountType,
       ...(args.companyId !== undefined
         ? { companyId: args.companyId }
         : {}),
@@ -133,14 +137,25 @@ export const listByCompany = query({
   },
 });
 
-/** Admin: accounts with no member (company) — students / non-members. */
+/** Admin: **student** accounts (tagged `accountType: "student"` and/or legacy no `companyId`). */
 export const listWithoutCompany = query({
   args: {},
   handler: async (ctx) => {
     await requireAdminOrCreator(ctx);
-    const all = await ctx.db.query("users").collect();
-    return all
-      .filter((u) => u.companyId == null)
+    const fromIndex = await ctx.db
+      .query("users")
+      .withIndex("by_account_type", (q) => q.eq("accountType", "student"))
+      .collect();
+    const byId = new Map<Id<"users">, (typeof fromIndex)[0]>();
+    for (const u of fromIndex) {
+      byId.set(u._id, u);
+    }
+    for (const u of await ctx.db.query("users").collect()) {
+      if (u.accountType == null && u.companyId == null && !byId.has(u._id)) {
+        byId.set(u._id, u);
+      }
+    }
+    return [...byId.values()]
       .map(({ passwordHash, ...u }) => {
         void passwordHash;
         return u;
@@ -183,9 +198,28 @@ export const adminUpdateProfile = mutation({
       email,
       role: args.role,
       ...(args.companyId == null
-        ? { companyId: undefined }
-        : { companyId: args.companyId }),
+        ? { companyId: undefined, accountType: "student" as const }
+        : { companyId: args.companyId, accountType: "member" as const }),
     });
+  },
+});
+
+/** One-time: set `accountType` from `companyId` for all existing user rows. */
+export const backfillAccountType = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrCreator(ctx);
+    const all = await ctx.db.query("users").collect();
+    let updated = 0;
+    for (const u of all) {
+      const next: "member" | "student" =
+        u.companyId == null ? "student" : "member";
+      if (u.accountType !== next) {
+        await ctx.db.patch(u._id, { accountType: next });
+        updated += 1;
+      }
+    }
+    return { updated, total: all.length };
   },
 });
 

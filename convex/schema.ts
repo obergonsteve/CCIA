@@ -35,6 +35,13 @@ export default defineSchema({
      * training in-app without a company.
      */
     companyId: v.optional(v.id("companies")),
+    /**
+     * `member` = company-linked; `student` = no company, app / public training.
+     * Keep in sync with `companyId` (run `backfillAccountType` once for legacy rows).
+     */
+    accountType: v.optional(
+      v.union(v.literal("member"), v.literal("student")),
+    ),
     role: v.union(
       v.literal("operator"),
       v.literal("supervisor"),
@@ -65,7 +72,8 @@ export default defineSchema({
     ),
   })
     .index("by_email", ["email"])
-    .index("by_company", ["companyId"]),
+    .index("by_company", ["companyId"])
+    .index("by_account_type", ["accountType"]),
 
   /** Admin-defined categories for certifications (short code + long description). */
   certificationCategories: defineTable({
