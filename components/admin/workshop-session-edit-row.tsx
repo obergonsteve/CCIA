@@ -99,7 +99,24 @@ export function WorkshopSessionEditRow({
         <Input
           type="datetime-local"
           value={startsLocal}
-          onChange={(e) => setStartsLocal(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setStartsLocal(v);
+            if (!v || !endsLocal) {
+              return;
+            }
+            try {
+              const s = parseLocalInput(v);
+              const eMs = parseLocalInput(endsLocal);
+              if (eMs <= s) {
+                const bump = new Date(s);
+                bump.setHours(bump.getHours() + 1);
+                setEndsLocal(toLocalInputValue(bump.getTime()));
+              }
+            } catch {
+              /* wait for valid values on save */
+            }
+          }}
           className={compact ? "h-8 text-xs" : undefined}
         />
       </div>
@@ -232,8 +249,18 @@ export function WorkshopSessionEditRow({
           className={compact ? "h-8 text-xs" : undefined}
           onClick={async () => {
             try {
+              if (!startsLocal.trim() || !endsLocal.trim()) {
+                toast.error("Set both start and end date and time.");
+                return;
+              }
               const startsAt = parseLocalInput(startsLocal);
               const endsAt = parseLocalInput(endsLocal);
+              if (endsAt <= startsAt) {
+                toast.error(
+                  "End time must be after the start time. Adjust the end field or set end after you set start.",
+                );
+                return;
+              }
               const capRaw = capacity.trim();
               let capacityArg: number | null = null;
               if (capRaw !== "") {

@@ -38,6 +38,7 @@ import {
   setPinnedInAppDropHover,
 } from "@/lib/pinned-in-app-drop";
 import { cn } from "@/lib/utils";
+import { WebinarReminderBodyParagraph } from "@/components/webinar-reminder-body-paragraph";
 import { toast } from "sonner";
 
 const NOTE_W = 256;
@@ -71,7 +72,10 @@ function DraggableNote({
       ? "Webinar reminder"
       : NOTIFICATION_IMPORTANCE[importance].human;
   const [expanded, setExpanded] = useState(false);
-  const hasBody = Boolean(row.body != null && row.body.trim() !== "");
+  const hasBody =
+    Boolean(row.body != null && row.body.trim() !== "") ||
+    (row.kind === "webinar_reminder" &&
+      row.linkRef?.kind === "workshopSession");
   const hasLink = Boolean(row.linkHref && row.linkHref.trim() !== "");
   /** Step link / body text live in the same collapsible area. */
   const hasDetails = hasBody || hasLink;
@@ -349,19 +353,19 @@ function DraggableNote({
           >
             {row.kind === "webinar_reminder" ? (
               <Video
-                className={cn("h-5 w-5 shrink-0 opacity-90", th.icon)}
+                className={cn("h-4 w-4 shrink-0 opacity-90", th.icon)}
                 aria-hidden
               />
             ) : (
               <NotificationImportanceGlyph
                 level={importance}
-                className={th.icon}
+                className={cn("h-4 w-4", th.icon)}
               />
             )}
           </span>
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-left text-[0.7rem] font-bold leading-tight",
+              "min-w-0 flex-1 truncate text-left text-[0.7rem] font-normal leading-tight",
               th.title,
             )}
           >
@@ -416,7 +420,13 @@ function DraggableNote({
             )}
             aria-hidden={!expanded}
           >
-            {row.body ? (
+            {row.kind === "webinar_reminder" &&
+            row.linkRef?.kind === "workshopSession" ? (
+              <WebinarReminderBodyParagraph
+                row={row}
+                className="line-clamp-6 text-xs leading-relaxed tracking-tight"
+              />
+            ) : row.body ? (
               <p className="line-clamp-6 text-xs leading-relaxed tracking-tight">
                 {row.body}
               </p>

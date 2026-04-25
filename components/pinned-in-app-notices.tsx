@@ -9,7 +9,6 @@ import {
   ArchiveRestore,
   ChevronDown,
   ExternalLink,
-  GripVertical,
   Video,
 } from "lucide-react";
 import Link from "next/link";
@@ -37,6 +36,7 @@ import {
 } from "@/lib/notification-positions";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
+import { WebinarReminderBodyParagraph } from "@/components/webinar-reminder-body-paragraph";
 
 const DRAG_TYPE_PREFIX = "cciaNotification:";
 
@@ -83,7 +83,7 @@ export function PinnedInAppNotices() {
     };
   }, []);
 
-  const onUnpin = useCallback(
+  const returnStashedNoteToDesktop = useCallback(
     async (id: Id<"userNotifications">) => {
       if (forUserId == null) {
         return;
@@ -91,7 +91,9 @@ export function PinnedInAppNotices() {
       try {
         await unpinM({ forUserId, notificationId: id });
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Unpin failed");
+        toast.error(
+          e instanceof Error ? e.message : "Couldn’t return note to desktop",
+        );
       }
     },
     [forUserId, unpinM],
@@ -184,7 +186,7 @@ export function PinnedInAppNotices() {
                   key={row._id}
                   row={row}
                   forUserId={String(forUserId)}
-                  onUnpin={onUnpin}
+                  onReturnFromStash={returnStashedNoteToDesktop}
                 />
               ))}
             </ol>
@@ -198,11 +200,11 @@ export function PinnedInAppNotices() {
 function PinnedLine({
   row,
   forUserId,
-  onUnpin,
+  onReturnFromStash,
 }: {
   row: Doc<"userNotifications">;
   forUserId: string;
-  onUnpin: (id: Id<"userNotifications">) => void;
+  onReturnFromStash: (id: Id<"userNotifications">) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const importance = (row.importance ?? "normal") as NotificationImportance;
@@ -211,12 +213,15 @@ function PinnedLine({
     row.kind === "webinar_reminder"
       ? "Webinar reminder"
       : NOTIFICATION_IMPORTANCE[importance].human;
-  const hasBody = Boolean(row.body != null && row.body.trim() !== "");
+  const hasBody =
+    Boolean(row.body != null && row.body.trim() !== "") ||
+    (row.kind === "webinar_reminder" &&
+      row.linkRef?.kind === "workshopSession");
   const hasLink = Boolean(row.linkHref && row.linkHref.trim() !== "");
   const hasDetails = hasBody || hasLink;
   const linkLabel = row.linkLabel?.trim() || "Open";
 
-  const unpinToDesktop = useCallback(() => {
+  const returnStashToDesktop = useCallback(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -225,49 +230,37 @@ function PinnedLine({
     const m = loadNotifPositions(forUserId);
     const pos = defaultNotifPosition(0, w, h);
     saveNotifPositions(forUserId, { ...m, [row._id]: pos });
-    void onUnpin(row._id);
-  }, [forUserId, onUnpin, row._id]);
+    void onReturnFromStash(row._id);
+  }, [forUserId, onReturnFromStash, row._id]);
 
   return (
     <li className="list-none">
       <div className={cn(postItCardWidthClass, "shrink-0")}>
         <div className={cn("w-full overflow-hidden", th.shell)}>
         <div
-          className={cn(
-            postItFirstRowClassName(th.hairline, hasDetails, expanded),
-            "gap-0",
-          )}
+          className={postItFirstRowClassName(th.hairline, hasDetails, expanded)}
         >
-          <button
-            type="button"
-            tabIndex={-1}
-            className="invisible pointer-events-none touch-none rounded p-0.5"
-            disabled
-            aria-hidden
-          >
-            <GripVertical className="h-3.5 w-3.5" aria-hidden />
-          </button>
           <span
-            className="inline-flex shrink-0"
+            className="inline-flex shrink-0 mr-1"
             title={a11yIcon}
             aria-label={a11yIcon}
             role="img"
           >
             {row.kind === "webinar_reminder" ? (
               <Video
-                className={cn("h-3.5 w-3.5 shrink-0 opacity-90", th.icon)}
+                className={cn("h-4 w-4 shrink-0 opacity-90", th.icon)}
                 aria-hidden
               />
             ) : (
               <NotificationImportanceGlyph
                 level={importance}
-                className={th.icon}
+                className={cn("h-4 w-4", th.icon)}
               />
             )}
           </span>
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-left text-[0.7rem] font-bold leading-tight",
+              "min-w-0 flex-1 truncate text-left text-[0.7rem] font-normal leading-tight",
               th.title,
             )}
           >
@@ -296,15 +289,19 @@ function PinnedLine({
           ) : null}
           <button
             type="button"
-            className="shrink-0 cursor-default rounded p-0.5 text-foreground/80 hover:bg-black/10 dark:hover:bg-white/15"
+            className="shrink-0 cursor-default rounded p-0.5 text-foreground/65 hover:bg-black/10 hover:text-foreground/90 dark:text-foreground/60 dark:hover:bg-white/15 dark:hover:text-foreground/90"
             onClick={(e) => {
               e.stopPropagation();
-              unpinToDesktop();
+              returnStashToDesktop();
             }}
-            title="Unstash to desktop (top-right stack)"
-            aria-label="Unstash to desktop"
+            title="Take this note out of the stash: it reappears in the floating stack (top of the screen)"
+            aria-label="Return stashed note to the desktop"
           >
-            <ArchiveRestore className="h-3.5 w-3.5" aria-hidden />
+            <ArchiveRestore
+              className="h-4 w-4"
+              strokeWidth={2.25}
+              aria-hidden
+            />
           </button>
         </div>
         {hasDetails && (
@@ -318,7 +315,13 @@ function PinnedLine({
             )}
             aria-hidden={!expanded}
           >
-            {row.body ? (
+            {row.kind === "webinar_reminder" &&
+            row.linkRef?.kind === "workshopSession" ? (
+              <WebinarReminderBodyParagraph
+                row={row}
+                className="line-clamp-6 text-xs leading-relaxed tracking-tight"
+              />
+            ) : row.body ? (
               <p className="line-clamp-6 text-xs leading-relaxed tracking-tight">
                 {row.body}
               </p>

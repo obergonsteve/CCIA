@@ -95,6 +95,10 @@ import {
 } from "@/lib/training-board-drawer-chrome";
 import { cn } from "@/lib/utils";
 import {
+  parseLocalInput,
+  toLocalInputValue,
+} from "@/lib/workshop-datetime-local";
+import {
   resolveLevelIdForInAppLink,
   type SendInAppNoticePreset,
 } from "@/components/admin/send-in-app-notice-control";
@@ -135,20 +139,6 @@ const webinarFilterOff =
   "border-l-purple-500/40 border-r-purple-500/40 bg-purple-500/15 hover:bg-purple-500/20 dark:border-l-purple-400/50 dark:border-r-purple-400/50 dark:bg-purple-500/20 dark:hover:bg-purple-500/26";
 const webinarFilterOn =
   "border-l-purple-600 border-r-purple-600 bg-purple-500/24 shadow-sm hover:bg-purple-500/32 dark:border-l-purple-500 dark:border-r-purple-500 dark:bg-purple-500/20 dark:hover:bg-purple-500/32";
-
-function toScheduleLocalInputValue(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function parseScheduleLocalInput(s: string): number {
-  const t = Date.parse(s);
-  if (Number.isNaN(t)) {
-    throw new Error("Invalid date/time");
-  }
-  return t;
-}
 
 /** Filter chip second line: only when long text differs from short code (migration often duplicated the legacy label). */
 /** Category dropdown row: short code only (lists stay scannable; long text is in CRUD / tooltips elsewhere). */
@@ -1743,8 +1733,8 @@ export default function AdminCoursesClient() {
           endD.setHours(10, 0, 0, 0);
           setScheduleWorkshopUnitId(uid);
           setScheduleTitleOverride("");
-          setScheduleStartsLocal(toScheduleLocalInputValue(startD.getTime()));
-          setScheduleEndsLocal(toScheduleLocalInputValue(endD.getTime()));
+          setScheduleStartsLocal(toLocalInputValue(startD.getTime()));
+          setScheduleEndsLocal(toLocalInputValue(endD.getTime()));
           setScheduleCapacity("");
           setScheduleExternalUrl("");
           setScheduleConferenceProvider("livekit");
@@ -5783,7 +5773,24 @@ export default function AdminCoursesClient() {
                 id="sched-ws-start"
                 type="datetime-local"
                 value={scheduleStartsLocal}
-                onChange={(e) => setScheduleStartsLocal(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setScheduleStartsLocal(v);
+                  if (!v || !scheduleEndsLocal) {
+                    return;
+                  }
+                  try {
+                    const s = parseLocalInput(v);
+                    const eMs = parseLocalInput(scheduleEndsLocal);
+                    if (eMs <= s) {
+                      const bump = new Date(s);
+                      bump.setHours(bump.getHours() + 1);
+                      setScheduleEndsLocal(toLocalInputValue(bump.getTime()));
+                    }
+                  } catch {
+                    /* wait for valid parse on save */
+                  }
+                }}
               />
             </div>
             <div className="space-y-1">
@@ -5879,8 +5886,18 @@ export default function AdminCoursesClient() {
                   return;
                 }
                 try {
-                  const startsAt = parseScheduleLocalInput(scheduleStartsLocal);
-                  const endsAt = parseScheduleLocalInput(scheduleEndsLocal);
+                  if (!scheduleStartsLocal.trim() || !scheduleEndsLocal.trim()) {
+                    toast.error("Set both start and end date and time.");
+                    return;
+                  }
+                  const startsAt = parseLocalInput(scheduleStartsLocal);
+                  const endsAt = parseLocalInput(scheduleEndsLocal);
+                  if (endsAt <= startsAt) {
+                    toast.error(
+                      "End time must be after the start time. Adjust the end field or set end after you set start.",
+                    );
+                    return;
+                  }
                   const capRaw = scheduleCapacity.trim();
                   const cap =
                     capRaw === "" ? undefined : Number.parseInt(capRaw, 10);

@@ -7,6 +7,7 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation } from "./_generated/server";
 import { tryCreateOrSkip } from "./userNotifications";
+import { formatWorkshopSessionStartForDisplay } from "../lib/webinar-session-display-time";
 
 const DEFAULT_HOURS = 24;
 const MIN_HOURS = 1;
@@ -53,10 +54,10 @@ async function tryEnqueueWebinarReminderIfDue(
     wu?.title ||
     "Webinar";
   const title = `Webinar: ${titleName}`.trim();
-  const startStr = new Date(session.startsAt).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const startStr = formatWorkshopSessionStartForDisplay(
+    session.startsAt,
+    session.timeZone,
+  );
   const body = `Starts ${startStr}. You registered for this session.`;
   const dedupeKey = `webinar_reminder:${String(session._id)}`;
 
