@@ -254,6 +254,25 @@ type NotificationLinkRefIn =
 
 type LinkResolverCtx = QueryCtx | MutationCtx;
 
+/**
+ * Pinned id sets can include legacy or corrupted values; `db.get` throws on invalid id strings.
+ * Other list paths never `get` notification rows by these raw id strings.
+ */
+async function tryGetUserNotification(
+  ctx: QueryCtx,
+  idStr: string,
+): Promise<Doc<"userNotifications"> | null> {
+  const t = idStr.trim();
+  if (t.length === 0 || t === "null" || t === "undefined") {
+    return null;
+  }
+  try {
+    return await ctx.db.get(t as Id<"userNotifications">);
+  } catch {
+    return null;
+  }
+}
+
 /** Button label: entity title (list query re-resolves for up-to-date names). */
 async function resolveNotificationLink(
   ctx: LinkResolverCtx,
@@ -555,62 +574,66 @@ export const listActiveForUser = query({
 export const listPinnedForUser = query({
   args: { forUserId: v.id("users") },
   handler: async (ctx, { forUserId }) => {
-    if (!(await ctx.db.get(forUserId))) {
-      return [];
-    }
-    const u = await ctx.db.get(forUserId);
-    if (u == null) {
-      return [];
-    }
-    const fromTable = await ctx.db
-      .query("userInAppNotificationPins")
-      .withIndex("by_user", (q) => q.eq("userId", forUserId))
-      .collect();
-    const legacy = u.pinnedInAppNotificationIds ?? [];
-    const idSet = new Set<string>();
-    for (const p of fromTable) {
-      idSet.add(String(p.notificationId));
-    }
-    for (const id of legacy) {
-      idSet.add(String(id));
-    }
-    if (idSet.size === 0) {
-      return [];
-    }
-    const broadcastHidden = await getBroadcastHiddenIdsForUser(
-      ctx,
-      forUserId,
-    );
-    const rows: Doc<"userNotifications">[] = [];
-    for (const idStr of idSet) {
-      const id = idStr as Id<"userNotifications">;
-      const row = await ctx.db.get(id);
-      if (
-        row == null ||
-        !isNotificationVisiblyActiveForUser(
-          forUserId,
-          row,
-          broadcastHidden,
-        )
-      ) {
-        continue;
+    try {
+      if (!(await ctx.db.get(forUserId))) {
+        return [];
       }
-      rows.push(row);
+      const u = await ctx.db.get(forUserId);
+      if (u == null) {
+        return [];
+      }
+      const fromTable = await ctx.db
+        .query("userInAppNotificationPins")
+        .withIndex("by_user", (q) => q.eq("userId", forUserId))
+        .collect();
+      const legacy = u.pinnedInAppNotificationIds ?? [];
+      const idSet = new Set<string>();
+      for (const p of fromTable) {
+        idSet.add(String(p.notificationId));
+      }
+      for (const id of legacy) {
+        idSet.add(String(id));
+      }
+      if (idSet.size === 0) {
+        return [];
+      }
+      const broadcastHidden = await getBroadcastHiddenIdsForUser(
+        ctx,
+        forUserId,
+      );
+      const rows: Doc<"userNotifications">[] = [];
+      for (const idStr of idSet) {
+        const row = await tryGetUserNotification(ctx, idStr);
+        if (
+          row == null ||
+          !isNotificationVisiblyActiveForUser(
+            forUserId,
+            row,
+            broadcastHidden,
+          )
+        ) {
+          continue;
+        }
+        rows.push(row);
+      }
+      rows.sort((a, b) => a.createdAt - b.createdAt);
+      return await Promise.all(
+        rows.map(async (row) => {
+          if (row.linkRef == null) {
+            return row;
+          }
+          try {
+            const resolved = await resolveNotificationLink(ctx, row.linkRef);
+            return { ...row, linkLabel: resolved.defaultLabel };
+          } catch {
+            return row;
+          }
+        }),
+      );
+    } catch (e) {
+      console.error("listPinnedForUser failed", e);
+      return [];
     }
-    rows.sort((a, b) => a.createdAt - b.createdAt);
-    return await Promise.all(
-      rows.map(async (row) => {
-        if (row.linkRef == null) {
-          return row;
-        }
-        try {
-          const resolved = await resolveNotificationLink(ctx, row.linkRef);
-          return { ...row, linkLabel: resolved.defaultLabel };
-        } catch {
-          return row;
-        }
-      }),
-    );
   },
 });
 
