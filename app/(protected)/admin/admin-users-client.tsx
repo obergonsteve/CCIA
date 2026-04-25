@@ -125,7 +125,9 @@ export default function AdminUsersClient() {
   const memberCounts = useMemo(() => {
     const m = new Map<Id<"companies">, number>();
     for (const u of users ?? []) {
-      m.set(u.companyId, (m.get(u.companyId) ?? 0) + 1);
+      if (u.companyId) {
+        m.set(u.companyId, (m.get(u.companyId) ?? 0) + 1);
+      }
     }
     return m;
   }, [users]);
@@ -139,7 +141,7 @@ export default function AdminUsersClient() {
     }
     return (
       companies.find((c) => c._id === userEditCompanyId)?.name ??
-      "Unknown company"
+      "Unknown member"
     );
   }, [companies, userEditCompanyId]);
 
@@ -226,7 +228,7 @@ export default function AdminUsersClient() {
     >
       <div className="space-y-3">
         <p className="w-full min-w-0 text-muted-foreground">
-          Manage the companies and users that have access to LLLIA Training.
+          Manage the members and users that have access to LLLIA Training.
         </p>
         <div className="w-full max-w-[17.25rem] space-y-3">
           {isAdmin && sessionUser ? (
@@ -256,17 +258,17 @@ export default function AdminUsersClient() {
                   className="h-4 w-4 shrink-0 text-brand-lime"
                   aria-hidden
                 />
-                Companies
+                Members
               </CardTitle>
               <CardDescription>
-                Select a company to edit its profile and people. Add or delete
-                companies here.
+                Select a member to edit its profile and people. Add or delete
+                members here.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex gap-2">
                 <Input
-                  placeholder="New company name"
+                  placeholder="New member name"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   className="flex-1"
@@ -281,7 +283,7 @@ export default function AdminUsersClient() {
                     try {
                       await createCompany({ name: companyName });
                       setCompanyName("");
-                      toast.success("Company created");
+                      toast.success("Member created");
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : "Failed");
                     }
@@ -331,8 +333,8 @@ export default function AdminUsersClient() {
                                   setCompanyNoticeCompanyId(c._id);
                                   setCompanyNoticeOpen(true);
                                 }}
-                                title="Send in-app note for this company"
-                                tooltip="Notify everyone in this company, or pick one person in the form."
+                                title="Send in-app note for this member"
+                                tooltip="Notify everyone in this member, or pick one person in the form."
                                 className="!h-7 !w-7 min-h-0 min-w-0 rounded-none"
                               />
                             ) : null}
@@ -341,7 +343,7 @@ export default function AdminUsersClient() {
                               variant="ghost"
                               size="icon-sm"
                               className="h-7 w-7 min-h-0 min-w-0 rounded-none text-destructive hover:text-destructive"
-                              title="Delete company"
+                              title="Delete member"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedCompanyId(c._id);
@@ -365,7 +367,7 @@ export default function AdminUsersClient() {
           {!selectedCompany || !selectedCompanyId ? (
             <Card className="border border-dashed border-muted-foreground/20 bg-gradient-to-br from-brand-lime/[0.06] via-brand-gold/[0.05] to-brand-sky/[0.07] dark:from-brand-lime/[0.08] dark:via-brand-gold/[0.06] dark:to-brand-sky/[0.09]">
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                Add a company on the left, then select it to manage users.
+                Add a member on the left, then select it to manage users.
               </CardContent>
             </Card>
           ) : (
@@ -377,13 +379,11 @@ export default function AdminUsersClient() {
                     className="h-4 w-4 shrink-0 text-brand-gold"
                     aria-hidden
                   />
-                  Company details
+                  Member details
                 </CardTitle>
                 <CardDescription>
-                  Profile for this organization (contact, status, onboarding date,
-                  time zone). The time zone is stored in each signed-in user&apos;s
-                  session for consistent dates in the app. Save before switching
-                  companies.
+                  Profile for this organization (contact, status, onboarding date).
+                  Save before switching members.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -408,7 +408,7 @@ export default function AdminUsersClient() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="co-email">Company email</Label>
+                    <Label htmlFor="co-email">Member email</Label>
                     <Input
                       id="co-email"
                       type="email"
@@ -478,7 +478,7 @@ export default function AdminUsersClient() {
                         "shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
                         "md:text-sm dark:bg-input/30",
                       )}
-                      aria-label="Select company timezone; choose Not set to clear"
+                      aria-label="Select member timezone; choose Not set to clear"
                     >
                       <option value="">
                         Not set (user’s browser / local default)
@@ -528,13 +528,13 @@ export default function AdminUsersClient() {
                           joinedAt,
                           timezone: coDetailTimezone,
                         });
-                        toast.success("Company saved");
+                        toast.success("Member saved");
                       } catch (e) {
                         toast.error(e instanceof Error ? e.message : "Failed");
                       }
                     }}
                   >
-                    Save company details
+                    Save member details
                   </Button>
                   <Button
                     type="button"
@@ -544,7 +544,7 @@ export default function AdminUsersClient() {
                     onClick={() => setCompanyDeleteOpen(true)}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1" />
-                    Delete company
+                    Delete member
                   </Button>
                 </div>
               </CardContent>
@@ -560,7 +560,7 @@ export default function AdminUsersClient() {
                   Users
                 </CardTitle>
                 <CardDescription>
-                  Accounts for this company — add people and manage roles.
+                  Accounts for this member — add people and manage roles.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -690,7 +690,7 @@ export default function AdminUsersClient() {
                                 setUserEditName(u.name);
                                 setUserEditEmail(u.email);
                                 setUserEditRole(u.role);
-                                setUserEditCompanyId(u.companyId);
+                                setUserEditCompanyId(u.companyId ?? "");
                                 setUserEditPassword("");
                                 setUserEditOpen(true);
                               }}
@@ -726,11 +726,11 @@ export default function AdminUsersClient() {
       <Dialog open={companyDeleteOpen} onOpenChange={setCompanyDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete company?</DialogTitle>
+            <DialogTitle>Delete member?</DialogTitle>
             <DialogDescription>
               {selectedCompany
                 ? `Permanently delete “${selectedCompany.name}”. You must remove or move every user first; otherwise this will fail.`
-                : "Delete this company?"}
+                : "Delete this member?"}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -751,14 +751,14 @@ export default function AdminUsersClient() {
                 }
                 try {
                   await removeCompany({ companyId: selectedCompanyId });
-                  toast.success("Company deleted");
+                  toast.success("Member deleted");
                   setCompanyDeleteOpen(false);
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Failed");
                 }
               }}
             >
-              Delete company
+              Delete member
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -778,7 +778,7 @@ export default function AdminUsersClient() {
           <DialogHeader>
             <DialogTitle>Edit user</DialogTitle>
             <DialogDescription>
-              Change profile, company, or set a new password (optional, min 8
+              Change profile, member, or set a new password (optional, min 8
               characters).
             </DialogDescription>
           </DialogHeader>
@@ -820,13 +820,13 @@ export default function AdminUsersClient() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Company</Label>
+              <Label>Member</Label>
               <Select
                 value={userEditCompanyId}
                 onValueChange={(v) => setUserEditCompanyId(v ?? "")}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select company">
+                  <SelectValue placeholder="Select member">
                     {userEditCompanyTriggerLabel}
                   </SelectValue>
                 </SelectTrigger>

@@ -7,7 +7,8 @@ export type SessionUser = {
   email: string;
   name: string;
   role: "operator" | "supervisor" | "admin" | "content_creator";
-  companyId: string;
+  /** Omitted for student (non-member) accounts. */
+  companyId?: string;
   /**
    * IANA time zone from the user’s company profile (`companies.timezone`), when set.
    * Use with `Intl` / date libraries for in-app local times; omit to use the browser default.

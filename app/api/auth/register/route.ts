@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       email: user.email,
       name: user.name,
       role: user.role,
-      companyId: user.companyId,
+      ...(user.companyId != null ? { companyId: user.companyId } : {}),
       companyTimezone: user.companyTimezone,
     },
   };
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       email: user.email,
       name: user.name,
       role: user.role,
-      companyId: user.companyId,
+      ...(user.companyId != null ? { companyId: user.companyId } : {}),
       companyTimezone: user.companyTimezone,
     });
   } catch (e) {

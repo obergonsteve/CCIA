@@ -36,7 +36,8 @@ export type LoginResult = {
   userId: Id<"users">;
   email: string;
   name: string;
-  companyId: Id<"companies">;
+  /** Omitted for student (non-member) accounts. */
+  companyId?: Id<"companies">;
   role: "operator" | "supervisor" | "admin" | "content_creator";
   avatarUrl?: string;
   lastLogin?: number;
@@ -61,9 +62,11 @@ export const login = action({
     if (!ok) {
       return null;
     }
-    const company = await ctx.runQuery(internal.companies.getByIdInternal, {
-      companyId: user.companyId,
-    });
+    const company = user.companyId
+      ? await ctx.runQuery(internal.companies.getByIdInternal, {
+          companyId: user.companyId,
+        })
+      : null;
     const companyTimezone =
       company?.timezone && typeof company.timezone === "string"
         ? company.timezone.trim() || undefined
@@ -72,7 +75,7 @@ export const login = action({
       userId: user._id,
       email: user.email,
       name: user.name,
-      companyId: user.companyId,
+      ...(user.companyId != null ? { companyId: user.companyId } : {}),
       role: user.role,
       avatarUrl: user.avatarUrl,
       lastLogin: user.lastLogin,
@@ -86,7 +89,8 @@ export const adminCreateUser = action({
     email: v.string(),
     password: v.string(),
     name: v.string(),
-    companyId: v.id("companies"),
+    /** Omit for a **student** (non-member) account. */
+    companyId: v.optional(v.id("companies")),
     role: v.union(
       v.literal("operator"),
       v.literal("supervisor"),
@@ -119,8 +123,8 @@ export const adminCreateUser = action({
       email: args.email,
       name: args.name,
       passwordHash,
-      companyId: args.companyId,
       role: args.role,
+      ...(args.companyId != null ? { companyId: args.companyId } : {}),
     });
   },
 });

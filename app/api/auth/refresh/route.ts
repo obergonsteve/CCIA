@@ -50,17 +50,21 @@ export async function POST() {
   }
 
   let companyTimezone: string | undefined = session.companyTimezone;
-  try {
-    const tz = await convex.query(api.companies.getTimezone, {
-      companyId: session.companyId as Id<"companies">,
-    });
-    if (tz) {
-      companyTimezone = tz;
-    } else {
-      companyTimezone = undefined;
+  if (session.companyId) {
+    try {
+      const tz = await convex.query(api.companies.getTimezone, {
+        companyId: session.companyId as Id<"companies">,
+      });
+      if (tz) {
+        companyTimezone = tz;
+      } else {
+        companyTimezone = undefined;
+      }
+    } catch {
+      /* keep previous session value */
     }
-  } catch {
-    /* keep previous session value */
+  } else {
+    companyTimezone = undefined;
   }
 
   let nextTok: string;
@@ -71,7 +75,9 @@ export async function POST() {
         email: session.email,
         name: session.name,
         role: session.role,
-        companyId: session.companyId,
+        ...(session.companyId != null
+          ? { companyId: session.companyId }
+          : {}),
         companyTimezone,
       },
       { rememberMe },

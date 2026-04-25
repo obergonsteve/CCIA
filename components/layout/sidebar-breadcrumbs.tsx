@@ -14,6 +14,7 @@ const SIDEBAR_EXACT = new Set([
   "/dashboard",
   "/certifications",
   "/admin/users",
+  "/admin/students",
   "/admin/courses",
   "/admin/database",
   "/admin/settings",
@@ -194,9 +195,10 @@ function UnitBreadcrumbsFallback({ unitIdRaw }: { unitIdRaw: string }) {
 }
 
 function AdminOtherBreadcrumbs({ pathname }: { pathname: string }) {
-  const section =
-    pathname.startsWith("/admin/users")
-      ? { href: "/admin/users" as const, label: "Users" }
+  const section = pathname.startsWith("/admin/students")
+    ? { href: "/admin/students" as const, label: "Students" }
+    : pathname.startsWith("/admin/users")
+      ? { href: "/admin/users" as const, label: "Members" }
       : pathname.startsWith("/admin/courses")
         ? { href: "/admin/courses" as const, label: "Training Content" }
         : pathname.startsWith("/admin/database")

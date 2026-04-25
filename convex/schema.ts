@@ -30,7 +30,11 @@ export default defineSchema({
     email: v.string(),
     name: v.string(),
     passwordHash: v.string(),
-    companyId: v.id("companies"),
+    /**
+     * Member org (B2B). Omitted = **student** (non-member) account; subscribes to
+     * training in-app without a company.
+     */
+    companyId: v.optional(v.id("companies")),
     role: v.union(
       v.literal("operator"),
       v.literal("supervisor"),

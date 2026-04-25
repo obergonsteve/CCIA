@@ -21,7 +21,9 @@ export async function GET() {
       email: payload.email,
       name: payload.name,
       role: payload.role,
-      companyId: payload.companyId,
+      ...(payload.companyId != null
+        ? { companyId: payload.companyId }
+        : {}),
       companyTimezone: payload.companyTimezone,
     },
   });

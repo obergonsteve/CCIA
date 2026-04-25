@@ -7,7 +7,8 @@ export type PasswordSessionPayload = {
   email: string;
   name: string;
   role: string;
-  companyId: string;
+  /** Omitted for non-member (student) accounts. */
+  companyId?: string;
   /** IANA time zone for the user’s company; optional for older cookies. */
   companyTimezone?: string;
   exp: number;
@@ -74,13 +75,7 @@ export async function verifyPasswordSessionCookieEdge(
     const json = new TextDecoder().decode(base64UrlToBytes(b64));
     const body = JSON.parse(json) as PasswordSessionPayload;
     if (body.exp < Math.floor(Date.now() / 1000)) return null;
-    if (
-      !body.userId ||
-      !body.email ||
-      !body.name ||
-      !body.role ||
-      !body.companyId
-    ) {
+    if (!body.userId || !body.email || !body.name || !body.role) {
       return null;
     }
     return body;

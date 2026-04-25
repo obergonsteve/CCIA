@@ -33,7 +33,8 @@ export const primarySidebarNav = [
 
 /** Admin section links (same order as sidebar). */
 export const adminSidebarNav = [
-  { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/users", label: "Members", icon: Users },
+  { href: "/admin/students", label: "Students", icon: GraduationCap },
   { href: "/admin/courses", label: "Training Content", icon: Layers },
   { href: "/admin/database", label: "Database", icon: Database },
   { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -99,7 +100,16 @@ export function sidebarMainPageHeading(
     };
   }
   if (pathname.startsWith("/admin/users")) {
-    return { label: "Users", icon: Users, iconClassName: "text-brand-gold" };
+    return { label: "Members", icon: Users, iconClassName: "text-brand-gold" };
+  }
+  if (pathname.startsWith("/admin/students")) {
+    return {
+      label: "Students",
+      icon: GraduationCap,
+      iconClassName: "text-brand-gold",
+      subheading:
+        "Non-member accounts: subscribe to training in the app without a member org.",
+    };
   }
   if (pathname.startsWith("/admin/courses")) {
     return {

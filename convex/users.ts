@@ -48,7 +48,7 @@ export const createInternal = internalMutation({
     email: v.string(),
     name: v.string(),
     passwordHash: v.string(),
-    companyId: v.id("companies"),
+    companyId: v.optional(v.id("companies")),
     role: v.union(
       v.literal("operator"),
       v.literal("supervisor"),
@@ -61,7 +61,9 @@ export const createInternal = internalMutation({
       email: args.email.toLowerCase().trim(),
       name: args.name.trim(),
       passwordHash: args.passwordHash,
-      companyId: args.companyId,
+      ...(args.companyId !== undefined
+        ? { companyId: args.companyId }
+        : {}),
       role: args.role,
     });
   },
@@ -131,6 +133,22 @@ export const listByCompany = query({
   },
 });
 
+/** Admin: accounts with no member (company) — students / non-members. */
+export const listWithoutCompany = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdminOrCreator(ctx);
+    const all = await ctx.db.query("users").collect();
+    return all
+      .filter((u) => u.companyId == null)
+      .map(({ passwordHash, ...u }) => {
+        void passwordHash;
+        return u;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
 export const adminUpdateProfile = mutation({
   args: {
     userId: v.id("users"),
@@ -142,7 +160,7 @@ export const adminUpdateProfile = mutation({
       v.literal("admin"),
       v.literal("content_creator"),
     ),
-    companyId: v.id("companies"),
+    companyId: v.union(v.id("companies"), v.null()),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
@@ -164,7 +182,9 @@ export const adminUpdateProfile = mutation({
       name: args.name.trim(),
       email,
       role: args.role,
-      companyId: args.companyId,
+      ...(args.companyId == null
+        ? { companyId: undefined }
+        : { companyId: args.companyId }),
     });
   },
 });
