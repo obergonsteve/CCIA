@@ -8,7 +8,17 @@ import {
 } from "./_generated/server";
 import { collectContentInUnit, type ContentInUnit } from "./content";
 import { collectUnitsForLevel } from "./units";
-import { requireUserId, userCanAccessLevel, userCanAccessUnit } from "./lib/auth";
+import {
+  requireUserId,
+  userCanAccessLevel,
+  userCanAccessLevelWithUser,
+  userCanAccessUnit,
+  userCanAccessUnitForUser,
+} from "./lib/auth";
+import {
+  canStudentStartCertification,
+  studentEntitlementsActive,
+} from "./lib/studentEntitlements";
 import { getIncompletePrerequisites } from "./lib/prerequisites";
 import { isLive } from "./lib/softDelete";
 import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
@@ -500,17 +510,47 @@ export const roadmapForUnit = query({
   args: {
     unitId: v.id("units"),
     levelId: v.optional(v.id("certificationLevels")),
+    viewAsUserId: v.optional(v.id("users")),
   },
-  handler: async (ctx, { unitId, levelId }) => {
-    const userId = await requireUserId(ctx);
-    const ok = await userCanAccessUnit(ctx, unitId);
-    if (!ok) {
+  handler: async (ctx, { unitId, levelId, viewAsUserId }) => {
+    const sessionUserId = await requireUserId(ctx);
+    const sessionUser = await ctx.db.get(sessionUserId);
+    if (!sessionUser) {
+      return null;
+    }
+    if (viewAsUserId) {
+      if (sessionUser.role !== "admin" && sessionUser.role !== "content_creator") {
+        return null;
+      }
+      const other = await ctx.db.get(viewAsUserId);
+      if (!other) {
+        return null;
+      }
+      const unitOk = await userCanAccessUnitForUser(ctx, other, unitId);
+      if (!unitOk) {
+        return null;
+      }
+    } else {
+      const ok = await userCanAccessUnit(ctx, unitId);
+      if (!ok) {
+        return null;
+      }
+    }
+    const userId = viewAsUserId ?? sessionUserId;
+    const subjectUser = await ctx.db.get(userId);
+    if (!subjectUser) {
       return null;
     }
     const prereqs = await getIncompletePrerequisites(ctx, userId, unitId);
     let sequentialUnitBlocked: string | null = null;
     if (levelId) {
-      const levelOk = await userCanAccessLevel(ctx, levelId);
+      const level = await ctx.db.get(levelId);
+      if (!level) {
+        return null;
+      }
+      const levelOk = viewAsUserId
+        ? userCanAccessLevelWithUser(subjectUser, level)
+        : await userCanAccessLevel(ctx, levelId);
       if (!levelOk) {
         return null;
       }
@@ -903,14 +943,60 @@ async function computePathStepsForCertDisplay(
 }
 
 export const roadmapForCertification = query({
-  args: { levelId: v.id("certificationLevels") },
-  handler: async (ctx, { levelId }) => {
-    const userId = await requireUserId(ctx);
-    const ok = await userCanAccessLevel(ctx, levelId);
-    if (!ok) {
+  args: {
+    levelId: v.id("certificationLevels"),
+    viewAsUserId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { levelId, viewAsUserId }) => {
+    const sessionUserId = await requireUserId(ctx);
+    const sessionUser = await ctx.db.get(sessionUserId);
+    if (!sessionUser) {
       return null;
     }
+    if (viewAsUserId) {
+      if (sessionUser.role !== "admin" && sessionUser.role !== "content_creator") {
+        return null;
+      }
+      const other = await ctx.db.get(viewAsUserId);
+      if (!other) {
+        return null;
+      }
+      const level = await ctx.db.get(levelId);
+      if (!level || !userCanAccessLevelWithUser(other, level)) {
+        return null;
+      }
+    } else {
+      const ok = await userCanAccessLevel(ctx, levelId);
+      if (!ok) {
+        return null;
+      }
+    }
+    const userId = viewAsUserId ?? sessionUserId;
     const units = await collectUnitsForLevel(ctx, levelId);
+    const userForEntitlement = await ctx.db.get(userId);
+    let applyEntitlementLock = false;
+    if (
+      userForEntitlement &&
+      studentEntitlementsActive(userForEntitlement) &&
+      !canStudentStartCertification(userForEntitlement, levelId)
+    ) {
+      let anyProgress = false;
+      for (const un of units) {
+        const p = await ctx.db
+          .query("userProgress")
+          .withIndex("by_user_unit", (q) =>
+            q.eq("userId", userId).eq("unitId", un._id),
+          )
+          .unique();
+        if (p) {
+          anyProgress = true;
+          break;
+        }
+      }
+      if (!anyProgress) {
+        applyEntitlementLock = true;
+      }
+    }
     const now = Date.now();
     const userRegs = await ctx.db
       .query("workshopRegistrations")
@@ -956,7 +1042,7 @@ export const roadmapForCertification = query({
       /** Next upcoming scheduled session this user is registered for (live workshop units only). */
       workshopRegistration?: { startsAt: number; endsAt: number } | null;
       locked: boolean;
-      lockReason: "prerequisite" | "previous_unit" | null;
+      lockReason: "prerequisite" | "previous_unit" | "entitlement" | null;
       completed: boolean;
       stepTotal: number;
       stepsCompleted: number;
@@ -966,9 +1052,13 @@ export const roadmapForCertification = query({
     for (let i = 0; i < units.length; i++) {
       const unit = units[i]!;
       const prereqRows = await getIncompletePrerequisites(ctx, userId, unit._id);
-      let lockReason: "prerequisite" | "previous_unit" | null = null;
+      let lockReason: "prerequisite" | "previous_unit" | "entitlement" | null =
+        null;
       let locked = false;
-      if (prereqRows.length > 0) {
+      if (applyEntitlementLock) {
+        locked = true;
+        lockReason = "entitlement";
+      } else if (prereqRows.length > 0) {
         locked = true;
         lockReason = "prerequisite";
       } else if (i > 0) {

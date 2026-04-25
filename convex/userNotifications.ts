@@ -1090,6 +1090,7 @@ export const adminSendInAppNotification = mutation({
     scope: v.union(
       v.literal("all"),
       v.literal("company"),
+      v.literal("students"),
       v.literal("user"),
     ),
     companyId: v.optional(v.id("companies")),
@@ -1204,6 +1205,75 @@ export const adminSendInAppNotification = mutation({
         dedupeKey,
         importance,
       });
+    }
+
+    if (args.scope === "students") {
+      const fromStudentIndex = await ctx.db
+        .query("users")
+        .withIndex("by_account_type", (q) => q.eq("accountType", "student"))
+        .collect();
+      const byId = new Map<Id<"users">, (typeof fromStudentIndex)[0]>();
+      for (const u of fromStudentIndex) {
+        byId.set(u._id, u);
+      }
+      for (const u of await ctx.db.query("users").collect()) {
+        if (u.accountType == null && u.companyId == null && !byId.has(u._id)) {
+          byId.set(u._id, u);
+        }
+      }
+      const userRows = [...byId.values()];
+      if (userRows.length === 0) {
+        return {
+          scope: "students" as const,
+          users: 0,
+          created: 0,
+          skippedDismissed: 0,
+          skippedActive: 0,
+          skippedNotOnRoadmap: 0,
+        };
+      }
+      const base = `admin:st:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      let created = 0;
+      let skippedDismissed = 0;
+      let skippedActive = 0;
+      let skippedNotOnRoadmap = 0;
+      const ref = args.linkRef;
+      const pathRef: StoredInAppLinkRef | null =
+        ref != null && inAppLinkRefUsesCertificationPath(ref) ? ref : null;
+      for (const u of userRows) {
+        if (pathRef != null) {
+          if (!(await userHasInAppLinkOnCurrentOrRoadmap(ctx, u._id, pathRef))) {
+            skippedNotOnRoadmap += 1;
+            continue;
+          }
+        }
+        const res = await tryCreateOrSkip(ctx, {
+          userId: u._id,
+          kind,
+          title,
+          body,
+          linkHref: args.linkHref,
+          linkLabel: args.linkLabel,
+          linkRef: args.linkRef,
+          dedupeKey: `${base}:${u._id}`,
+          importance,
+        });
+        if (res.status === "created") {
+          created += 1;
+        } else if (res.status === "skipped_dismissed") {
+          skippedDismissed += 1;
+        } else {
+          skippedActive += 1;
+        }
+      }
+      return {
+        scope: "students" as const,
+        users: userRows.length,
+        created,
+        skippedDismissed,
+        skippedActive,
+        skippedNotOnRoadmap,
+      };
     }
 
     const companyId = args.companyId;

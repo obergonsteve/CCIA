@@ -60,7 +60,7 @@ type SendInAppNoticeDialogProps = {
    * When the dialog opens, set “Who receives it” to the matching scope.
    * Use `"company"` with `defaultCompanyId` from a company row (Users admin).
    */
-  initialAudience?: "all" | "company";
+  initialAudience?: "all" | "company" | "students";
   /**
    * When set, the note is sent only to this user; audience pickers are hidden.
    * Use with `preset={null}` for a full link form targeted at one person.
@@ -86,12 +86,17 @@ export function SendInAppNoticeDialog({
     api.userNotifications.adminSendInAppNotification,
   );
 
-  const [inAppScope, setInAppScope] = useState<"all" | "company">("all");
+  const [inAppScope, setInAppScope] = useState<
+    "all" | "company" | "students"
+  >("all");
   const [inAppCompanyId, setInAppCompanyId] = useState<Id<"companies"> | null>(
     null,
   );
   /** When scope is company: `__all__` = everyone in that company; else one user id. */
   const [inAppCompanyRecipient, setInAppCompanyRecipient] =
+    useState<string>("__all__");
+  /** When scope is students: `__all__` = every student (no company); else one user id. */
+  const [inAppStudentRecipient, setInAppStudentRecipient] =
     useState<string>("__all__");
   const [inAppTitle, setInAppTitle] = useState("");
   const [inAppBody, setInAppBody] = useState("");
@@ -172,9 +177,13 @@ export function SendInAppNoticeDialog({
   const inAppScopeLabel =
     inAppScope === "all"
       ? "All users (every company)"
-      : "Selected company only";
+      : inAppScope === "students"
+        ? "Student accounts (no company)"
+        : "Selected company only";
 
   const singleUserTarget = targetUserId != null;
+  /** Students admin “Send in-app note”: one picker (all students vs one) — no global audience row. */
+  const studentNotesOnly = initialAudience === "students" && !singleUserTarget;
 
   const inAppCompanyUsers = useQuery(
     api.users.listByCompany,
@@ -184,6 +193,16 @@ export function SendInAppNoticeDialog({
       inAppScope === "company" &&
       inAppCompanyId
       ? { companyId: inAppCompanyId }
+      : "skip",
+  );
+
+  const inAppStudentUsers = useQuery(
+    api.users.listWithoutCompany,
+    open &&
+      sessionUser?.role === "admin" &&
+      !singleUserTarget &&
+      inAppScope === "students"
+      ? {}
       : "skip",
   );
 
@@ -210,6 +229,30 @@ export function SendInAppNoticeDialog({
       setInAppCompanyRecipient("__all__");
     }
   }, [inAppCompanyUsers, inAppCompanyRecipient]);
+
+  const inAppStudentUserTriggerLabel = useMemo(() => {
+    if (inAppStudentRecipient === "__all__") {
+      return "All student accounts (no company)";
+    }
+    if (inAppStudentUsers === undefined) {
+      return "Loading…";
+    }
+    const u = inAppStudentUsers.find((x) => x._id === inAppStudentRecipient);
+    if (!u) {
+      return "Select a student";
+    }
+    return `${u.name} (${u.email})`;
+  }, [inAppStudentRecipient, inAppStudentUsers]);
+
+  useEffect(() => {
+    if (inAppStudentRecipient === "__all__" || inAppStudentUsers === undefined) {
+      return;
+    }
+    const ok = inAppStudentUsers.some((u) => u._id === inAppStudentRecipient);
+    if (!ok) {
+      setInAppStudentRecipient("__all__");
+    }
+  }, [inAppStudentUsers, inAppStudentRecipient]);
 
   const inAppCompanyTriggerLabel = useMemo(() => {
     if (inAppCompanyId == null) {
@@ -336,6 +379,7 @@ export function SendInAppNoticeDialog({
     setInAppImportance("normal");
     setInAppCompanyId(null);
     setInAppCompanyRecipient("__all__");
+    setInAppStudentRecipient("__all__");
   }, []);
 
   useEffect(() => {
@@ -348,6 +392,8 @@ export function SendInAppNoticeDialog({
     }
     if (initialAudience === "company" && !singleUserTarget) {
       setInAppScope("company");
+    } else if (initialAudience === "students" && !singleUserTarget) {
+      setInAppScope("students");
     }
   }, [
     open,
@@ -392,35 +438,46 @@ export function SendInAppNoticeDialog({
             </div>
           ) : (
             <>
-              <div className="space-y-2">
-                <Label htmlFor="inapp-scope">Who receives it</Label>
-                <Select
-                  value={inAppScope}
-                  onValueChange={(v) => {
-                    if (v === "all" || v === "company") {
-                      setInAppScope(v);
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="inapp-scope"
-                    className={inAppSelectTrigger}
+              {!studentNotesOnly ? (
+                <div className="space-y-2">
+                  <Label htmlFor="inapp-scope">Who receives it</Label>
+                  <Select
+                    value={inAppScope}
+                    onValueChange={(v) => {
+                      if (v === "all" || v === "company" || v === "students") {
+                        setInAppScope(v);
+                        if (v === "students") {
+                          setInAppStudentRecipient("__all__");
+                        }
+                        if (v === "company") {
+                          setInAppCompanyRecipient("__all__");
+                        }
+                      }
+                    }}
                   >
-                    <SelectValue placeholder="Choose audience">
-                      {inAppScopeLabel}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      All users (every company)
-                    </SelectItem>
-                    <SelectItem value="company">
-                      Selected company only
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {inAppScope === "company" ? (
+                    <SelectTrigger
+                      id="inapp-scope"
+                      className={inAppSelectTrigger}
+                    >
+                      <SelectValue placeholder="Choose audience">
+                        {inAppScopeLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        All users (every company)
+                      </SelectItem>
+                      <SelectItem value="company">
+                        Selected company only
+                      </SelectItem>
+                      <SelectItem value="students">
+                        Student accounts (no company)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+              {inAppScope === "company" && !studentNotesOnly ? (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="inapp-company">Company</Label>
@@ -494,6 +551,54 @@ export function SendInAppNoticeDialog({
                     </div>
                   ) : null}
                 </>
+              ) : null}
+              {inAppScope === "students" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="inapp-student-user">
+                    {studentNotesOnly ? "Who receives it" : "Send to"}
+                  </Label>
+                  <Select
+                    value={inAppStudentRecipient}
+                    onValueChange={(v) => {
+                      if (v != null) {
+                        setInAppStudentRecipient(v);
+                      }
+                    }}
+                    disabled={inAppStudentUsers === undefined}
+                  >
+                    <SelectTrigger
+                      id="inapp-student-user"
+                      className={inAppSelectTrigger}
+                    >
+                      <SelectValue placeholder="All or one student">
+                        {inAppStudentUserTriggerLabel}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">
+                        All student accounts (no company)
+                      </SelectItem>
+                      {(inAppStudentUsers ?? []).map((u) => (
+                        <SelectItem key={u._id} value={u._id}>
+                          {u.name} ({u.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {inAppStudentUsers && inAppStudentUsers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No student accounts yet. Notes to “All students” will apply
+                      once accounts are added.
+                    </p>
+                  ) : inAppStudentUsers &&
+                    inAppStudentUsers.length > 0 &&
+                    !studentNotesOnly ? (
+                    <p className="text-xs text-muted-foreground">
+                      Send to every student without a member, or choose one
+                      person from the list above.
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </>
           )}
@@ -870,6 +975,21 @@ export function SendInAppNoticeDialog({
                   return;
                 }
               }
+              const studentSendsToOneUser =
+                !singleUserTarget &&
+                inAppScope === "students" &&
+                inAppStudentRecipient !== "__all__";
+              if (studentSendsToOneUser) {
+                const stu = inAppStudentUsers?.find(
+                  (u) => u._id === inAppStudentRecipient,
+                );
+                if (!stu) {
+                  toast.error(
+                    "Select a student, or wait for the list to load.",
+                  );
+                  return;
+                }
+              }
               try {
                 let linkRef:
                   | {
@@ -947,7 +1067,9 @@ export function SendInAppNoticeDialog({
                     ? "user"
                     : companySendsToOneUser
                       ? "user"
-                      : inAppScope,
+                      : studentSendsToOneUser
+                        ? "user"
+                        : inAppScope,
                   companyId:
                     !singleUserTarget &&
                     inAppScope === "company" &&
@@ -958,7 +1080,9 @@ export function SendInAppNoticeDialog({
                     ? targetUserId
                     : companySendsToOneUser
                       ? (inAppCompanyRecipient as Id<"users">)
-                      : undefined,
+                      : studentSendsToOneUser
+                        ? (inAppStudentRecipient as Id<"users">)
+                        : undefined,
                   title: t,
                   body: inAppBody.trim() || undefined,
                   importance: inAppImportance,
@@ -969,7 +1093,9 @@ export function SendInAppNoticeDialog({
                   linkRef,
                 });
                 if (
-                  (singleUserTarget || companySendsToOneUser) &&
+                  (singleUserTarget ||
+                    companySendsToOneUser ||
+                    studentSendsToOneUser) &&
                   "status" in r
                 ) {
                   if (r.status === "created") {
@@ -992,7 +1118,9 @@ export function SendInAppNoticeDialog({
                     );
                   }
                 } else if (
-                  (inAppScope === "all" || inAppScope === "company") &&
+                  (inAppScope === "all" ||
+                    inAppScope === "company" ||
+                    inAppScope === "students") &&
                   "users" in r
                 ) {
                   const batch = r as {
@@ -1006,7 +1134,9 @@ export function SendInAppNoticeDialog({
                     toast.message(
                       inAppScope === "company"
                         ? "No users in that company."
-                        : "No user accounts to send to.",
+                        : inAppScope === "students"
+                          ? "No student accounts (no company) to send to."
+                          : "No user accounts to send to.",
                     );
                   } else if (
                     batch.created === 0 &&

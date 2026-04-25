@@ -54,6 +54,14 @@ export default defineSchema({
     plannedCertificationLevelIds: v.optional(
       v.array(v.id("certificationLevels")),
     ),
+    /**
+     * Non-company (student) learners: certifications they are allowed to *start* (e.g. paid).
+     * When set, other accessible certs are browse-only until an admin updates this list.
+     * When omitted, any accessible public certification may be started (legacy).
+     */
+    studentEntitledCertificationLevelIds: v.optional(
+      v.array(v.id("certificationLevels")),
+    ),
     /** In-app: remind this many hours before a registered webinar (default 24). */
     webinarReminderHoursBefore: v.optional(v.number()),
     /** In-app: show “almost there!” at or above this unit completion % (default 80). */

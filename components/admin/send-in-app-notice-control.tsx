@@ -44,6 +44,11 @@ type TextButtonProps = {
   /** Shown in the dialog when `preset` is set (e.g. entity title). */
   presetSummary?: string;
   defaultCompanyId?: Id<"companies">;
+  /**
+   * When the dialog opens, set “Who receives it” to this scope
+   * (e.g. `"company"` on Users admin, `"students"` on Students admin).
+   */
+  initialAudience?: "all" | "company" | "students";
   label?: string;
   className?: string;
 };
@@ -57,6 +62,7 @@ export function SendInAppNoticeTextButton({
   preset,
   presetSummary,
   defaultCompanyId,
+  initialAudience = "all",
   label = "Send in-app note…",
   className,
 }: TextButtonProps) {
@@ -79,6 +85,7 @@ export function SendInAppNoticeTextButton({
         preset={preset}
         presetSummary={presetSummary}
         defaultCompanyId={defaultCompanyId}
+        initialAudience={initialAudience}
       />
     </>
   );

@@ -878,7 +878,7 @@ export default function WorkshopsClient() {
 
   const certPathHref =
     filterLevelId != null
-      ? `/certifications/${filterLevelId}#certification-path`
+      ? `/certifications/${filterLevelId}?from=workshops#certification-path`
       : "/certifications";
 
   return (

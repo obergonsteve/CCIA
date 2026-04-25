@@ -50,6 +50,7 @@ import {
   isValidIanaTimeZone,
   listAustraliaIanaTimeZones,
 } from "@/lib/iana-timezone";
+import { AdminUserDirectoryCertRow } from "@/components/admin/admin-user-directory-cert-row";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
@@ -117,10 +118,25 @@ export default function AdminUsersClient() {
     useState<Id<"companies"> | null>(null);
 
   const isAdmin = sessionUser?.role === "admin";
+  const canWrite =
+    sessionUser?.role === "admin" || sessionUser?.role === "content_creator";
+  const certLevels = useQuery(api.certifications.listAllAdmin);
   const companyUsers = useQuery(
     api.users.listByCompany,
     selectedCompanyId ? { companyId: selectedCompanyId } : "skip",
   );
+  /** Per user id: `true` = Certifications expanded. */
+  const [memberCertsExpanded, setMemberCertsExpanded] = useState<
+    Record<string, boolean>
+  >({});
+
+  const levelById = useMemo(() => {
+    const m = new Map<string, { name: string; code?: string }>();
+    for (const l of certLevels ?? []) {
+      m.set(String(l._id), { name: l.name, code: l.code });
+    }
+    return m;
+  }, [certLevels]);
 
   const memberCounts = useMemo(() => {
     const m = new Map<Id<"companies">, number>();
@@ -363,7 +379,7 @@ export default function AdminUsersClient() {
           </Card>
         </div>
 
-        <div className="space-y-4 min-w-0">
+        <div className="min-w-0 max-w-4xl space-y-4">
           {!selectedCompany || !selectedCompanyId ? (
             <Card className="border border-dashed border-muted-foreground/20 bg-gradient-to-br from-brand-lime/[0.06] via-brand-gold/[0.05] to-brand-sky/[0.07] dark:from-brand-lime/[0.08] dark:via-brand-gold/[0.06] dark:to-brand-sky/[0.09]">
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -550,21 +566,24 @@ export default function AdminUsersClient() {
               </CardContent>
             </Card>
 
-            <Card className="border border-brand-sky/40 border-l-4 border-l-brand-sky bg-brand-sky/[0.06] shadow-sm ring-brand-sky/15 dark:border-brand-sky/35 dark:bg-brand-sky/[0.10] dark:ring-brand-sky/10">
+            <Card className="border border-slate-300/45 border-l-4 border-l-slate-400 bg-slate-50/80 shadow-sm dark:border-slate-600/45 dark:bg-slate-900/35 dark:border-l-slate-500">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <UsersIcon
-                    className="h-4 w-4 shrink-0 text-brand-sky"
+                    className="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-300"
                     aria-hidden
                   />
                   Users
                 </CardTitle>
                 <CardDescription>
-                  Accounts for this member — add people and manage roles.
+                  Accounts for this member. <strong>Certifications</strong> shows
+                  progress, roadmap, and completed (learner dashboard rules). Add
+                  people and manage roles below; profile edit and remove are on each
+                  row.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-3 rounded-lg border border-brand-sky/25 bg-brand-sky/[0.05] p-4 dark:border-brand-sky/20 dark:bg-brand-sky/[0.08]">
+                <div className="space-y-3 rounded-lg border border-slate-300/40 bg-white/55 p-4 shadow-sm dark:border-slate-600/40 dark:bg-slate-950/25">
                   <h4 className="text-sm font-medium">Add user</h4>
                   <div className="grid sm:grid-cols-2 gap-3 max-w-2xl">
                     <Input
@@ -640,79 +659,106 @@ export default function AdminUsersClient() {
                 </div>
 
                 <div>
-                  {(companyUsers ?? []).length === 0 ? (
+                  {certLevels === undefined || companyUsers === undefined ? (
+                    <p className="text-sm text-muted-foreground">Loading…</p>
+                  ) : companyUsers.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-6 text-center border rounded-md">
                       No users yet. Add one above.
                     </p>
                   ) : (
-                    <ul className="max-h-[min(400px,45vh)] divide-y overflow-y-auto rounded-md border border-brand-sky/25 dark:border-brand-sky/20">
-                      {(companyUsers ?? []).map((u) => (
-                        <li
-                          key={u._id}
-                          className="group flex items-center gap-2 px-3 py-2 text-sm"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{u.name}</div>
-                            <div className="text-muted-foreground truncate text-xs">
-                              {u.email} · {u.role}
-                            </div>
-                          </div>
-                          <div
-                            className={cn(
-                              "flex shrink-0 flex-wrap items-center justify-end gap-1 self-start transition-opacity duration-150",
-                              "opacity-100 md:pointer-events-none md:opacity-0",
-                              "md:group-hover:pointer-events-auto md:group-hover:opacity-100",
-                              "md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100",
-                            )}
-                          >
-                            {isAdmin ? (
-                              <SendInAppNoticeRowIconButton
-                                onOpen={() => {
-                                  setUserNoticeTarget({
-                                    _id: u._id,
-                                    name: u.name,
-                                    email: u.email,
-                                  });
-                                  setUserNoticeOpen(true);
-                                }}
-                                title="Send in-app note to this user"
-                                tooltip="Send in-app note to this user"
-                                className="rounded-md"
-                              />
-                            ) : null}
-                            <Button
-                              type="button"
-                              size="icon-sm"
-                              variant="ghost"
-                              aria-label={`Edit ${u.name}`}
-                              onClick={() => {
-                                setUserEditId(u._id);
-                                setUserEditName(u.name);
-                                setUserEditEmail(u.email);
-                                setUserEditRole(u.role);
-                                setUserEditCompanyId(u.companyId ?? "");
-                                setUserEditPassword("");
-                                setUserEditOpen(true);
-                              }}
-                            >
-                              <Pencil className="size-3.5" aria-hidden />
-                            </Button>
-                            <Button
-                              type="button"
-                              size="icon-sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              aria-label={`Remove ${u.name}`}
-                              onClick={() => {
-                                setUserDeleteId(u._id);
-                                setUserDeleteOpen(true);
-                              }}
-                            >
-                              <Trash2 className="size-3.5" aria-hidden />
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
+                    <ul className="max-h-[min(520px,60vh)] space-y-2 overflow-y-auto text-sm">
+                      {companyUsers.map((u) => {
+                        const certKey = String(u._id);
+                        const certsExpanded =
+                          memberCertsExpanded[certKey] === true;
+                        return (
+                          <AdminUserDirectoryCertRow
+                            key={u._id}
+                            certBreadcrumbFrom="admin-users"
+                            userId={u._id}
+                            name={u.name}
+                            email={u.email}
+                            lastLogin={u.lastLogin}
+                            levelById={levelById}
+                            inProgressLevelIds={
+                              u.inProgressCertificationLevelIds ?? []
+                            }
+                            completedLevelIds={
+                              u.completedCertificationLevelIds ?? []
+                            }
+                            plannedLevelIds={u.plannedCertificationLevelIds ?? []}
+                            certsExpanded={certsExpanded}
+                            onToggleCertifications={() => {
+                              setMemberCertsExpanded((prev) => {
+                                const open = prev[certKey] === true;
+                                return { ...prev, [certKey]: !open };
+                              });
+                            }}
+                            removing={null}
+                            canWrite={canWrite}
+                            rowActions={
+                              <>
+                                {isAdmin ? (
+                                  <SendInAppNoticeRowIconButton
+                                    compact
+                                    title="Send in-app note to this user"
+                                    tooltip="Send in-app note to this user"
+                                    onOpen={() => {
+                                      setUserNoticeTarget({
+                                        _id: u._id,
+                                        name: u.name,
+                                        email: u.email,
+                                      });
+                                      setUserNoticeOpen(true);
+                                    }}
+                                  />
+                                ) : null}
+                                {canWrite ? (
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 shrink-0 rounded-none text-brand-sky hover:bg-brand-sky/15 hover:text-brand-sky dark:text-brand-sky/90 dark:hover:bg-brand-sky/20 dark:hover:text-brand-sky"
+                                    title={`Edit account — ${u.name}`}
+                                    aria-label={`Edit account — ${u.name}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setUserEditId(u._id);
+                                      setUserEditName(u.name);
+                                      setUserEditEmail(u.email);
+                                      setUserEditRole(u.role);
+                                      setUserEditCompanyId(u.companyId ?? "");
+                                      setUserEditPassword("");
+                                      setUserEditOpen(true);
+                                    }}
+                                  >
+                                    <Pencil
+                                      className="h-2.5 w-2.5"
+                                      aria-hidden
+                                    />
+                                  </Button>
+                                ) : null}
+                                {isAdmin ? (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 rounded-none text-destructive hover:bg-destructive/12 hover:text-destructive dark:hover:bg-destructive/15"
+                                    title="Remove account"
+                                    aria-label="Remove account"
+                                    onClick={() => {
+                                      setUserDeleteId(u._id);
+                                      setUserDeleteOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5" aria-hidden />
+                                  </Button>
+                                ) : null}
+                              </>
+                            }
+                          />
+                        );
+                      })}
                     </ul>
                   )}
                 </div>

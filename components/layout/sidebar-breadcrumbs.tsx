@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Fragment, Suspense } from "react";
+import { Fragment, Suspense, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 /** Exact paths that match primary sidebar entries — no breadcrumb strip. */
@@ -126,19 +126,98 @@ function CrumbTrail({ items }: { items: Crumb[] }) {
   );
 }
 
-function CertificationLevelBreadcrumbs({
+/**
+ * Breadcrumb source for a certification level page — set on links to `/certifications/[id]`
+ * (not a full "history" stack; see CrumbTrail at top of the page).
+ */
+type CertLevelFrom =
+  | "default"
+  | "dashboard"
+  | "workshops"
+  | "admin-students"
+  | "admin-users";
+
+function parseCertLevelFrom(raw: string | null): CertLevelFrom {
+  switch (raw) {
+    case "dashboard":
+    case "workshops":
+    case "admin-students":
+    case "admin-users":
+      return raw;
+    default:
+      return "default";
+  }
+}
+
+function buildCertLevelBreadcrumbItems(
+  from: CertLevelFrom,
+  levelName: string,
+): Crumb[] {
+  const end: Crumb = { label: levelName, tone: "cert" };
+  switch (from) {
+    case "dashboard":
+      return [
+        { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
+        { href: "/certifications", label: "Certifications", tone: "hub" },
+        end,
+      ];
+    case "workshops":
+      return [
+        { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
+        { href: "/workshops", label: "Webinars", tone: "webinar" },
+        end,
+      ];
+    case "admin-students":
+      return [
+        { href: "/admin/students", label: "Students", tone: "admin" },
+        end,
+      ];
+    case "admin-users":
+      return [
+        { href: "/admin/users", label: "Members", tone: "admin" },
+        end,
+      ];
+    case "default":
+    default:
+      return [
+        { href: "/certifications", label: "Certifications", tone: "hub" },
+        end,
+      ];
+  }
+}
+
+function CertificationLevelBreadcrumbsInner({
   levelIdRaw,
 }: {
   levelIdRaw: string;
 }) {
   const levelId = levelIdRaw as Id<"certificationLevels">;
   const level = useQuery(api.certifications.get, { levelId });
-  const items: Crumb[] = [
-    { href: "/dashboard", label: "Dashboard", tone: "dashboard" },
-    { href: "/certifications", label: "Certifications", tone: "hub" },
-    { label: level?.name ?? "Course", tone: "cert" },
-  ];
-  return <CrumbTrail items={items} />;
+  const searchParams = useSearchParams();
+  const from = useMemo(
+    () => parseCertLevelFrom(searchParams.get("from")),
+    [searchParams],
+  );
+  const name = level?.name ?? "Course";
+  return (
+    <CrumbTrail
+      items={buildCertLevelBreadcrumbItems(from, name)}
+    />
+  );
+}
+
+function CertificationLevelBreadcrumbsFallback({
+  levelIdRaw,
+}: {
+  levelIdRaw: string;
+}) {
+  const levelId = levelIdRaw as Id<"certificationLevels">;
+  const level = useQuery(api.certifications.get, { levelId });
+  return (
+    <CrumbTrail
+      items={buildCertLevelBreadcrumbItems("default", level?.name ?? "Course")}
+    />
+  );
 }
 
 function UnitBreadcrumbsInner({ unitIdRaw }: { unitIdRaw: string }) {
@@ -225,7 +304,15 @@ export function SidebarBreadcrumbs() {
 
   const certMatch = /^\/certifications\/([^/]+)$/.exec(pathname);
   if (certMatch?.[1]) {
-    return <CertificationLevelBreadcrumbs levelIdRaw={certMatch[1]} />;
+    return (
+      <Suspense
+        fallback={
+          <CertificationLevelBreadcrumbsFallback levelIdRaw={certMatch[1]} />
+        }
+      >
+        <CertificationLevelBreadcrumbsInner levelIdRaw={certMatch[1]} />
+      </Suspense>
+    );
   }
 
   const unitMatch = /^\/units\/([^/]+)$/.exec(pathname);

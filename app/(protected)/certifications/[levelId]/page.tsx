@@ -9,6 +9,19 @@ export default async function CertificationLevelPage({
   params,
   searchParams,
 }: PageProps) {
-  const [resolvedParams] = await Promise.all([params, searchParams]);
-  return <CertificationLevelClient levelId={resolvedParams.levelId} />;
+  const [resolvedParams, resolvedSearch] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  const viewAsRaw = resolvedSearch.viewAs;
+  const viewAsUserId =
+    typeof viewAsRaw === "string" && viewAsRaw.length > 0
+      ? viewAsRaw
+      : undefined;
+  return (
+    <CertificationLevelClient
+      levelId={resolvedParams.levelId}
+      viewAsUserId={viewAsUserId}
+    />
+  );
 }

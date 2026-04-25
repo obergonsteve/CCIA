@@ -15,6 +15,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { useMutation, useQuery } from "convex/react";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   ArrowRight,
   Bookmark,
@@ -263,7 +264,7 @@ function CertificationBucketSection({
               contentStepsTotal,
               contentStepsCompleted,
             }) => {
-            const href = `/certifications/${level._id}`;
+            const href = `/certifications/${level._id}?from=dashboard`;
             const unitsPct =
               unitTotal > 0
                 ? Math.round((completedCount / unitTotal) * 100)
@@ -386,6 +387,7 @@ function CertificationBucketSection({
 
 export default function DashboardClient() {
   const { user: sessionUser, isLoading: sessionLoading } = useSessionUser();
+  const me = useQuery(api.users.me);
   const buckets = useQuery(api.certifications.listDashboardBucketsForUser);
   const addToPlan = useMutation(api.certifications.addCertificationLevelToMyPlan);
   const removeFromPlan = useMutation(
@@ -401,6 +403,23 @@ export default function DashboardClient() {
     }),
     [buckets],
   );
+
+  const canAddCertToRoadmap = (levelId: Id<"certificationLevels">) => {
+    if (me === undefined || me === null) {
+      return true;
+    }
+    if (me.companyId != null) {
+      return true;
+    }
+    if (me.role === "admin" || me.role === "content_creator") {
+      return true;
+    }
+    const e = me.studentEntitledCertificationLevelIds;
+    if (e === undefined) {
+      return true;
+    }
+    return e.includes(levelId);
+  };
 
   if (sessionLoading || !sessionUser || !buckets) {
     return (
@@ -540,19 +559,26 @@ export default function DashboardClient() {
         icon={Sparkles}
         rows={buckets.future}
         emptyMessage="No upcoming certifications, or you’ve already engaged with everything available."
-        extraCardFooter={(row) => (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-fit"
-            onClick={() =>
-              addToPlan({ levelId: row.level._id }).catch(() => {})
-            }
-          >
-            Add to roadmap
-          </Button>
-        )}
+        extraCardFooter={(row) =>
+          canAddCertToRoadmap(row.level._id) ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() =>
+                addToPlan({ levelId: row.level._id }).catch(() => {})
+              }
+            >
+              Add to roadmap
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground max-w-xs">
+              Not assigned to your account — you can still browse this
+              certification in the catalog.
+            </p>
+          )
+        }
       />
 
       <CertificationBucketSection

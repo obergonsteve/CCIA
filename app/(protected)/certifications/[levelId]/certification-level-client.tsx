@@ -55,12 +55,27 @@ type PathStep = {
   status: "completed" | "in_progress" | "not_started" | "locked";
 };
 
+function withViewAsQuery(
+  path: string,
+  viewAsUserId: Id<"users"> | undefined,
+): string {
+  if (!viewAsUserId) {
+    return path;
+  }
+  const join = path.includes("?") ? "&" : "?";
+  return `${path}${join}viewAs=${viewAsUserId}`;
+}
+
 function stepAnchorHref(
   unitId: Id<"units">,
   levelId: Id<"certificationLevels">,
   step: PathStep,
+  viewAsUserId: Id<"users"> | undefined,
 ): string {
-  const base = `/units/${unitId}?level=${levelId}`;
+  const base = withViewAsQuery(
+    `/units/${unitId}?level=${levelId}`,
+    viewAsUserId,
+  );
   if (step.kind === "content" && step.contentId) {
     return `${base}#step-${step.contentId}`;
   }
@@ -75,13 +90,15 @@ function PathStepNode({
   unitId,
   levelId,
   unitLocked,
+  viewAsUserId,
 }: {
   step: PathStep;
   unitId: Id<"units">;
   levelId: Id<"certificationLevels">;
   unitLocked: boolean;
+  viewAsUserId: Id<"users"> | undefined;
 }) {
-  const href = stepAnchorHref(unitId, levelId, step);
+  const href = stepAnchorHref(unitId, levelId, step, viewAsUserId);
   const blocked = unitLocked || step.status === "locked";
 
   const icon =
@@ -171,10 +188,18 @@ function CertificationLevelPageHeading({
 
 export default function CertificationLevelClient({
   levelId: levelIdRaw,
+  viewAsUserId: viewAsUserIdRaw,
 }: {
   levelId: string;
+  /** When set, show this user’s path/progress (admin / content creator only). */
+  viewAsUserId?: string;
 }) {
   const levelId = levelIdRaw as Id<"certificationLevels">;
+  const viewAsUserId =
+    viewAsUserIdRaw && viewAsUserIdRaw.length > 0
+      ? (viewAsUserIdRaw as Id<"users">)
+      : undefined;
+  const viewAs = viewAsUserId != null;
 
   const [workshopPickerOpen, setWorkshopPickerOpen] = useState(false);
   const [workshopPickerUnitId, setWorkshopPickerUnitId] =
@@ -184,8 +209,13 @@ export default function CertificationLevelClient({
   const isAdmin = sessionUser?.role === "admin";
 
   const level = useQuery(api.certifications.get, { levelId });
+  const viewAsLabel = useQuery(
+    api.users.getForViewAsLabel,
+    viewAsUserId != null ? { userId: viewAsUserId } : "skip",
+  );
   const roadmap = useQuery(api.contentProgress.roadmapForCertification, {
     levelId,
+    ...(viewAsUserId != null ? { viewAsUserId } : {}),
   });
   const workshopPickerData = useQuery(
     api.workshops.listUpcomingSessionsForWorkshopUnit,
@@ -200,9 +230,29 @@ export default function CertificationLevelClient({
     return <div className="animate-pulse h-48 bg-muted rounded" />;
   }
 
-  if (level === null || roadmap === null) {
+  if (level === null) {
     return (
-      <p className="text-muted-foreground">Level not found or access denied.</p>
+      <p className="text-muted-foreground">
+        This certification was not found, or your account does not have access to
+        it.
+      </p>
+    );
+  }
+
+  if (roadmap === null) {
+    return (
+      <div className="space-y-2 text-muted-foreground">
+        <p>
+          Could not load the certification path (progress and units). If the
+          address bar has <code className="text-foreground">viewAs=</code>, try
+          removing that parameter, or open this program from the Certifications
+          list again.
+        </p>
+        <p className="text-sm">
+          If this keeps happening, sign out and back in so your session matches
+          the server.
+        </p>
+      </div>
     );
   }
 
@@ -281,7 +331,7 @@ export default function CertificationLevelClient({
         </div>
       )}
 
-      {isAdmin ? (
+      {isAdmin && !viewAs ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <SendInAppNoticeTextButton
             preset={{ kind: "certificationLevel", levelId }}
@@ -302,10 +352,33 @@ export default function CertificationLevelClient({
         <div className="p-3 md:p-5">
           <h2
             id="certification-path-heading"
-            className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground md:text-xl"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg font-semibold tracking-tight text-foreground md:text-xl"
           >
             <Route className="h-5 w-5 shrink-0 text-brand-gold" aria-hidden />
-            Your certification path
+            {viewAs ? (
+              <>
+                <span>Certification path</span>
+                {viewAsLabel != null ? (
+                  <span className="min-w-0 font-semibold text-brand-sky">
+                    <span className="text-muted-foreground" aria-hidden>
+                      ·
+                    </span>{" "}
+                    {viewAsLabel.name}
+                  </span>
+                ) : viewAsLabel === undefined ? (
+                  <span
+                    className="text-sm font-normal text-muted-foreground"
+                    aria-hidden
+                  >
+                    …
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">(student view)</span>
+                )}
+              </>
+            ) : (
+              "Your certification path"
+            )}
           </h2>
           {roadmap.units.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">
@@ -325,8 +398,12 @@ export default function CertificationLevelClient({
                   : u.completed
                     ? 100
                     : 0;
-              const certificationNavLocked = u.locked && !isWorkshop;
-              const unitCardHref = `/units/${u.unitId}?level=${levelId}`;
+              const certificationNavLocked =
+                u.locked && (!isWorkshop || u.lockReason === "entitlement");
+              const unitCardHref = withViewAsQuery(
+                `/units/${u.unitId}?level=${levelId}`,
+                viewAsUserId,
+              );
               const cardClassName = cn(
                 "block w-full rounded-xl border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/40",
                 u.completed && "border-2 border-brand-lime/50 bg-brand-lime/[0.06]",
@@ -407,6 +484,10 @@ export default function CertificationLevelClient({
                     <p className="text-[11px] font-medium text-neutral-700 dark:text-neutral-400">
                       Prerequisites required
                     </p>
+                  ) : u.locked && u.lockReason === "entitlement" ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      Not assigned to your account — view only
+                    </p>
                   ) : u.locked && u.lockReason === "previous_unit" ? (
                     <p className="text-[11px] text-muted-foreground">
                       Complete the previous unit first
@@ -428,6 +509,27 @@ export default function CertificationLevelClient({
                 >
                   <div className="w-full shrink-0 sm:max-w-[min(100%,260px)] sm:w-[216px]">
                     {!u.completed && isWorkshop ? (
+                      viewAs ? (
+                        <div
+                          className={cn(
+                            cardClassName,
+                            "cursor-not-allowed opacity-80",
+                          )}
+                          aria-label={`${u.title}, workshop preview (register as the student in the app)`}
+                        >
+                          {cardBody}
+                        </div>
+                      ) : u.locked && u.lockReason === "entitlement" ? (
+                        <div
+                          className={cn(
+                            cardClassName,
+                            "cursor-not-allowed opacity-80",
+                          )}
+                          aria-label={`${u.title}, not assigned to your account`}
+                        >
+                          {cardBody}
+                        </div>
+                      ) : (
                       <button
                         type="button"
                         className={cn(
@@ -450,6 +552,7 @@ export default function CertificationLevelClient({
                       >
                         {cardBody}
                       </button>
+                      )
                     ) : (
                       <Link
                         href={unitCardHref}
@@ -502,6 +605,7 @@ export default function CertificationLevelClient({
                                 unitId={u.unitId}
                                 levelId={levelId}
                                 unitLocked={u.locked}
+                                viewAsUserId={viewAsUserId}
                               />
                             </li>
                           ))}
@@ -521,16 +625,13 @@ export default function CertificationLevelClient({
         </div>
       </section>
 
-      <div className="max-w-3xl space-y-4">
-        {level.summary?.trim() ? (
-          <p className="text-base font-medium text-foreground/90 leading-relaxed">
-            {level.summary}
+      {level.description.trim() ? (
+        <div className="max-w-3xl">
+          <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            {level.description}
           </p>
-        ) : null}
-        <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-          {level.description}
-        </p>
-      </div>
+        </div>
+      ) : null}
 
       <Dialog
         open={workshopPickerOpen}
@@ -566,7 +667,10 @@ export default function CertificationLevelClient({
             {workshopPickerUnitId ? (
               <div className="pt-1">
                 <Link
-                  href={`/units/${workshopPickerUnitId}?level=${levelId}`}
+                  href={withViewAsQuery(
+                    `/units/${workshopPickerUnitId}?level=${levelId}`,
+                    viewAsUserId,
+                  )}
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
                     "h-8 border-purple-500/45 text-purple-900 hover:bg-purple-500/10 dark:border-purple-400/50 dark:text-purple-100 dark:hover:bg-purple-500/15",

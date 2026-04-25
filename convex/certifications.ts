@@ -15,6 +15,7 @@ import {
   validateEntityCodeFormat,
 } from "./lib/entityCodes";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
+import { canStudentStartCertification } from "./lib/studentEntitlements";
 import { countUnitStepProgress } from "./contentProgress";
 import { collectUnitsForLevel } from "./units";
 
@@ -248,6 +249,11 @@ export const addCertificationLevelToMyPlan = mutation({
     const level = await ctx.db.get(levelId);
     if (!isLive(level)) {
       throw new Error("Certification not found");
+    }
+    if (!canStudentStartCertification(user, levelId)) {
+      throw new Error(
+        "This certification is not assigned to your account. Browse the catalog to view details, or ask your administrator to assign it.",
+      );
     }
     const allProgress = await ctx.db
       .query("userProgress")

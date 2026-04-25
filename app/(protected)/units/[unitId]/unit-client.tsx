@@ -50,6 +50,7 @@ function unitStepPathHref(
   urlContext?: {
     fromWorkshops: boolean;
     workshopSessionId?: Id<"workshopSessions">;
+    viewAsUserId?: Id<"users">;
   },
 ): string {
   const q = new URLSearchParams();
@@ -61,6 +62,9 @@ function unitStepPathHref(
   }
   if (urlContext?.workshopSessionId) {
     q.set("session", urlContext.workshopSessionId);
+  }
+  if (urlContext?.viewAsUserId) {
+    q.set("viewAs", urlContext.viewAsUserId);
   }
   const qs = q.toString();
   const base = `/units/${unitId}${qs ? `?${qs}` : ""}`;
@@ -136,6 +140,7 @@ function LegacyAssignmentStepBlock({
   unitId,
   levelId,
   blocked,
+  readOnlyViewAs,
   answers,
   setAnswersByAssignment,
   onSubmitLegacyAssignment,
@@ -147,6 +152,8 @@ function LegacyAssignmentStepBlock({
   unitId: Id<"units">;
   levelId?: Id<"certificationLevels">;
   blocked: boolean;
+  /** Admin viewing a student’s unit (no submitting). */
+  readOnlyViewAs?: boolean;
   answers: Record<string, string>;
   setAnswersByAssignment: Dispatch<
     SetStateAction<Record<string, Record<string, string>>>
@@ -170,7 +177,7 @@ function LegacyAssignmentStepBlock({
   return (
     <Card
       className={cn(
-        (blocked || row.locked) && "pointer-events-none opacity-60",
+        (blocked || row.locked) && !readOnlyViewAs && "pointer-events-none opacity-60",
       )}
     >
       <CardHeader className="pb-2">
@@ -218,9 +225,16 @@ function LegacyAssignmentStepBlock({
             unitId={unitId}
             assignmentId={assignment._id}
             levelId={levelId}
-            enabled={!blocked && !row.locked && row.active}
+            enabled={
+              !readOnlyViewAs && !blocked && !row.locked && row.active
+            }
           />
-          {blocked || row.locked ? (
+          {readOnlyViewAs ? (
+            <p className="text-sm text-muted-foreground">
+              Read-only: viewing as this student; assessments cannot be submitted
+              from here.
+            </p>
+          ) : blocked || row.locked ? (
             <p className="text-sm text-muted-foreground">
               Complete earlier steps to unlock this assessment.
             </p>
@@ -275,7 +289,9 @@ function LegacyAssignmentStepBlock({
               >
                 Submit assessment
               </Button>
-              <LegacyLastResult assignmentId={assignment._id} />
+              {!readOnlyViewAs ? (
+                <LegacyLastResult assignmentId={assignment._id} />
+              ) : null}
             </>
           )}
         </CardContent>
@@ -418,12 +434,15 @@ export default function UnitClient({
   levelId: levelIdRaw,
   workshopSessionId: workshopSessionIdRaw,
   fromWorkshops = false,
+  viewAsUserId: viewAsUserIdRaw,
 }: {
   unitId: string;
   levelId?: string;
   workshopSessionId?: string;
   /** Set when opening the unit from `/workshops` (`?from=workshops`). */
   fromWorkshops?: boolean;
+  /** When set, show this user’s step progress (admin / content creator). Read-only. */
+  viewAsUserId?: string;
 }) {
   const unitId = unitIdRaw as Id<"units">;
   const levelId =
@@ -434,6 +453,11 @@ export default function UnitClient({
     workshopSessionIdRaw && workshopSessionIdRaw.length > 0
       ? (workshopSessionIdRaw as Id<"workshopSessions">)
       : undefined;
+  const viewAsUserId =
+    viewAsUserIdRaw && viewAsUserIdRaw.length > 0
+      ? (viewAsUserIdRaw as Id<"users">)
+      : undefined;
+  const readOnlyViewAs = viewAsUserId != null;
 
   const unit = useQuery(api.units.get, { unitId });
   const items = useQuery(api.content.listByUnit, { unitId });
@@ -441,8 +465,12 @@ export default function UnitClient({
   const roadmap = useQuery(api.contentProgress.roadmapForUnit, {
     unitId,
     levelId,
+    ...(readOnlyViewAs ? { viewAsUserId } : {}),
   });
-  const prereqStatus = useQuery(api.prerequisites.statusForUnit, { unitId });
+  const prereqStatus = useQuery(api.prerequisites.statusForUnit, {
+    unitId,
+    ...(readOnlyViewAs ? { viewAsUserId } : {}),
+  });
 
   const submitAssignment = useMutation(api.progress.submitAssignment);
 
@@ -545,6 +573,10 @@ export default function UnitClient({
   );
 
   async function onSubmitLegacyAssignment(assignmentId: Id<"assignments">) {
+    if (readOnlyViewAs) {
+      toast.message("Read-only: open this unit without “view as” to take assessments.");
+      return;
+    }
     const assignment = assignmentsById.get(assignmentId);
     if (!assignment) {
       return;
@@ -574,6 +606,18 @@ export default function UnitClient({
 
   return (
     <div className="space-y-6">
+      {readOnlyViewAs ? (
+        <div
+          className="rounded-xl border-2 border-brand-sky/50 bg-brand-sky/[0.08] px-4 py-3 text-sm text-foreground dark:border-brand-sky/40 dark:bg-brand-sky/[0.10]"
+          role="status"
+        >
+          <p className="font-semibold text-brand-sky">Read-only: student view</p>
+          <p className="mt-1 text-muted-foreground">
+            Lesson and assessment state matches this account. You cannot record
+            progress or submit from this preview.
+          </p>
+        </div>
+      ) : null}
       <div>
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <h1 className="min-w-0 flex-1 text-2xl font-bold leading-snug tracking-tight">
@@ -591,7 +635,7 @@ export default function UnitClient({
             >
               {isLiveWorkshopUnit ? "Webinar" : "Self-paced"}
             </Badge>
-            {isAdmin ? (
+            {isAdmin && !readOnlyViewAs ? (
               <SendInAppNoticeTextButton
                 preset={{ kind: "unit", unitId, levelId }}
                 presetSummary={unit.title}
@@ -620,14 +664,14 @@ export default function UnitClient({
         </div>
       </div>
 
-      {isLiveWorkshopUnit && fromWorkshops ? (
+      {isLiveWorkshopUnit && fromWorkshops && !readOnlyViewAs ? (
         <UnitJoinInTeamsStripLoader
           unitId={unitId}
           workshopSessionId={workshopSessionId}
         />
       ) : null}
 
-      {isLiveWorkshopUnit ? (
+      {isLiveWorkshopUnit && !readOnlyViewAs ? (
         <LiveWorkshopRoomPanel
           unitId={unitId}
           workshopSessionId={workshopSessionId}
@@ -735,6 +779,7 @@ export default function UnitClient({
                   const href = unitStepPathHref(unitId, levelId, st, {
                     fromWorkshops,
                     workshopSessionId,
+                    viewAsUserId: readOnlyViewAs ? viewAsUserId : undefined,
                   });
                   const nodeIcon =
                     row.done ? (
@@ -860,7 +905,7 @@ export default function UnitClient({
                   row.active && "ring-2 ring-brand-sky/40 ring-offset-2 ring-offset-background",
                 )}
               >
-                {isAdmin ? (
+                {isAdmin && !readOnlyViewAs ? (
                   <div className="mb-2 flex justify-end">
                     <Button
                       type="button"
@@ -888,7 +933,7 @@ export default function UnitClient({
                   item={doc}
                   unitId={unitId}
                   levelId={levelId}
-                  locked={blocked || row.locked}
+                  locked={readOnlyViewAs || blocked || row.locked}
                   isActive={row.active}
                   certProgressRecordBlocked={certProgressRecordBlocked}
                   expandFromHash={stepHash === `#step-${st.contentId}`}
@@ -917,6 +962,7 @@ export default function UnitClient({
                 unitId={unitId}
                 levelId={levelId}
                 blocked={blocked}
+                readOnlyViewAs={readOnlyViewAs}
                 answers={answers}
                 setAnswersByAssignment={setAnswersByAssignment}
                 onSubmitLegacyAssignment={onSubmitLegacyAssignment}
@@ -935,7 +981,7 @@ export default function UnitClient({
         </p>
       ) : null}
 
-      {isAdmin ? (
+      {isAdmin && !readOnlyViewAs ? (
         <SendInAppNoticeDialog
           open={inAppNotifOpen}
           onOpenChange={(o) => {

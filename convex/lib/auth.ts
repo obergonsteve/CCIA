@@ -2,6 +2,10 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { isLive } from "./softDelete";
+import {
+  canStudentStartCertification,
+  studentEntitlementsActive,
+} from "./studentEntitlements";
 
 /**
  * Convex “acting user” for browser queries (no Convex Auth JWT in this app).
@@ -128,12 +132,125 @@ export async function userCanAccessUnit(
     .collect();
   if (links.length === 0) {
     if (unit.levelId) {
-      return userCanAccessLevel(ctx, unit.levelId);
+      const ok = await userCanAccessLevel(ctx, unit.levelId);
+      if (!ok) {
+        return false;
+      }
+      if (!studentEntitlementsActive(user)) {
+        return true;
+      }
+      const prog = await ctx.db
+        .query("userProgress")
+        .withIndex("by_user_unit", (q) =>
+          q.eq("userId", userId).eq("unitId", unitId),
+        )
+        .unique();
+      if (prog) {
+        return true;
+      }
+      return canStudentStartCertification(user, unit.levelId);
     }
     return false;
   }
+  const accessibleLevelIds: Id<"certificationLevels">[] = [];
   for (const link of links) {
     if (await userCanAccessLevel(ctx, link.levelId)) {
+      accessibleLevelIds.push(link.levelId);
+    }
+  }
+  if (accessibleLevelIds.length === 0) {
+    return false;
+  }
+  if (!studentEntitlementsActive(user)) {
+    return true;
+  }
+  const prog = await ctx.db
+    .query("userProgress")
+    .withIndex("by_user_unit", (q) =>
+      q.eq("userId", userId).eq("unitId", unitId),
+    )
+    .unique();
+  if (prog) {
+    return true;
+  }
+  for (const lid of accessibleLevelIds) {
+    if (canStudentStartCertification(user, lid)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Unit access for an arbitrary user row (e.g. admin “view as” a student on the
+ * roadmap). Does not use the session user for membership checks.
+ */
+export async function userCanAccessUnitForUser(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users">,
+  unitId: Id<"units">,
+): Promise<boolean> {
+  const userId = user._id;
+  const unit = await ctx.db.get(unitId);
+  if (!isLive(unit)) {
+    return false;
+  }
+  if (user.role === "admin" || user.role === "content_creator") {
+    return true;
+  }
+  const links = await ctx.db
+    .query("certificationUnits")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+    .collect();
+  if (links.length === 0) {
+    if (unit.levelId) {
+      const level = await ctx.db.get(unit.levelId);
+      if (!level) {
+        return false;
+      }
+      if (!userCanAccessLevelWithUser(user, level)) {
+        return false;
+      }
+      if (!studentEntitlementsActive(user)) {
+        return true;
+      }
+      const prog = await ctx.db
+        .query("userProgress")
+        .withIndex("by_user_unit", (q) =>
+          q.eq("userId", userId).eq("unitId", unitId),
+        )
+        .unique();
+      if (prog) {
+        return true;
+      }
+      return canStudentStartCertification(user, unit.levelId);
+    }
+    return false;
+  }
+  const accessibleLevelIds: Id<"certificationLevels">[] = [];
+  for (const link of links) {
+    const lev = await ctx.db.get(link.levelId);
+    if (lev && userCanAccessLevelWithUser(user, lev)) {
+      accessibleLevelIds.push(link.levelId);
+    }
+  }
+  if (accessibleLevelIds.length === 0) {
+    return false;
+  }
+  if (!studentEntitlementsActive(user)) {
+    return true;
+  }
+  const prog = await ctx.db
+    .query("userProgress")
+    .withIndex("by_user_unit", (q) =>
+      q.eq("userId", userId).eq("unitId", unitId),
+    )
+    .unique();
+  if (prog) {
+    return true;
+  }
+  for (const lid of accessibleLevelIds) {
+    if (canStudentStartCertification(user, lid)) {
       return true;
     }
   }

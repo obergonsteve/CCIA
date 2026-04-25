@@ -240,6 +240,18 @@ export const seedCommunityOperatorsAndAdmins = mutation({
   handler: async (ctx) => runSeedCommunityOperatorsAndAdmins(ctx),
 });
 
+/**
+ * Upsert seed student accounts and assign public certifications (run after curriculum seed).
+ * Password for new rows: `seedstudent1` (see `HASH_SEED_STUDENT` in this file).
+ * Run: `npx convex run seed:seedStudentsWithCertEntitlements`
+ */
+export const seedStudentsWithCertEntitlements = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await runSeedStudentsWithCertEntitlements(ctx);
+  },
+});
+
 /** One-click demo structure for local testing (admin only). */
 export const bootstrapDemo = mutation({
   args: {},
@@ -359,6 +371,31 @@ export const bootstrapDemo = mutation({
 });
 
 const CURRICULUM_MARKER = "Land Lease 101";
+
+/** bcrypt cost 10 — password `seedstudent1` (demo / local use only). */
+const HASH_SEED_STUDENT =
+  "$2b$10$GkooX//mw8YBaQIOcvbWfOfSw/wIieogG.0mZuOzo5XkKs6kJdLwC";
+
+/**
+ * Demo student accounts: no company, `studentEntitledCertificationLevelIds` set to match
+ * global curriculum course names (see `LAND_LEASE_CURRICULUM` in `curriculumSeedData.ts`).
+ */
+const SEED_STUDENT_ACCOUNTS: ReadonlyArray<{
+  email: string;
+  name: string;
+  courseNames: readonly string[];
+}> = [
+  {
+    email: "student.alice@ccia-landlease.com",
+    name: "Alice (seed student)",
+    courseNames: ["Land Lease 101"],
+  },
+  {
+    email: "student.bob@ccia-landlease.com",
+    name: "Bob (seed student)",
+    courseNames: ["Land Lease 101", "Compliance & the Act"],
+  },
+];
 
 /** Matches admin unit-category chips — one bucket per certification theme. */
 function seededUnitCategoryForCourse(courseName: string): string {
@@ -510,6 +547,95 @@ async function levelIdByCourseNameForSeededCurriculum(
     }
   }
   return map;
+}
+
+/**
+ * Upsert sample student users and set `studentEntitledCertificationLevelIds` from
+ * global (non-company) curriculum levels. Idempotent; safe to re-run.
+ * Requires land-lease curriculum levels to exist (`seedLandLeaseCurriculum` first).
+ */
+async function runSeedStudentsWithCertEntitlements(
+  ctx: MutationCtx,
+): Promise<{
+  upserted: number;
+  skippedNoCurriculum: boolean;
+  details: {
+    email: string;
+    levelCount: number;
+    missingCourse?: string;
+    skipped?: string;
+  }[];
+}> {
+  const levelIdByCourseName = await levelIdByCourseNameForSeededCurriculum(ctx);
+  if (!levelIdByCourseName.has(CURRICULUM_MARKER)) {
+    return {
+      upserted: 0,
+      skippedNoCurriculum: true,
+      details: [],
+    };
+  }
+  const details: {
+    email: string;
+    levelCount: number;
+    missingCourse?: string;
+    skipped?: string;
+  }[] = [];
+  let upserted = 0;
+  for (const spec of SEED_STUDENT_ACCOUNTS) {
+    const levelIds: Id<"certificationLevels">[] = [];
+    let missing: string | undefined;
+    for (const cn of spec.courseNames) {
+      const id = levelIdByCourseName.get(cn);
+      if (!id) {
+        missing = cn;
+        break;
+      }
+      if (!levelIds.some((x) => String(x) === String(id))) {
+        levelIds.push(id);
+      }
+    }
+    if (missing) {
+      details.push({
+        email: spec.email,
+        levelCount: 0,
+        missingCourse: missing,
+      });
+      continue;
+    }
+    const email = spec.email.toLowerCase().trim();
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (existing && existing.companyId != null) {
+      details.push({
+        email: spec.email,
+        levelCount: 0,
+        skipped: "email already used by a member account",
+      });
+      continue;
+    }
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        name: spec.name,
+        accountType: "student",
+        companyId: undefined,
+        studentEntitledCertificationLevelIds: levelIds,
+      });
+    } else {
+      await ctx.db.insert("users", {
+        email,
+        name: spec.name,
+        passwordHash: HASH_SEED_STUDENT,
+        accountType: "student",
+        role: "operator",
+        studentEntitledCertificationLevelIds: levelIds,
+      });
+    }
+    upserted += 1;
+    details.push({ email: spec.email, levelCount: levelIds.length });
+  }
+  return { upserted, skippedNoCurriculum: false, details };
 }
 
 /**
@@ -872,12 +998,15 @@ async function runInsertLandLeaseCurriculum(ctx: MutationCtx) {
   const { workshopUnitsInserted, certificationTiersPatched } =
     await ensureLandLeasePostCurriculumState(ctx);
 
+  const seedStudents = await runSeedStudentsWithCertEntitlements(ctx);
+
   return {
     levelCount: levelIds.length,
     unitCount: selfPacedUnitCount + workshopUnitsInserted,
     prerequisiteCount,
     workshopUnitsInserted,
     certificationTiersPatched,
+    seedStudents,
   };
 }
 
@@ -926,11 +1055,13 @@ export const seedLandLeaseCurriculum = mutation({
     if (exists) {
       const { workshopUnitsInserted, certificationTiersPatched } =
         await ensureLandLeasePostCurriculumState(ctx);
+      const seedStudents = await runSeedStudentsWithCertEntitlements(ctx);
       return {
         ok: true as const,
         skipped: true as const,
         workshopUnitsInserted,
         certificationTiersPatched,
+        seedStudents,
         message:
           workshopUnitsInserted > 0 || certificationTiersPatched > 0
             ? `Curriculum present; workshops +${workshopUnitsInserted}, certification tiers corrected: ${certificationTiersPatched} level(s).`

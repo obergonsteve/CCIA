@@ -1,5 +1,33 @@
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+
+/** Append each entitlement id to planned roadmap if missing (learner “add to my plan” semantics). */
+function mergeEntitledIdsIntoPlanned(
+  planned: Id<"certificationLevels">[] | undefined,
+  entitled: Id<"certificationLevels">[],
+): {
+  nextPlanned: Id<"certificationLevels">[] | undefined;
+  changed: boolean;
+} {
+  if (entitled.length === 0) {
+    return { nextPlanned: planned?.length ? planned : undefined, changed: false };
+  }
+  const existing = planned ?? [];
+  const inPlan = new Set(existing.map((x) => String(x)));
+  const merged: Id<"certificationLevels">[] = [...existing];
+  let changed = false;
+  for (const id of entitled) {
+    if (!inPlan.has(String(id))) {
+      inPlan.add(String(id));
+      merged.push(id);
+      changed = true;
+    }
+  }
+  return {
+    nextPlanned: merged.length > 0 ? merged : undefined,
+    changed,
+  };
+}
 import {
   internalMutation,
   internalQuery,
@@ -11,6 +39,8 @@ import {
   requireUserId,
   resolveDeploymentUserId,
 } from "./lib/auth";
+import { isLive } from "./lib/softDelete";
+import { computeLearnerCertPathBuckets } from "./certifications";
 
 export const resolveDeploymentUserIdInternal = internalQuery({
   args: {},
@@ -67,6 +97,9 @@ export const createInternal = internalMutation({
       accountType,
       ...(args.companyId !== undefined
         ? { companyId: args.companyId }
+        : {}),
+      ...(accountType === "student"
+        ? { studentEntitledCertificationLevelIds: [] }
         : {}),
       role: args.role,
     });
@@ -128,12 +161,25 @@ export const listByCompany = query({
       .query("users")
       .withIndex("by_company", (q) => q.eq("companyId", companyId))
       .collect();
-    return rows
+    const base = rows
       .map(({ passwordHash, ...u }) => {
         void passwordHash;
         return u;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
+    return await Promise.all(
+      base.map(async (u) => {
+        const { current, completed } = await computeLearnerCertPathBuckets(
+          ctx,
+          u._id,
+        );
+        return {
+          ...u,
+          inProgressCertificationLevelIds: current.map((r) => r.level._id),
+          completedCertificationLevelIds: completed.map((r) => r.level._id),
+        };
+      }),
+    );
   },
 });
 
@@ -155,12 +201,142 @@ export const listWithoutCompany = query({
         byId.set(u._id, u);
       }
     }
-    return [...byId.values()]
+    const base = [...byId.values()]
       .map(({ passwordHash, ...u }) => {
         void passwordHash;
         return u;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
+    return await Promise.all(
+      base.map(async (u) => {
+        const { current, completed } = await computeLearnerCertPathBuckets(
+          ctx,
+          u._id,
+        );
+        return {
+          ...u,
+          inProgressCertificationLevelIds: current.map((r) => r.level._id),
+          completedCertificationLevelIds: completed.map((r) => r.level._id),
+        };
+      }),
+    );
+  },
+});
+
+/** Admin/creator: name and email for “view as student” UI (no sensitive fields). */
+export const getForViewAsLabel = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await requireAdminOrCreator(ctx);
+    const row = await ctx.db.get(userId);
+    if (!row) {
+      return null;
+    }
+    return { name: row.name, email: row.email };
+  },
+});
+
+/** Set which certifications a **student** (no company) may start. Replaces the full list. */
+export const adminSetStudentCertificationEntitlements = mutation({
+  args: {
+    userId: v.id("users"),
+    levelIds: v.array(v.id("certificationLevels")),
+  },
+  handler: async (ctx, { userId, levelIds }) => {
+    await requireAdminOrCreator(ctx);
+    const row = await ctx.db.get(userId);
+    if (!row) {
+      throw new Error("User not found");
+    }
+    if (row.companyId != null) {
+      throw new Error("Entitlements apply only to student (non-member) accounts");
+    }
+    const seen = new Set<string>();
+    const unique: Id<"certificationLevels">[] = [];
+    for (const id of levelIds) {
+      const k = String(id);
+      if (seen.has(k)) {
+        continue;
+      }
+      seen.add(k);
+      const level = await ctx.db.get(id);
+      if (!level || !isLive(level)) {
+        throw new Error("Invalid or deleted certification");
+      }
+      if (
+        level.companyId != null
+      ) {
+        throw new Error("Only public certifications can be assigned to students");
+      }
+      unique.push(id);
+    }
+    const { nextPlanned } = mergeEntitledIdsIntoPlanned(
+      row.plannedCertificationLevelIds,
+      unique,
+    );
+    await ctx.db.patch(userId, {
+      studentEntitledCertificationLevelIds: unique,
+      plannedCertificationLevelIds: nextPlanned,
+    });
+  },
+});
+
+/**
+ * For each user: ensure `plannedCertificationLevelIds` includes every id in
+ * `studentEntitledCertificationLevelIds` (backfill for data saved before
+ * entitlements → roadmap sync, e.g. seed or older builds).
+ */
+export const adminReconcilePlannedToEntitledForUsers = mutation({
+  args: { userIds: v.array(v.id("users")) },
+  handler: async (ctx, { userIds }) => {
+    await requireAdminOrCreator(ctx);
+    let patched = 0;
+    for (const userId of userIds) {
+      const row = await ctx.db.get(userId);
+      if (!row || row.companyId != null) {
+        continue;
+      }
+      const entitled = row.studentEntitledCertificationLevelIds;
+      if (entitled == null || entitled.length === 0) {
+        continue;
+      }
+      const { nextPlanned, changed } = mergeEntitledIdsIntoPlanned(
+        row.plannedCertificationLevelIds,
+        entitled,
+      );
+      if (!changed) {
+        continue;
+      }
+      await ctx.db.patch(userId, { plannedCertificationLevelIds: nextPlanned });
+      patched += 1;
+    }
+    return { patched };
+  },
+});
+
+/** Remove one certification from a **student**’s personal roadmap (planned list). */
+export const adminRemoveStudentPlannedCertification = mutation({
+  args: {
+    userId: v.id("users"),
+    levelId: v.id("certificationLevels"),
+  },
+  handler: async (ctx, { userId, levelId }) => {
+    await requireAdminOrCreator(ctx);
+    const row = await ctx.db.get(userId);
+    if (!row) {
+      throw new Error("User not found");
+    }
+    if (row.companyId != null) {
+      throw new Error("This action applies only to student (non-member) accounts");
+    }
+    const existing = row.plannedCertificationLevelIds ?? [];
+    const next = existing.filter((id) => id !== levelId);
+    if (next.length === existing.length) {
+      return;
+    }
+    await ctx.db.patch(userId, {
+      plannedCertificationLevelIds: next.length > 0 ? next : undefined,
+    });
   },
 });
 

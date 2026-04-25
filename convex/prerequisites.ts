@@ -7,7 +7,7 @@ import {
   requireUserId,
   userCanAccessLevel,
 } from "./lib/auth";
-import { userCanAccessUnit } from "./lib/auth";
+import { userCanAccessUnit, userCanAccessUnitForUser } from "./lib/auth";
 import { isLive } from "./lib/softDelete";
 import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
 import { LAND_LEASE_CURRICULUM, seedUnitKey } from "./curriculumSeedData";
@@ -21,13 +21,35 @@ export type PrerequisiteItem = {
 };
 
 export const statusForUnit = query({
-  args: { unitId: v.id("units") },
-  handler: async (ctx, { unitId }) => {
-    const userId = await requireUserId(ctx);
-    const ok = await userCanAccessUnit(ctx, unitId);
-    if (!ok) {
+  args: {
+    unitId: v.id("units"),
+    viewAsUserId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, { unitId, viewAsUserId }) => {
+    const sessionUserId = await requireUserId(ctx);
+    const sessionUser = await ctx.db.get(sessionUserId);
+    if (!sessionUser) {
       return null;
     }
+    if (viewAsUserId) {
+      if (sessionUser.role !== "admin" && sessionUser.role !== "content_creator") {
+        return null;
+      }
+      const other = await ctx.db.get(viewAsUserId);
+      if (!other) {
+        return null;
+      }
+      const ok = await userCanAccessUnitForUser(ctx, other, unitId);
+      if (!ok) {
+        return null;
+      }
+    } else {
+      const ok = await userCanAccessUnit(ctx, unitId);
+      if (!ok) {
+        return null;
+      }
+    }
+    const userId = viewAsUserId ?? sessionUserId;
     const rows = await ctx.db
       .query("unitPrerequisites")
       .withIndex("by_unit", (q) => q.eq("unitId", unitId))
