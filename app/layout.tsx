@@ -29,15 +29,6 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_APP_NAME}`,
   },
   description: SITE_META_DESCRIPTION,
-  /** Redundant with `app/icon.png` + `app/favicon.ico` file conventions; explicit for hosts/browsers that ignore one path. */
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/icons/app-icon-192.png", type: "image/png", sizes: "192x192" },
-      { url: "/icons/app-icon-512.png", type: "image/png", sizes: "512x512" },
-    ],
-    apple: [{ url: "/icons/app-icon-192.png", type: "image/png", sizes: "192x192" }],
-  },
   appleWebApp: {
     capable: true,
     title: SITE_PWA_SHORT_NAME,
@@ -58,6 +49,29 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${fontSans.variable} ${fontMono.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/*
+         First-paint: static `public/favicon.ico` (no `app/icon` or `app/favicon` so Next
+         does not stream extra icon resources after a placeholder).
+        */}
+        <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="32x32" />
+        <link
+          rel="icon"
+          href="/icons/app-icon-192.png"
+          type="image/png"
+          sizes="192x192"
+        />
+        <link
+          rel="icon"
+          href="/icons/app-icon-512.png"
+          type="image/png"
+          sizes="512x512"
+        />
+        <link
+          rel="apple-touch-icon"
+          href="/icons/app-icon-192.png"
+        />
+      </head>
       <body className="font-sans antialiased min-h-svh">
         <ThemeProvider>
           <ConvexClientProvider>{children}</ConvexClientProvider>
