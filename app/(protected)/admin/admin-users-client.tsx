@@ -385,7 +385,7 @@ export default function AdminUsersClient() {
             </Card>
           ) : (
             <>
-            <Card className="gap-2 border border-brand-gold/40 border-l-4 border-l-brand-gold bg-brand-gold/[0.07] shadow-sm ring-brand-gold/15 dark:border-brand-gold/35 dark:bg-brand-gold/[0.10] dark:ring-brand-gold/10">
+            <Card className="gap-1 border border-brand-gold/40 border-l-4 border-l-brand-gold bg-brand-gold/[0.07] py-3 shadow-sm ring-brand-gold/15 dark:border-brand-gold/35 dark:bg-brand-gold/[0.10] dark:ring-brand-gold/10">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Landmark
