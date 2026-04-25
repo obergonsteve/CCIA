@@ -215,7 +215,7 @@ export default function AdminUsersClient() {
   return (
     <div
       className={cn(
-        "space-y-6 -mt-2",
+        "space-y-6 -mt-4",
         "[&_[data-slot=input]]:bg-white/55",
         "[&_[data-slot=textarea]]:bg-white/55",
         "[&_[data-slot=select-trigger]]:bg-white/55",
