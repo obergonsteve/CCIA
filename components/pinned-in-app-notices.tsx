@@ -178,7 +178,9 @@ export function PinnedInAppNotices() {
             </p>
           ) : pinned.length === 0 ? (
             <p className="px-1 py-3 text-center text-xs text-muted-foreground">
-              Drag a note above to stash it for later
+              Drag a note onto above
+              <br />
+              to stash it for later
             </p>
           ) : (
             <ol className="m-0 list-none space-y-1.5 p-0">
