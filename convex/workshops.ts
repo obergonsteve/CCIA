@@ -6,9 +6,12 @@ import { requireAdminOrCreator, requireUserId, userCanAccessLevel } from "./lib/
 import { effectiveCertificationTier } from "./lib/certTier";
 import { isLive, nowDeletedAt } from "./lib/softDelete";
 import {
+  countUnitStepProgress,
+  getAlmostThereNudgeLinkRef,
   syncUnitCompletion,
   syncUnitsContainingWorkshopSession,
 } from "./contentProgress";
+import { maybeEnqueueUnitAlmostThereNudge } from "./unitProgressNotifications";
 import {
   collectLevelIdsForUnit,
   userCanAccessWorkshopSession,
@@ -403,7 +406,18 @@ export const deleteSessionsForWorkshopUnitOnLocalDay = mutation({
       await ctx.db.delete(session._id);
     }
     for (const userId of allAffectedUsers) {
+      const before = await countUnitStepProgress(ctx, userId, workshopUnitId);
       await syncUnitCompletion(ctx, userId, workshopUnitId);
+      const after = await countUnitStepProgress(ctx, userId, workshopUnitId);
+      const linkRef = await getAlmostThereNudgeLinkRef(ctx, userId, workshopUnitId);
+      await maybeEnqueueUnitAlmostThereNudge(
+        ctx,
+        userId,
+        workshopUnitId,
+        before,
+        after,
+        linkRef,
+      );
     }
     return { removed: toRemove.length };
   },

@@ -49,6 +49,20 @@ export async function POST() {
     /* optional */
   }
 
+  let companyTimezone: string | undefined = session.companyTimezone;
+  try {
+    const tz = await convex.query(api.companies.getTimezone, {
+      companyId: session.companyId as Id<"companies">,
+    });
+    if (tz) {
+      companyTimezone = tz;
+    } else {
+      companyTimezone = undefined;
+    }
+  } catch {
+    /* keep previous session value */
+  }
+
   let nextTok: string;
   try {
     nextTok = signPasswordSessionCookie(
@@ -58,6 +72,7 @@ export async function POST() {
         name: session.name,
         role: session.role,
         companyId: session.companyId,
+        companyTimezone,
       },
       { rememberMe },
     );

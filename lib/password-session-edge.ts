@@ -8,6 +8,8 @@ export type PasswordSessionPayload = {
   name: string;
   role: string;
   companyId: string;
+  /** IANA time zone for the user’s company; optional for older cookies. */
+  companyTimezone?: string;
   exp: number;
   /** When true, refresh/login should keep long-lived session. Omitted on older cookies. */
   rememberMe?: boolean;

@@ -12,6 +12,7 @@ import { requireUserId, userCanAccessLevel, userCanAccessUnit } from "./lib/auth
 import { getIncompletePrerequisites } from "./lib/prerequisites";
 import { isLive } from "./lib/softDelete";
 import { webinarizeForLiveWorkshopUnit } from "./lib/webinarDisplayText";
+import { maybeEnqueueUnitAlmostThereNudge } from "./unitProgressNotifications";
 
 export type UnitStep =
   | {
@@ -313,6 +314,99 @@ export async function countUnitStepProgress(
   return { total: steps.length, completed };
 }
 
+async function getFirstIncompleteUnitStep(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  unitId: Id<"units">,
+): Promise<
+  | {
+      kind: "content";
+      contentId: Id<"contentItems">;
+      workshopSessionId?: Id<"workshopSessions">;
+    }
+  | { kind: "legacy_assignment"; assignmentId: Id<"assignments"> }
+  | null
+> {
+  const steps = await getOrderedStepsForUnit(ctx, unitId);
+  if (steps.length === 0) {
+    return null;
+  }
+  const items = await collectContentInUnit(ctx, unitId);
+  const byContentId = new Map(items.map((c) => [c._id, c] as const));
+  for (const s of steps) {
+    if (s.kind === "content") {
+      const doc = byContentId.get(s.contentId);
+      if (!doc) {
+        continue;
+      }
+      if (!(await contentStepDone(ctx, userId, unitId, s.contentId, doc))) {
+        const workshopSessionId =
+          doc.type === "workshop_session" && doc.workshopSessionId
+            ? doc.workshopSessionId
+            : undefined;
+        return { kind: "content", contentId: s.contentId, workshopSessionId };
+      }
+    } else {
+      if (!(await legacyAssignmentStepDone(ctx, userId, s.assignmentId))) {
+        return { kind: "legacy_assignment", assignmentId: s.assignmentId };
+      }
+    }
+  }
+  return null;
+}
+
+async function preferredLevelIdForUserUnit(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  unitId: Id<"units">,
+): Promise<Id<"certificationLevels"> | undefined> {
+  const links = await ctx.db
+    .query("certificationUnits")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+    .collect();
+  if (links.length === 0) {
+    return undefined;
+  }
+  const inUnit = new Set(links.map((l) => l.levelId));
+  const user = await ctx.db.get(userId);
+  if (user?.plannedCertificationLevelIds) {
+    for (const lid of user.plannedCertificationLevelIds) {
+      if (inUnit.has(lid)) {
+        return lid;
+      }
+    }
+  }
+  return links[0]!.levelId;
+}
+
+/** In-app “Almost there!” nudge: next incomplete step, or the unit if none. */
+export async function getAlmostThereNudgeLinkRef(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  unitId: Id<"units">,
+): Promise<NonNullable<Doc<"userNotifications">["linkRef"]>> {
+  const levelId = await preferredLevelIdForUserUnit(ctx, userId, unitId);
+  const first = await getFirstIncompleteUnitStep(ctx, userId, unitId);
+  if (first == null) {
+    return { kind: "unit", unitId, levelId };
+  }
+  if (first.kind === "content") {
+    return {
+      kind: "content",
+      contentId: first.contentId,
+      unitId,
+      levelId,
+      workshopSessionId: first.workshopSessionId,
+    };
+  }
+  return {
+    kind: "unitAssignment",
+    unitId,
+    assignmentId: first.assignmentId,
+    levelId,
+  };
+}
+
 /**
  * Marks `userProgress` complete when every step is done; clears unit completion
  * when any step is incomplete (e.g. after reopening a lesson).
@@ -387,7 +481,18 @@ export async function syncUnitsContainingWorkshopSession(
     }
   }
   for (const unitId of unitIds) {
+    const before = await countUnitStepProgress(ctx, userId, unitId);
     await syncUnitCompletion(ctx, userId, unitId);
+    const after = await countUnitStepProgress(ctx, userId, unitId);
+    const linkRef = await getAlmostThereNudgeLinkRef(ctx, userId, unitId);
+    await maybeEnqueueUnitAlmostThereNudge(
+      ctx,
+      userId,
+      unitId,
+      before,
+      after,
+      linkRef,
+    );
   }
 }
 
@@ -1058,6 +1163,7 @@ export const recordContentComplete = mutation({
       );
     }
     await assertSequentialUnitAccessForProgress(ctx, userId, levelId, unitId);
+    const before = await countUnitStepProgress(ctx, userId, unitId);
     const items = await collectContentInUnit(ctx, unitId);
     const item = items.find((c) => c._id === contentId);
     if (!item) {
@@ -1114,6 +1220,16 @@ export const recordContentComplete = mutation({
     });
     await touchUnitProgress(ctx, userId, unitId);
     await syncUnitCompletion(ctx, userId, unitId);
+    const after = await countUnitStepProgress(ctx, userId, unitId);
+    const linkRef = await getAlmostThereNudgeLinkRef(ctx, userId, unitId);
+    await maybeEnqueueUnitAlmostThereNudge(
+      ctx,
+      userId,
+      unitId,
+      before,
+      after,
+      linkRef,
+    );
     return { ok: true as const };
   },
 });
@@ -1301,6 +1417,7 @@ export async function applyAssessmentContentAfterSubmit(
   passed: boolean,
   completedAt: number,
 ) {
+  const before = await countUnitStepProgress(ctx, userId, unitId);
   const existing = await ctx.db
     .query("userContentProgress")
     .withIndex("by_user_unit_content", (q) =>
@@ -1341,6 +1458,16 @@ export async function applyAssessmentContentAfterSubmit(
   await touchUnitProgress(ctx, userId, unitId);
   if (passed) {
     await syncUnitCompletion(ctx, userId, unitId);
+    const after = await countUnitStepProgress(ctx, userId, unitId);
+    const linkRef = await getAlmostThereNudgeLinkRef(ctx, userId, unitId);
+    await maybeEnqueueUnitAlmostThereNudge(
+      ctx,
+      userId,
+      unitId,
+      before,
+      after,
+      linkRef,
+    );
   }
 }
 
@@ -1354,6 +1481,7 @@ export async function applyLegacyAssignmentAfterSubmit(
   passed: boolean,
   completedAt: number,
 ) {
+  const before = await countUnitStepProgress(ctx, userId, unitId);
   const existing = await ctx.db
     .query("userAssignmentProgress")
     .withIndex("by_user_unit_assignment", (q) =>
@@ -1397,5 +1525,15 @@ export async function applyLegacyAssignmentAfterSubmit(
   await touchUnitProgress(ctx, userId, unitId);
   if (passed) {
     await syncUnitCompletion(ctx, userId, unitId);
+    const after = await countUnitStepProgress(ctx, userId, unitId);
+    const linkRef = await getAlmostThereNudgeLinkRef(ctx, userId, unitId);
+    await maybeEnqueueUnitAlmostThereNudge(
+      ctx,
+      userId,
+      unitId,
+      before,
+      after,
+      linkRef,
+    );
   }
 }

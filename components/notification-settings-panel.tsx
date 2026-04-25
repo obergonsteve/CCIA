@@ -133,7 +133,13 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
 
       <section
         aria-label="Notification preferences"
-        className="max-w-2xl space-y-6 rounded-lg border border-brand-sky/40 bg-brand-sky/[0.08] p-4 shadow-sm ring-1 ring-brand-sky/15 sm:p-5 dark:border-brand-sky/45 dark:bg-brand-sky/[0.12] dark:ring-brand-sky/20"
+        className={cn(
+          "max-w-2xl space-y-6 rounded-lg border border-brand-sky/40 bg-brand-sky/[0.08] p-4 shadow-sm ring-1 ring-brand-sky/15 sm:p-5 dark:border-brand-sky/45 dark:bg-brand-sky/[0.12] dark:ring-brand-sky/20",
+          "dark:[&_[data-slot=input]]:border-white/10 dark:[&_[data-slot=input]]:bg-white/[0.08] dark:hover:[&_[data-slot=input]]:bg-white/[0.1]",
+          "[&_[data-slot=input]]:border-sky-200/35 [&_[data-slot=input]]:bg-white/70",
+          "dark:[&_[data-slot=select-trigger]]:border-white/10 dark:[&_[data-slot=select-trigger]]:bg-white/[0.08] dark:hover:[&_[data-slot=select-trigger]]:bg-white/[0.12]",
+          "[&_[data-slot=select-trigger]]:border-sky-200/35 [&_[data-slot=select-trigger]]:bg-white/70",
+        )}
       >
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -153,7 +159,7 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
         <div className="space-y-4">
         <Card
           className={cn(
-            "border border-violet-300/50 bg-gradient-to-br from-violet-50/90 via-fuchsia-50/50 to-purple-50/50 ring-1 ring-violet-200/50 dark:border-violet-500/40 dark:from-violet-950/45 dark:via-fuchsia-950/28 dark:to-purple-950/22 dark:ring-violet-500/25",
+            "border border-violet-400/45 border-l-4 border-l-violet-600 bg-gradient-to-br from-violet-500/[0.1] via-fuchsia-500/[0.05] to-purple-100/50 shadow-sm ring-1 ring-violet-300/20 dark:border-violet-500/40 dark:border-l-violet-500 dark:from-violet-500/[0.12] dark:via-fuchsia-500/[0.08] dark:to-purple-950/35 dark:ring-violet-500/16",
           )}
         >
           <CardHeader>
@@ -171,7 +177,7 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
           </CardHeader>
           <CardContent>
             <div
-              className="flex max-w-2xl flex-wrap items-baseline gap-x-2 gap-y-2.5 text-sm leading-relaxed"
+              className="flex max-w-2xl flex-wrap items-center gap-x-2 gap-y-2.5 text-sm leading-relaxed"
               role="group"
               aria-label="Time before a registered webinar to show a reminder"
             >
@@ -187,11 +193,11 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
                   if (Number.isNaN(n)) return;
                   setValue(Math.min(maxLead, Math.max(1, n)));
                 }}
-                className="h-9 w-16 min-w-0 text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="h-8 w-16 min-w-0 self-center text-center text-sm tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 aria-label="How many (hours or days, next control)"
                 autoComplete="off"
               />
-              <div className="w-[5.75rem] shrink-0 sm:w-28">
+              <div className="w-[5.75rem] shrink-0 self-center sm:w-28">
                 <Select
                   value={unit}
                   onValueChange={(v) => {
@@ -207,14 +213,29 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
                 >
                   <SelectTrigger
                     id="ns-lead-unit"
-                    className="h-9 w-full"
+                    className="h-8 min-h-8 w-full"
                     aria-label="Count in hours or days"
                   >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hours">hour(s)</SelectItem>
-                    <SelectItem value="days">day(s)</SelectItem>
+                  <SelectContent
+                    className={cn(
+                      "border border-violet-200/50 bg-violet-50/95 text-foreground",
+                      "dark:border-violet-500/25 dark:bg-violet-950/55 dark:text-violet-50",
+                    )}
+                  >
+                    <SelectItem
+                      className="focus:bg-violet-200/50 dark:focus:bg-violet-800/50"
+                      value="hours"
+                    >
+                      hour(s)
+                    </SelectItem>
+                    <SelectItem
+                      className="focus:bg-violet-200/50 dark:focus:bg-violet-800/50"
+                      value="days"
+                    >
+                      day(s)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -225,11 +246,15 @@ export function NotificationSettingsPanel({ showIntro }: { showIntro?: boolean }
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={cn(
+            "border border-brand-sky/45 border-l-4 border-l-brand-sky bg-gradient-to-br from-brand-sky/[0.1] via-brand-sky/[0.05] to-sky-100/50 shadow-sm ring-1 ring-brand-sky/18 dark:border-brand-sky/40 dark:from-brand-sky/[0.12] dark:via-sky-500/[0.08] dark:to-slate-950/40 dark:ring-brand-sky/16",
+          )}
+        >
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <TrendingUp
-                className="h-5 w-5 text-brand-lime"
+                className="h-5 w-5 text-brand-sky"
                 aria-hidden
               />
               &quot;Almost there!&quot; on your progress

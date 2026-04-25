@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { requireAdminOrCreator } from "./lib/auth";
 
 const companyStatusV = v.union(
@@ -23,6 +23,26 @@ export const listForRegister = query({
   },
 });
 
+/** Public: used by session refresh to pick up admin timezone changes (ID-only arg). */
+export const getTimezone = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, { companyId }) => {
+    const c = await ctx.db.get(companyId);
+    if (!c) {
+      return null;
+    }
+    const t = c.timezone?.trim();
+    return t && t.length > 0 ? t : null;
+  },
+});
+
+export const getByIdInternal = internalQuery({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, { companyId }) => {
+    return await ctx.db.get(companyId);
+  },
+});
+
 export const create = mutation({
   args: { name: v.string() },
   handler: async (ctx, { name }) => {
@@ -41,6 +61,8 @@ export const update = mutation({
     status: companyStatusV,
     /** `null` clears the stored date */
     joinedAt: v.union(v.number(), v.null()),
+    /** IANA zone (e.g. Australia/Sydney). Empty string clears. */
+    timezone: v.string(),
   },
   handler: async (ctx, args) => {
     await requireAdminOrCreator(ctx);
@@ -48,6 +70,7 @@ export const update = mutation({
     if (!row) {
       throw new Error("Company not found");
     }
+    const tz = args.timezone.trim();
     await ctx.db.patch(args.companyId, {
       name: args.name.trim(),
       address: args.address.trim() || undefined,
@@ -55,6 +78,7 @@ export const update = mutation({
       phone: args.phone.trim() || undefined,
       status: args.status,
       joinedAt: args.joinedAt,
+      timezone: tz.length > 0 ? tz : undefined,
     });
   },
 });

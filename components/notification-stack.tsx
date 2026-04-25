@@ -4,7 +4,14 @@ import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronDown, ExternalLink, GripVertical, Video, X } from "lucide-react";
+import {
+  ChevronDown,
+  ExternalLink,
+  GripVertical,
+  TrendingUp,
+  Video,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import {
   useCallback,
@@ -70,7 +77,9 @@ function DraggableNote({
   const a11yIcon =
     row.kind === "webinar_reminder"
       ? "Webinar reminder"
-      : NOTIFICATION_IMPORTANCE[importance].human;
+      : row.kind === "unit_progress_nudge"
+        ? "Progress nudge"
+        : NOTIFICATION_IMPORTANCE[importance].human;
   const [expanded, setExpanded] = useState(false);
   const hasBody =
     Boolean(row.body != null && row.body.trim() !== "") ||
@@ -353,6 +362,11 @@ function DraggableNote({
           >
             {row.kind === "webinar_reminder" ? (
               <Video
+                className={cn("h-4 w-4 shrink-0 opacity-90", th.icon)}
+                aria-hidden
+              />
+            ) : row.kind === "unit_progress_nudge" ? (
+              <TrendingUp
                 className={cn("h-4 w-4 shrink-0 opacity-90", th.icon)}
                 aria-hidden
               />

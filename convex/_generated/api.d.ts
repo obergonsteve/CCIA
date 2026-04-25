@@ -45,6 +45,7 @@ import type * as seed from "../seed.js";
 import type * as seedAnalytics from "../seedAnalytics.js";
 import type * as seedAnalyticsDiag from "../seedAnalyticsDiag.js";
 import type * as unitCategories from "../unitCategories.js";
+import type * as unitProgressNotifications from "../unitProgressNotifications.js";
 import type * as units from "../units.js";
 import type * as userNotificationSettings from "../userNotificationSettings.js";
 import type * as userNotifications from "../userNotifications.js";
@@ -101,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   seedAnalytics: typeof seedAnalytics;
   seedAnalyticsDiag: typeof seedAnalyticsDiag;
   unitCategories: typeof unitCategories;
+  unitProgressNotifications: typeof unitProgressNotifications;
   units: typeof units;
   userNotificationSettings: typeof userNotificationSettings;
   userNotifications: typeof userNotifications;

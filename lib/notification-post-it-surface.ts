@@ -114,15 +114,38 @@ function postItWebinarReminderClassNames() {
   };
 }
 
+function postItUnitProgressNudgeClassNames() {
+  return {
+    shell: cn(
+      "rounded-2xl overflow-hidden",
+      "border border-brand-lime/50 dark:border-brand-lime/40",
+      "border-l-[2.5px] border-l-brand-lime dark:border-l-brand-lime/90",
+      "bg-gradient-to-br from-brand-lime/30 from-20% via-white/45 to-emerald-100/40 " +
+        "dark:from-brand-lime/22 dark:via-emerald-950/50 dark:to-stone-950/50",
+      glassShadow,
+    ),
+    hairline:
+      "border-b border-brand-lime/22 bg-brand-lime/[0.12] dark:border-brand-lime/18 dark:bg-brand-lime/[0.1]",
+    icon: "text-brand-lime dark:text-brand-lime/95",
+    title:
+      "text-stone-900/95 [text-shadow:0_1px_0_rgba(255,255,255,0.4)] dark:text-stone-50",
+    text: "text-stone-800/95 dark:text-stone-100/95",
+    muted: "text-stone-600/90 dark:text-stone-400/86",
+  };
+}
+
 /**
- * Frosted post-it chrome: importance for most kinds; fixed purple for
- * `webinar_reminder`.
+ * Frosted post-it chrome: importance for most kinds; kind-specific tints for
+ * `webinar_reminder` and `unit_progress_nudge`.
  */
 export function postItChromeForNotification(
   row: Pick<Doc<"userNotifications">, "kind" | "importance">,
 ) {
   if (row.kind === "webinar_reminder") {
     return postItWebinarReminderClassNames();
+  }
+  if (row.kind === "unit_progress_nudge") {
+    return postItUnitProgressNudgeClassNames();
   }
   return postItImportanceClassNames(
     (row.importance ?? "normal") as NotificationImportance,

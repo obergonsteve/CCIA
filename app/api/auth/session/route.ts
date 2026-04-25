@@ -22,6 +22,7 @@ export async function GET() {
       name: payload.name,
       role: payload.role,
       companyId: payload.companyId,
+      companyTimezone: payload.companyTimezone,
     },
   });
 }

@@ -59,6 +59,12 @@ export const userNotificationLinkRef = v.union(
     kind: v.literal("workshopSession"),
     sessionId: v.id("workshopSessions"),
   }),
+  v.object({
+    kind: v.literal("unitAssignment"),
+    unitId: v.id("units"),
+    assignmentId: v.id("assignments"),
+    levelId: v.optional(v.id("certificationLevels")),
+  }),
 );
 
 const createArgs = {
@@ -238,7 +244,13 @@ type NotificationLinkRefIn =
       levelId?: Id<"certificationLevels">;
       workshopSessionId?: Id<"workshopSessions">;
     }
-  | { kind: "workshopSession"; sessionId: Id<"workshopSessions"> };
+  | { kind: "workshopSession"; sessionId: Id<"workshopSessions"> }
+  | {
+      kind: "unitAssignment";
+      unitId: Id<"units">;
+      assignmentId: Id<"assignments">;
+      levelId?: Id<"certificationLevels">;
+    };
 
 type LinkResolverCtx = QueryCtx | MutationCtx;
 
@@ -302,6 +314,31 @@ async function resolveNotificationLink(
       return {
         href: `${base}#step-${ref.contentId}`,
         defaultLabel: content.title,
+      };
+    }
+    case "unitAssignment": {
+      const [assignment, unit] = await Promise.all([
+        ctx.db.get(ref.assignmentId),
+        ctx.db.get(ref.unitId),
+      ]);
+      if (!assignment) {
+        throw new ConvexError("Assignment not found");
+      }
+      if (!unit) {
+        throw new ConvexError("Unit not found");
+      }
+      if (assignment.unitId !== ref.unitId) {
+        throw new ConvexError("Assignment is not in this unit");
+      }
+      const q = new URLSearchParams();
+      if (ref.levelId) {
+        q.set("level", ref.levelId);
+      }
+      const qs = q.toString();
+      const base = `/units/${ref.unitId}${qs ? `?${qs}` : ""}`;
+      return {
+        href: `${base}#step-a-${ref.assignmentId}`,
+        defaultLabel: assignment.title,
       };
     }
     case "workshopSession": {
@@ -803,6 +840,7 @@ function inAppLinkRefUsesCertificationPath(
     linkRef.kind === "certificationLevel" ||
     linkRef.kind === "unit" ||
     linkRef.kind === "content" ||
+    linkRef.kind === "unitAssignment" ||
     linkRef.kind === "workshopSession"
   );
 }
@@ -850,6 +888,13 @@ async function getLevelIdsForInAppLinkRef(
       );
     }
     case "content": {
+      return await getLevelIdsForUnitPath(
+        ctx,
+        linkRef.unitId,
+        linkRef.levelId,
+      );
+    }
+    case "unitAssignment": {
       return await getLevelIdsForUnitPath(
         ctx,
         linkRef.unitId,

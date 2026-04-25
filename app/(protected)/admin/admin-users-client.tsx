@@ -38,13 +38,14 @@ import {
   Trash2,
   Users as UsersIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   SendInAppNoticeRowIconButton,
   SendInAppNoticeTextButton,
 } from "@/components/admin/send-in-app-notice-control";
 import { SendInAppNoticeDialog } from "@/components/admin/send-in-app-notice-dialog";
+import { isValidIanaTimeZone, listIanaTimeZones } from "@/lib/iana-timezone";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,11 @@ export default function AdminUsersClient() {
     "active" | "inactive" | "pending"
   >("active");
   const [coDetailJoined, setCoDetailJoined] = useState("");
+  const [coDetailTimezone, setCoDetailTimezone] = useState("");
+  const [coTimezoneFilter, setCoTimezoneFilter] = useState("");
+
+  const allIanaTimeZones = useMemo(() => listIanaTimeZones(), []);
+  const companyFormHydratedForId = useRef<Id<"companies"> | null>(null);
 
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
@@ -149,21 +155,47 @@ export default function AdminUsersClient() {
     [companies, selectedCompanyId],
   );
 
+  const coTimezoneSelectOptions = useMemo(() => {
+    const q = coTimezoneFilter.trim().toLowerCase();
+    const base = q
+      ? allIanaTimeZones.filter((z) => z.toLowerCase().includes(q))
+      : allIanaTimeZones;
+    const v = coDetailTimezone.trim();
+    if (v && isValidIanaTimeZone(v) && !base.includes(v)) {
+      return [v, ...base].sort((a, b) => a.localeCompare(b));
+    }
+    return base;
+  }, [coTimezoneFilter, allIanaTimeZones, coDetailTimezone]);
+
+  /**
+   * Hydrate company form only when switching the selected company (or first load
+   * for that id). Do not re-run on every `companies` refetch — that was resetting
+   * the form and blocking edits (e.g. time zone) mid-edit.
+   */
   useEffect(() => {
-    if (!selectedCompany) {
+    if (selectedCompanyId == null) {
+      companyFormHydratedForId.current = null;
       return;
     }
-    setCoDetailName(selectedCompany.name);
-    setCoDetailAddress(selectedCompany.address ?? "");
-    setCoDetailEmail(selectedCompany.email ?? "");
-    setCoDetailPhone(selectedCompany.phone ?? "");
+    if (companies === undefined) {
+      return;
+    }
+    const c = companies.find((x) => x._id === selectedCompanyId);
+    if (!c) {
+      return;
+    }
+    if (companyFormHydratedForId.current === selectedCompanyId) {
+      return;
+    }
+    companyFormHydratedForId.current = selectedCompanyId;
+    setCoDetailName(c.name);
+    setCoDetailAddress(c.address ?? "");
+    setCoDetailEmail(c.email ?? "");
+    setCoDetailPhone(c.phone ?? "");
     setCoDetailStatus(
-      selectedCompany.status === "inactive" ||
-        selectedCompany.status === "pending"
-        ? selectedCompany.status
-        : "active",
+      c.status === "inactive" || c.status === "pending" ? c.status : "active",
     );
-    const j = selectedCompany.joinedAt;
+    const j = c.joinedAt;
     if (j != null && typeof j === "number") {
       const d = new Date(j);
       setCoDetailJoined(
@@ -172,7 +204,11 @@ export default function AdminUsersClient() {
     } else {
       setCoDetailJoined("");
     }
-  }, [selectedCompany]);
+    setCoDetailTimezone(
+      c.timezone && c.timezone.trim() ? c.timezone.trim() : "",
+    );
+    setCoTimezoneFilter("");
+  }, [selectedCompanyId, companies]);
 
   return (
     <div
@@ -342,8 +378,10 @@ export default function AdminUsersClient() {
                   Company details
                 </CardTitle>
                 <CardDescription>
-                  Profile for this organization (contact, status, onboarding date).
-                  Save before switching companies.
+                  Profile for this organization (contact, status, onboarding date,
+                  time zone). The time zone is stored in each signed-in user&apos;s
+                  session for consistent dates in the app. Save before switching
+                  companies.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -424,6 +462,45 @@ export default function AdminUsersClient() {
                       onChange={(e) => setCoDetailJoined(e.target.value)}
                     />
                   </div>
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label htmlFor="co-timezone">Time zone (IANA)</Label>
+                    <Input
+                      id="co-timezone-filter"
+                      name="co-timezone-filter"
+                      value={coTimezoneFilter}
+                      onChange={(e) => setCoTimezoneFilter(e.target.value)}
+                      placeholder="Type to filter the list (all IANA zones below)"
+                      autoComplete="off"
+                    />
+                    <select
+                      id="co-timezone"
+                      name="co-timezone"
+                      value={coDetailTimezone}
+                      onChange={(e) => {
+                        setCoDetailTimezone(e.target.value);
+                        setCoTimezoneFilter("");
+                      }}
+                      className={cn(
+                        "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm",
+                        "shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                        "md:text-sm dark:bg-input/30",
+                      )}
+                      aria-label="Select company time zone; choose Not set to clear"
+                    >
+                      <option value="">
+                        Not set (learner’s browser / local default)
+                      </option>
+                      {coTimezoneSelectOptions.map((z) => (
+                        <option key={z} value={z}>
+                          {z}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Full IANA list in the menu (scroll to browse). Use “Not
+                      set” to clear. Applied on sign-in and session refresh.
+                    </p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -445,6 +522,10 @@ export default function AdminUsersClient() {
                         }
                         joinedAt = t;
                       }
+                      if (!isValidIanaTimeZone(coDetailTimezone)) {
+                        toast.error("Invalid time zone — use a valid IANA name.");
+                        return;
+                      }
                       try {
                         await updateCompany({
                           companyId: selectedCompanyId,
@@ -454,6 +535,7 @@ export default function AdminUsersClient() {
                           phone: coDetailPhone,
                           status: coDetailStatus,
                           joinedAt,
+                          timezone: coDetailTimezone,
                         });
                         toast.success("Company saved");
                       } catch (e) {

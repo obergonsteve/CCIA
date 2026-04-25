@@ -97,6 +97,7 @@ export async function POST(request: Request) {
       name: user.name,
       role: user.role,
       companyId: user.companyId,
+      companyTimezone: user.companyTimezone,
     },
   };
 
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
       name: user.name,
       role: user.role,
       companyId: user.companyId,
+      companyTimezone: user.companyTimezone,
     });
   } catch (e) {
     const message =

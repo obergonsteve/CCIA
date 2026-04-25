@@ -40,6 +40,8 @@ export type LoginResult = {
   role: "operator" | "supervisor" | "admin" | "content_creator";
   avatarUrl?: string;
   lastLogin?: number;
+  /** IANA time zone from `companies.timezone` for session display. */
+  companyTimezone?: string;
 } | null;
 
 /** §4 — login (credential check; cookie set in Next.js API route). */
@@ -59,6 +61,13 @@ export const login = action({
     if (!ok) {
       return null;
     }
+    const company = await ctx.runQuery(internal.companies.getByIdInternal, {
+      companyId: user.companyId,
+    });
+    const companyTimezone =
+      company?.timezone && typeof company.timezone === "string"
+        ? company.timezone.trim() || undefined
+        : undefined;
     return {
       userId: user._id,
       email: user.email,
@@ -67,6 +76,7 @@ export const login = action({
       role: user.role,
       avatarUrl: user.avatarUrl,
       lastLogin: user.lastLogin,
+      companyTimezone,
     };
   },
 });

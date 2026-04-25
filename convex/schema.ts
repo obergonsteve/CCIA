@@ -19,6 +19,11 @@ export default defineSchema({
     ),
     /** Agreement / onboarding date (ms since epoch) */
     joinedAt: v.optional(v.union(v.number(), v.null())),
+    /**
+     * IANA time zone for this org (e.g. Australia/Sydney), used in the user session
+     * for in-app date/time display. Omitted = browser default for the learner.
+     */
+    timezone: v.optional(v.string()),
   }).index("by_name", ["name"]),
 
   users: defineTable({
@@ -502,6 +507,12 @@ export default defineSchema({
         v.object({
           kind: v.literal("workshopSession"),
           sessionId: v.id("workshopSessions"),
+        }),
+        v.object({
+          kind: v.literal("unitAssignment"),
+          unitId: v.id("units"),
+          assignmentId: v.id("assignments"),
+          levelId: v.optional(v.id("certificationLevels")),
         }),
       ),
     ),
