@@ -10,6 +10,7 @@ import {
   type MutationCtx,
   type QueryCtx,
   internalMutation,
+  internalQuery,
   mutation,
   query,
 } from "./_generated/server";
@@ -386,6 +387,14 @@ async function resolveNotificationLink(
         defaultLabel,
       };
     }
+    default: {
+      const _k = (ref as { kind?: string }).kind;
+      throw new ConvexError(
+        _k != null
+          ? `Unknown notification link ref kind: ${_k}`
+          : "Invalid notification link ref",
+      );
+    }
   }
 }
 
@@ -569,70 +578,153 @@ export const listActiveForUser = query({
 });
 
 /**
+ * Shared list logic for stashed (pinned) in-app notes — used by `listPinnedForUser`
+ * and by `debugListPinnedForUser` (internal) so you can get the *real* error text.
+ */
+async function listPinnedInAppForUserImpl(
+  ctx: QueryCtx,
+  forUserId: Id<"users">,
+  u: Doc<"users">,
+) {
+  const fromTable = await ctx.db
+    .query("userInAppNotificationPins")
+    .withIndex("by_user", (q) => q.eq("userId", forUserId))
+    .collect();
+  const legacy = u.pinnedInAppNotificationIds ?? [];
+  const idSet = new Set<string>();
+  for (const p of fromTable) {
+    idSet.add(String(p.notificationId));
+  }
+  for (const id of legacy) {
+    idSet.add(String(id));
+  }
+  if (idSet.size === 0) {
+    return [];
+  }
+  const broadcastHidden = await getBroadcastHiddenIdsForUser(
+    ctx,
+    forUserId,
+  );
+  const rows: Doc<"userNotifications">[] = [];
+  for (const idStr of idSet) {
+    const row = await tryGetUserNotification(ctx, idStr);
+    if (
+      row == null ||
+      !isNotificationVisiblyActiveForUser(
+        forUserId,
+        row,
+        broadcastHidden,
+      )
+    ) {
+      continue;
+    }
+    rows.push(row);
+  }
+  rows.sort((a, b) => a.createdAt - b.createdAt);
+  return await Promise.all(
+    rows.map(async (row) => {
+      if (row.linkRef == null) {
+        return row;
+      }
+      try {
+        const resolved = await resolveNotificationLink(ctx, row.linkRef);
+        if (resolved != null) {
+          return { ...row, linkLabel: resolved.defaultLabel };
+        }
+      } catch {
+        /* use row as returned from DB */
+      }
+      return row;
+    }),
+  );
+}
+
+/**
  * Pinned post-its for the app shell (order: oldest received first).
+ *
+ * `forUserId` is a plain string (not `v.id("users")`) so the client’s session
+ * value is always accepted here; if it is not a valid `users` id, we return
+ * `[]` instead of failing Convex argument validation before the handler runs.
  */
 export const listPinnedForUser = query({
-  args: { forUserId: v.id("users") },
-  handler: async (ctx, { forUserId }) => {
-    try {
-      if (!(await ctx.db.get(forUserId))) {
-        return [];
-      }
-      const u = await ctx.db.get(forUserId);
-      if (u == null) {
-        return [];
-      }
-      const fromTable = await ctx.db
-        .query("userInAppNotificationPins")
-        .withIndex("by_user", (q) => q.eq("userId", forUserId))
-        .collect();
-      const legacy = u.pinnedInAppNotificationIds ?? [];
-      const idSet = new Set<string>();
-      for (const p of fromTable) {
-        idSet.add(String(p.notificationId));
-      }
-      for (const id of legacy) {
-        idSet.add(String(id));
-      }
-      if (idSet.size === 0) {
-        return [];
-      }
-      const broadcastHidden = await getBroadcastHiddenIdsForUser(
-        ctx,
-        forUserId,
-      );
-      const rows: Doc<"userNotifications">[] = [];
-      for (const idStr of idSet) {
-        const row = await tryGetUserNotification(ctx, idStr);
-        if (
-          row == null ||
-          !isNotificationVisiblyActiveForUser(
-            forUserId,
-            row,
-            broadcastHidden,
-          )
-        ) {
-          continue;
-        }
-        rows.push(row);
-      }
-      rows.sort((a, b) => a.createdAt - b.createdAt);
-      return await Promise.all(
-        rows.map(async (row) => {
-          if (row.linkRef == null) {
-            return row;
-          }
-          try {
-            const resolved = await resolveNotificationLink(ctx, row.linkRef);
-            return { ...row, linkLabel: resolved.defaultLabel };
-          } catch {
-            return row;
-          }
-        }),
-      );
-    } catch (e) {
-      console.error("listPinnedForUser failed", e);
+  args: { forUserId: v.string() },
+  handler: async (ctx, { forUserId: forUserIdRaw }) => {
+    const trimmed = forUserIdRaw.trim();
+    if (trimmed.length === 0) {
       return [];
+    }
+    let u: Doc<"users"> | null;
+    try {
+      u = await ctx.db.get(trimmed as Id<"users">);
+    } catch {
+      return [];
+    }
+    if (u == null) {
+      return [];
+    }
+    return listPinnedInAppForUserImpl(ctx, u._id, u);
+  },
+});
+
+/**
+ * **Debugging only (internal).** Returns structured success or the exact `message` / `stack`
+ * for any thrown error while loading pinned notes — the same code path as `listPinnedForUser`
+ * (without swallowing the outer case).
+ *
+ * - **Authoritative in prod:** copy the `Request ID` from the client error, open
+ *   Convex **Dashboard** → this deployment → **Logs**, and search for that id or
+ *   `userNotifications` / `listPinnedForUser` (the line includes the function error text).
+ * - **CLI (dev or deploy first):** pass a JSON object as the second arg:
+ *   `npx convex run internal.userNotifications.debugListPinnedForUser '{"forUserId":"<users _id>"}'`
+ *   Add `--prod` to target production.
+ */
+export const debugListPinnedForUser = internalQuery({
+  args: { forUserId: v.string() },
+  handler: async (ctx, { forUserId: raw }) => {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) {
+      return {
+        ok: false as const,
+        phase: "args" as const,
+        error: "forUserId is empty",
+      };
+    }
+    let u: Doc<"users"> | null;
+    try {
+      u = await ctx.db.get(trimmed as Id<"users">);
+    } catch (e) {
+      return {
+        ok: false as const,
+        phase: "loadUser" as const,
+        error: String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+        name: e instanceof Error ? e.name : undefined,
+      };
+    }
+    if (u == null) {
+      return {
+        ok: false as const,
+        phase: "loadUser" as const,
+        error: "no users row for this id",
+      };
+    }
+    const forUserId = u._id;
+    try {
+      const result = await listPinnedInAppForUserImpl(ctx, forUserId, u);
+      return {
+        ok: true as const,
+        rowCount: result.length,
+        firstNotificationId: result[0]?._id,
+      };
+    } catch (e) {
+      return {
+        ok: false as const,
+        phase: "listPinnedInAppForUserImpl" as const,
+        userId: String(forUserId),
+        error: String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+        name: e instanceof Error ? e.name : undefined,
+      };
     }
   },
 });
