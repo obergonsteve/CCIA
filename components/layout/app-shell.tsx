@@ -27,8 +27,33 @@ import {
 } from "@/lib/sidebar-nav";
 import { appPageGradientClass } from "@/lib/app-page-surface";
 import { SITE_APP_NAME, SITE_FOOTER_APP } from "@/lib/site-brand";
-import { useSessionUser } from "@/lib/use-session-user";
+import { useSessionUser, type SessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
+
+function SidebarUserBlock({ sessionUser }: { sessionUser: SessionUser }) {
+  const myCompany = useQuery(
+    api.companies.getMyCompanyName,
+    sessionUser.companyId != null ? {} : "skip",
+  );
+  return (
+    <div className="space-y-px px-2 leading-tight">
+      <p
+        className="truncate text-xs font-medium leading-tight text-brand-sky"
+        title={sessionUser.name}
+      >
+        {sessionUser.name}
+      </p>
+      {myCompany != null && myCompany.name.trim().length > 0 ? (
+        <p
+          className="truncate text-[11px] font-medium leading-tight text-brand-lime dark:text-brand-lime/92"
+          title={myCompany.name}
+        >
+          {myCompany.name}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -201,25 +226,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </nav>
       </ScrollArea>
-      <div className="shrink-0 space-y-1 border-t border-white/10 p-2">
-        {sessionUser ? (
-          <p
-            className="truncate px-2 text-xs font-medium text-brand-sky"
-            title={sessionUser.name}
-          >
-            {sessionUser.name}
-          </p>
-        ) : null}
+      <div className="shrink-0 space-y-0.5 border-t border-white/10 px-2 py-1.5">
+        {sessionUser ? <SidebarUserBlock sessionUser={sessionUser} /> : null}
         <Button
           variant="ghost"
+          size="sm"
           className={cn(
-            "w-full justify-start gap-2 text-[15px] font-normal",
+            "w-full justify-start font-normal",
             "text-sidebar-foreground/55 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/92",
             "focus-visible:border-sidebar-border focus-visible:ring-sidebar-ring/40 focus-visible:ring-offset-0",
           )}
           onClick={() => void logout()}
         >
-          <LogOut className="h-[18px] w-[18px] shrink-0 text-inherit" />
+          <LogOut className="shrink-0 text-inherit" />
           Sign out
         </Button>
       </div>

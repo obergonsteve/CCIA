@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
-import { requireAdminOrCreator } from "./lib/auth";
+import { requireAdminOrCreator, requireUserId } from "./lib/auth";
 
 const companyStatusV = v.union(
   v.literal("active"),
@@ -33,6 +33,23 @@ export const getTimezone = query({
     }
     const t = c.timezone?.trim();
     return t && t.length > 0 ? t : null;
+  },
+});
+
+/** Current user’s company display name (members with `companyId` only). */
+export const getMyCompanyName = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+    if (!user?.companyId) {
+      return null;
+    }
+    const c = await ctx.db.get(user.companyId);
+    if (!c) {
+      return null;
+    }
+    return { name: c.name };
   },
 });
 

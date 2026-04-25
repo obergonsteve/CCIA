@@ -267,21 +267,17 @@ export default function AdminUsersClient() {
 
       <div className="grid lg:grid-cols-[minmax(0,280px)_1fr] gap-6 items-start">
         <div className="space-y-4">
-          <Card className="border border-brand-lime/40 border-l-4 border-l-brand-lime bg-brand-lime/[0.07] shadow-sm ring-brand-lime/15 dark:border-brand-lime/35 dark:bg-brand-lime/[0.11] dark:ring-brand-lime/10">
-            <CardHeader className="pb-3">
+          <Card className="gap-1 border border-border/80 bg-card py-3 shadow-sm ring-1 ring-foreground/10 dark:border-white/10 dark:ring-foreground/8 border-l-4 border-l-brand-lime/55">
+            <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Building2
-                  className="h-4 w-4 shrink-0 text-brand-lime"
+                  className="h-4 w-4 shrink-0 text-brand-lime/90"
                   aria-hidden
                 />
                 Members
               </CardTitle>
-              <CardDescription>
-                Select a member to edit its profile and people. Add or delete
-                members here.
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2.5 pt-0">
               <div className="flex gap-2">
                 <Input
                   placeholder="New member name"
@@ -308,30 +304,31 @@ export default function AdminUsersClient() {
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <ScrollArea className="h-[min(420px,50vh)] rounded-md border border-brand-lime/25 dark:border-brand-lime/20">
-                <ul className="p-1">
+              <ScrollArea className="h-[min(680px,72vh)] rounded-md border border-border/60 dark:border-white/10">
+                <ul className="p-0">
                   {(companies ?? []).map((c) => {
                     const count = memberCounts.get(c._id) ?? 0;
                     const active = selectedCompanyId === c._id;
                     return (
-                      <li key={c._id} className="p-0.5">
+                      <li key={c._id} className="p-0">
                         <div
+                          data-active={active ? "true" : undefined}
                           className={cn(
-                            "group flex rounded-md border transition-colors",
+                            "group flex rounded-sm border transition-colors",
                             active
-                              ? "border-brand-lime/50 bg-brand-lime/10"
-                              : "border-transparent hover:bg-muted/60",
+                              ? "border-transparent bg-brand-lime/16 ring-1 ring-inset ring-brand-lime/45 dark:bg-brand-lime/18 dark:ring-brand-lime/55"
+                              : "border-transparent hover:bg-muted/30",
                           )}
                         >
                           <button
                             type="button"
-                            className="flex-1 text-left px-3 py-2.5 text-sm min-w-0"
+                            className="flex min-w-0 flex-1 flex-col items-start gap-0 px-2 py-0.5 text-left text-sm leading-tight"
                             onClick={() => setSelectedCompanyId(c._id)}
                           >
-                            <span className="font-medium block truncate">
+                            <span className="block w-full truncate font-medium leading-tight">
                               {c.name}
                             </span>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs leading-tight text-muted-foreground">
                               {count} user{count === 1 ? "" : "s"}
                             </span>
                           </button>
@@ -381,15 +378,15 @@ export default function AdminUsersClient() {
 
         <div className="min-w-0 max-w-4xl space-y-4">
           {!selectedCompany || !selectedCompanyId ? (
-            <Card className="border border-dashed border-muted-foreground/20 bg-gradient-to-br from-brand-lime/[0.06] via-brand-gold/[0.05] to-brand-sky/[0.07] dark:from-brand-lime/[0.08] dark:via-brand-gold/[0.06] dark:to-brand-sky/[0.09]">
+            <Card className="border border-dashed border-muted-foreground/20 bg-gradient-to-br from-brand-lime/[0.04] via-brand-gold/[0.04] to-brand-sky/[0.05] dark:from-brand-lime/[0.05] dark:via-brand-gold/[0.05] dark:to-brand-sky/[0.07]">
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
                 Add a member on the left, then select it to manage users.
               </CardContent>
             </Card>
           ) : (
             <>
-            <Card className="border border-brand-gold/40 border-l-4 border-l-brand-gold bg-brand-gold/[0.07] shadow-sm ring-brand-gold/15 dark:border-brand-gold/35 dark:bg-brand-gold/[0.10] dark:ring-brand-gold/10">
-              <CardHeader className="pb-3">
+            <Card className="gap-2 border border-brand-gold/40 border-l-4 border-l-brand-gold bg-brand-gold/[0.07] shadow-sm ring-brand-gold/15 dark:border-brand-gold/35 dark:bg-brand-gold/[0.10] dark:ring-brand-gold/10">
+              <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Landmark
                     className="h-4 w-4 shrink-0 text-brand-gold"
@@ -397,12 +394,8 @@ export default function AdminUsersClient() {
                   />
                   Member details
                 </CardTitle>
-                <CardDescription>
-                  Profile for this organization (contact, status, onboarding date).
-                  Save before switching members.
-                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-0">
                 <div className="grid sm:grid-cols-2 gap-3 max-w-3xl">
                   <div className="sm:col-span-2 space-y-1">
                     <Label htmlFor="co-name">Company name</Label>
@@ -424,7 +417,7 @@ export default function AdminUsersClient() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="co-email">Member email</Label>
+                    <Label htmlFor="co-email">Email</Label>
                     <Input
                       id="co-email"
                       type="email"

@@ -107,6 +107,75 @@ async function latestAssessmentContentResult(
   return rows[0] ?? null;
 }
 
+/**
+ * Index `by_user_unit_content` is not unique (e.g. analytics seed, retries) —
+ * pick one row so `.unique()` never throws and UI stays consistent.
+ */
+function pickCanonicalUserContentProgress(
+  rows: Doc<"userContentProgress">[],
+): Doc<"userContentProgress"> | null {
+  if (rows.length === 0) {
+    return null;
+  }
+  if (rows.length === 1) {
+    return rows[0]!;
+  }
+  const scored = rows.map((r) => {
+    const t = r.completedAt ?? r.startedAt;
+    const done =
+      r.completedAt != null &&
+      (r.outcome === "completed" || r.outcome === "passed");
+    const failed = r.completedAt != null && r.outcome === "failed";
+    return { r, t, done, failed };
+  });
+  const passed = scored.filter((x) => x.done);
+  if (passed.length > 0) {
+    passed.sort((a, b) => b.t - a.t);
+    return passed[0]!.r;
+  }
+  const failed = scored.filter((x) => x.failed);
+  if (failed.length > 0) {
+    failed.sort((a, b) => b.t - a.t);
+    return failed[0]!.r;
+  }
+  scored.sort((a, b) => b.t - a.t);
+  return scored[0]!.r;
+}
+
+function buildContentProgressMapByContentId(
+  progressRows: Doc<"userContentProgress">[],
+): Map<Id<"contentItems">, Doc<"userContentProgress">> {
+  const groups = new Map<Id<"contentItems">, Doc<"userContentProgress">[]>();
+  for (const r of progressRows) {
+    const g = groups.get(r.contentId) ?? [];
+    g.push(r);
+    groups.set(r.contentId, g);
+  }
+  const byContent = new Map<Id<"contentItems">, Doc<"userContentProgress">>();
+  for (const [cid, arr] of groups) {
+    const c = pickCanonicalUserContentProgress(arr);
+    if (c) {
+      byContent.set(cid, c);
+    }
+  }
+  return byContent;
+}
+
+async function getUserContentProgressForStep(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  unitId: Id<"units">,
+  contentId: Id<"contentItems">,
+): Promise<Doc<"userContentProgress"> | null> {
+  const rows = await ctx.db
+    .query("userContentProgress")
+    .withIndex("by_user_unit_content", (q) =>
+      q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
+    )
+    .collect();
+  return pickCanonicalUserContentProgress(rows);
+}
+
 async function contentStepDone(
   ctx: QueryCtx,
   userId: Id<"users">,
@@ -131,12 +200,12 @@ async function contentStepDone(
     const last = await latestAssessmentContentResult(ctx, userId, contentId);
     return last?.passed === true;
   }
-  const row = await ctx.db
-    .query("userContentProgress")
-    .withIndex("by_user_unit_content", (q) =>
-      q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
-    )
-    .unique();
+  const row = await getUserContentProgressForStep(
+    ctx,
+    userId,
+    unitId,
+    contentId,
+  );
   return (
     row?.completedAt != null &&
     (row.outcome === "completed" || row.outcome === "passed")
@@ -579,9 +648,7 @@ export const roadmapForUnit = query({
         q.eq("userId", userId).eq("unitId", unitId),
       )
       .collect();
-    const byContent = new Map(
-      progressRows.map((r) => [r.contentId, r] as const),
-    );
+    const byContent = buildContentProgressMapByContentId(progressRows);
 
     const outerBlocked =
       prereqs.length > 0 ||
@@ -770,9 +837,7 @@ async function computePathStepsForCertDisplay(
       q.eq("userId", userId).eq("unitId", unitId),
     )
     .collect();
-  const byContent = new Map(
-    progressRows.map((r) => [r.contentId, r] as const),
-  );
+  const byContent = buildContentProgressMapByContentId(progressRows);
 
   const outerBlocked = false;
 
@@ -1155,12 +1220,12 @@ export const recordContentStart = mutation({
     try {
       await assertSequentialUnitAccessForProgress(ctx, userId, levelId, unitId);
     } catch {
-      const existing = await ctx.db
-        .query("userContentProgress")
-        .withIndex("by_user_unit_content", (q) =>
-          q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
-        )
-        .unique();
+      const existing = await getUserContentProgressForStep(
+        ctx,
+        userId,
+        unitId,
+        contentId,
+      );
       return existing?._id ?? null;
     }
     const steps = await getOrderedStepsForUnit(ctx, unitId);
@@ -1179,12 +1244,12 @@ export const recordContentStart = mutation({
       );
     }
     const now = Date.now();
-    const existing = await ctx.db
-      .query("userContentProgress")
-      .withIndex("by_user_unit_content", (q) =>
-        q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
-      )
-      .unique();
+    const existing = await getUserContentProgressForStep(
+      ctx,
+      userId,
+      unitId,
+      contentId,
+    );
     if (existing) {
       return existing._id;
     }
@@ -1273,12 +1338,12 @@ export const recordContentComplete = mutation({
     );
     await assertPreviousStepsComplete(ctx, userId, unitId, stepIdx);
     const now = Date.now();
-    const existing = await ctx.db
-      .query("userContentProgress")
-      .withIndex("by_user_unit_content", (q) =>
-        q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
-      )
-      .unique();
+    const existing = await getUserContentProgressForStep(
+      ctx,
+      userId,
+      unitId,
+      contentId,
+    );
     const started = existing?.startedAt ?? now;
     const wallMs =
       durationMs ??
@@ -1335,12 +1400,7 @@ export const myContentProgressForStep = query({
     if (!ok) {
       return null;
     }
-    return await ctx.db
-      .query("userContentProgress")
-      .withIndex("by_user_unit_content", (q) =>
-        q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
-      )
-      .unique();
+    return await getUserContentProgressForStep(ctx, userId, unitId, contentId);
   },
 });
 
@@ -1401,12 +1461,12 @@ export const reopenContentStep = mutation({
       await syncUnitCompletion(ctx, userId, unitId);
       return { ok: true as const };
     }
-    const row = await ctx.db
-      .query("userContentProgress")
-      .withIndex("by_user_unit_content", (q) =>
-        q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
-      )
-      .unique();
+    const row = await getUserContentProgressForStep(
+      ctx,
+      userId,
+      unitId,
+      contentId,
+    );
     const done =
       row?.completedAt != null &&
       (row.outcome === "completed" || row.outcome === "passed");
@@ -1508,12 +1568,12 @@ export async function applyAssessmentContentAfterSubmit(
   completedAt: number,
 ) {
   const before = await countUnitStepProgress(ctx, userId, unitId);
-  const existing = await ctx.db
-    .query("userContentProgress")
-    .withIndex("by_user_unit_content", (q) =>
-      q.eq("userId", userId).eq("unitId", unitId).eq("contentId", contentId),
-    )
-    .unique();
+  const existing = await getUserContentProgressForStep(
+    ctx,
+    userId,
+    unitId,
+    contentId,
+  );
   const start = existing?.startedAt ?? completedAt;
   const durationMs = completedAt - start;
   if (existing) {
