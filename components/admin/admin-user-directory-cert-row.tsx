@@ -219,7 +219,7 @@ export function AdminUserDirectoryCertRow({
               </div>
               <div className="space-y-1.5">
                 <p className="text-[11px] font-medium text-brand-sky sm:text-xs dark:text-brand-sky/90">
-                  Their roadmap
+                  Roadmap
                 </p>
                 {plannedNotStartedLevelIds.length === 0 ? (
                   <p className="text-xs text-muted-foreground">

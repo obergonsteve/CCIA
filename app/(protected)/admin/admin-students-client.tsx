@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { GraduationCap, Pencil, Plus, Trash2 } from "lucide-react";
+import { GraduationCap, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useSessionUser } from "@/lib/use-session-user";
@@ -243,13 +243,7 @@ export default function AdminStudentsClient() {
               />
               Students
             </CardTitle>
-            <CardDescription>
-              Sorted by name. Open <strong>Certifications</strong> for progress,
-              roadmap, and completed — same logic as the learner dashboard. ✕
-              removes a certification from their roadmap. Use the pencil to set
-              which programs a <strong>non–company student</strong> may start
-              (paid / allowed list).
-            </CardDescription>
+            <CardDescription>Sorted by name.</CardDescription>
           </CardHeader>
           <CardContent>
             {students === undefined ? (
@@ -327,7 +321,7 @@ export default function AdminStudentsClient() {
                                 setEntitlementsUserId(u._id);
                               }}
                             >
-                              <Pencil
+                              <GraduationCap
                                 className="h-2.5 w-2.5"
                                 aria-hidden
                               />
