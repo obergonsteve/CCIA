@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 
 /**
  * Collapsible LiveKit webinar shell (header + {@link WorkshopLivePanel}).
- * Used on the learner unit page and on the Teams-simulation join page.
+ * Used on the unit page and on the Teams-simulation join page.
  */
 export function LiveWorkshopRoomPanel({
   unitId,
@@ -25,7 +25,7 @@ export function LiveWorkshopRoomPanel({
 }: {
   unitId: Id<"units">;
   workshopSessionId?: Id<"workshopSessions">;
-  /** When omitted, the room starts expanded so learners see join / session controls immediately. */
+  /** When omitted, the room starts expanded so users see join / session controls immediately. */
   defaultOpen?: boolean;
   /** Stable `id` for the collapsible region (must be unique per page if several panels mount). */
   bodyDomId?: string;

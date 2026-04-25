@@ -84,7 +84,7 @@ export function SendInAppNoticeTextButton({
   );
 }
 
-const NOTE_ROW_ICON_TIP = "Send in-app note to learners (links to this item)";
+const NOTE_ROW_ICON_TIP = "Send in-app note to users (links to this item)";
 
 type RowIconProps = {
   onOpen: () => void;

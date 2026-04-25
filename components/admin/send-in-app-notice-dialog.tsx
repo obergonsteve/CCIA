@@ -1013,7 +1013,7 @@ export function SendInAppNoticeDialog({
                     (batch.skippedNotOnRoadmap ?? 0) === batch.users
                   ) {
                     toast.message(
-                      "No learners on a current or roadmap certification path for this link.",
+                      "No users on a current or roadmap certification path for this link.",
                     );
                   } else {
                     const sn = batch.skippedNotOnRoadmap ?? 0;

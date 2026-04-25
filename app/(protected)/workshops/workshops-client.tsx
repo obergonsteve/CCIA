@@ -68,7 +68,7 @@ function dayKeyFromMs(ms: number): number {
   return startOfDay(new Date(ms)).getTime();
 }
 
-function LearnerWorkshopsPathCalendar({
+function UserWorkshopsPathCalendar({
   registeredActive,
   openSessions,
   closed,
@@ -943,7 +943,7 @@ export default function WorkshopsClient() {
           </p>
         ) : (
           <div className="space-y-4">
-            <LearnerWorkshopsPathCalendar
+            <UserWorkshopsPathCalendar
               registeredActive={registeredActiveFiltered ?? []}
               openSessions={openSessionsNeedRegister}
               closed={closedWorkshopsFiltered ?? []}

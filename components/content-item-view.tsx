@@ -128,7 +128,7 @@ export function ContentItemView({
         : Boolean(unitId && !isAssessment && nonAssessmentComplete);
 
   const [expanded, setExpanded] = useState<boolean | undefined>(undefined);
-  /** All steps start collapsed; learner expands to view or act. */
+  /** All steps start collapsed; the user expands to view or act. */
   const isOpen = expanded === undefined ? false : expanded;
   const stepBodyId = `step-body-${item._id}`;
 

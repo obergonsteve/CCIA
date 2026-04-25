@@ -488,7 +488,7 @@ export default function AdminUsersClient() {
                       aria-label="Select company time zone; choose Not set to clear"
                     >
                       <option value="">
-                        Not set (learner’s browser / local default)
+                        Not set (user’s browser / local default)
                       </option>
                       {coTimezoneSelectOptions.map((z) => (
                         <option key={z} value={z}>

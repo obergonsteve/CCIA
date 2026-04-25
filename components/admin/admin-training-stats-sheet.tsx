@@ -124,7 +124,7 @@ export function AdminTrainingStatsSheet({
                   : "Training analytics"}
           </SheetTitle>
           <SheetDescription>
-            Starts, completions, and learner rows from Convex progress tables.
+            Starts, completions, and user rows from Convex progress tables.
             Buckets are rolling weeks (newest on the right).
           </SheetDescription>
         </SheetHeader>
@@ -142,8 +142,8 @@ export function AdminTrainingStatsSheet({
                 <TabsTrigger value="overview" className="flex-1 text-xs">
                   Overview
                 </TabsTrigger>
-                <TabsTrigger value="learners" className="flex-1 text-xs">
-                  Learners
+                <TabsTrigger value="users" className="flex-1 text-xs">
+                  Users
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-0 space-y-4">
@@ -153,7 +153,7 @@ export function AdminTrainingStatsSheet({
                   </h3>
                   <dl className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                      <dt className="text-muted-foreground">Learners</dt>
+                      <dt className="text-muted-foreground">Users</dt>
                       <dd className="text-base font-semibold tabular-nums">
                         {unitStats.uniqueLearners}
                       </dd>
@@ -223,7 +223,7 @@ export function AdminTrainingStatsSheet({
                   />
                 </div>
               </TabsContent>
-              <TabsContent value="learners" className="mt-0">
+              <TabsContent value="users" className="mt-0">
                 <p className="mb-2 text-xs text-muted-foreground">
                   Drill-down: most recently active first. Company from user
                   record.
@@ -232,7 +232,7 @@ export function AdminTrainingStatsSheet({
                   <table className="w-full text-left text-xs">
                     <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                       <tr className="border-b">
-                        <th className="px-2 py-1.5 font-medium">Learner</th>
+                        <th className="px-2 py-1.5 font-medium">User</th>
                         <th className="px-2 py-1.5 font-medium">Company</th>
                         <th className="px-2 py-1.5 font-medium">Status</th>
                         <th className="px-2 py-1.5 font-medium">Last active</th>
@@ -245,7 +245,7 @@ export function AdminTrainingStatsSheet({
                             colSpan={4}
                             className="px-2 py-4 text-center text-muted-foreground"
                           >
-                            No learner progress yet.
+                            No user progress yet.
                           </td>
                         </tr>
                       ) : (
@@ -291,8 +291,8 @@ export function AdminTrainingStatsSheet({
                 <TabsTrigger value="overview" className="flex-1 text-xs">
                   Overview
                 </TabsTrigger>
-                <TabsTrigger value="learners" className="flex-1 text-xs">
-                  By learner
+                <TabsTrigger value="users" className="flex-1 text-xs">
+                  By user
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-0 space-y-4">
@@ -305,7 +305,7 @@ export function AdminTrainingStatsSheet({
                   </p>
                   <dl className="mt-2 grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
                     <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                      <dt className="text-muted-foreground">Learners</dt>
+                      <dt className="text-muted-foreground">Users</dt>
                       <dd className="text-base font-semibold tabular-nums">
                         {contentStats.uniqueLearners}
                       </dd>
@@ -394,17 +394,16 @@ export function AdminTrainingStatsSheet({
                   </div>
                 )}
               </TabsContent>
-              <TabsContent value="learners" className="mt-0">
+              <TabsContent value="users" className="mt-0">
                 <p className="mb-2 text-xs text-muted-foreground">
-                  One row per learner × unit where this content appears on a
-                  path. Same learner may appear multiple times on different
-                  units.
+                  One row per user × unit where this content appears on a path.
+                  The same user may appear multiple times on different units.
                 </p>
                 <div className="max-h-[min(55vh,420px)] overflow-auto rounded-md border">
                   <table className="w-full text-left text-xs">
                     <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
                       <tr className="border-b">
-                        <th className="px-2 py-1.5 font-medium">Learner</th>
+                        <th className="px-2 py-1.5 font-medium">User</th>
                         <th className="px-2 py-1.5 font-medium">Unit</th>
                         <th className="px-2 py-1.5 font-medium">Outcome</th>
                         <th className="px-2 py-1.5 font-medium">Score</th>
@@ -474,7 +473,7 @@ export function AdminTrainingStatsSheet({
                       </dd>
                     </div>
                     <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                      <dt className="text-muted-foreground">Learners</dt>
+                      <dt className="text-muted-foreground">Users</dt>
                       <dd className="text-base font-semibold tabular-nums">
                         {certStats.uniqueLearners}
                       </dd>
@@ -542,7 +541,7 @@ export function AdminTrainingStatsSheet({
               </TabsContent>
               <TabsContent value="units" className="mt-0">
                 <p className="mb-2 text-xs text-muted-foreground">
-                  Per-unit learner counts and completions in this certification.
+                  Per-unit user counts and completions in this certification.
                 </p>
                 <div className="max-h-[min(55vh,420px)] overflow-auto rounded-md border">
                   <table className="w-full text-left text-xs">
@@ -550,7 +549,7 @@ export function AdminTrainingStatsSheet({
                       <tr className="border-b">
                         <th className="px-2 py-1.5 font-medium">Unit</th>
                         <th className="px-2 py-1.5 font-medium text-right">
-                          Learners
+                          Users
                         </th>
                         <th className="px-2 py-1.5 font-medium text-right">
                           Done

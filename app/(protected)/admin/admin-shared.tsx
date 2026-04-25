@@ -85,14 +85,14 @@ export const ADMIN_LIST_ITEM_LR_BORDER_WIDTH =
 
 /** Visible label for BarChart “stats” tooltips on training board rows. */
 const ADMIN_ANALYTICS_TOOLTIP_TEXT =
-  "Analytics — starts, completions, learners";
+  "Analytics — starts, completions, users";
 /**
  * Radix renders tooltip children twice (visible + visually-hidden for
  * `aria-describedby`). Use a distinct `aria-label` so the hidden node does not
  * repeat the same string in the DOM / inspector.
  */
 const ADMIN_ANALYTICS_TOOLTIP_ARIA_LABEL =
-  "Engagement analytics: starts, completions, learners";
+  "Engagement analytics: starts, completions, users";
 const adminAnalyticsTooltipContentProps = {
   side: "left" as const,
   className: "pb-1 pt-1.5",
@@ -201,7 +201,8 @@ function UnitRowPereqAssignChips({
           </button>
         </TooltipTrigger>
         <TooltipContent side="left">
-          Prerequisites ({prerequisiteCount}) — other units learners must finish
+          Prerequisites ({prerequisiteCount}) — other units the user must
+          complete first
           first. Click to expand or collapse.
         </TooltipContent>
       </Tooltip>

@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     sessionUser?.role === "admin" ||
     sessionUser?.role === "content_creator";
 
-  /** Open by default so learners see nav immediately after sign-in (menu still toggles). */
+  /** Open by default so users see nav immediately after sign-in (menu still toggles). */
   const [navOpen, setNavOpen] = useState(true);
 
   const sidebarNav = (

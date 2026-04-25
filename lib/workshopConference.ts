@@ -20,7 +20,7 @@ export function isEmbeddedLiveKitSession(
 
 /**
  * True when this session should offer a Microsoft Teams (or Teams-sim) join URL,
- * even if `conferenceProvider` was not set to `microsoft_teams` (learners may still
+ * even if `conferenceProvider` was not set to `microsoft_teams` (users may still
  * see the embedded LiveKit shell on the unit page).
  */
 type WorkshopSessionTeamsJoinFields = Pick<

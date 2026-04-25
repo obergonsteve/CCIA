@@ -297,7 +297,7 @@ function JoinInTeamsWorkshopStrip({
   teamsJoinEnabled,
 }: {
   session: Doc<"workshopSessions">;
-  /** False until the learner has a workshop registration for this session. */
+  /** False until the user has a workshop registration for this session. */
   teamsJoinEnabled: boolean;
 }) {
   const recordJoin = useMutation(api.workshops.recordTeamsJoin);
@@ -403,7 +403,7 @@ function UnitJoinInTeamsStripLoader({
   if (row === undefined || row === null || !row.session) {
     return null;
   }
-  /** Strip matches Webinars flow: only registered learners can use the join control (not host preview). */
+  /** Strip matches Webinars flow: only registered users can use the join control (not host preview). */
   const teamsJoinEnabled = row.registration != null;
   return (
     <JoinInTeamsWorkshopStrip

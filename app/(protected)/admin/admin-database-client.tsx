@@ -52,7 +52,7 @@ export default function AdminDatabaseClient() {
       <div>
         <p className="text-muted-foreground">
           Seed demo operators, admins, and the Land Lease curriculum — or clear
-          curriculum and learner test data. Companies and user accounts are not
+          curriculum and user test data. Companies and user accounts are not
           removed when you clear.
         </p>
       </div>
@@ -63,7 +63,7 @@ export default function AdminDatabaseClient() {
           <CardDescription>
             <strong>Clear test data</strong> deletes certification levels,
             units, library content, assignments, prerequisites, curriculum
-            category rows, certification–unit and unit–content links, all learner
+            category rows, certification–unit and unit–content links, all user
             progress (per-step content progress, audit events, workshop session
             sync data), and quiz/test results; clears pinned certification
             roadmaps on user accounts. <strong>Companies and user accounts

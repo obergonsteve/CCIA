@@ -4170,7 +4170,7 @@ export default function AdminCoursesClient() {
                     <Label htmlFor="add-lib-desc">Description</Label>
                     <Textarea
                       id="add-lib-desc"
-                      placeholder="Learner-facing intro (shown before questions)"
+                      placeholder="User-facing intro (shown before questions)"
                       value={contentUrl}
                       onChange={(e) => setContentUrl(e.target.value)}
                       className="min-h-[72px]"
@@ -4879,7 +4879,7 @@ export default function AdminCoursesClient() {
                 <Label htmlFor="ec-url">Description</Label>
                 <Textarea
                   id="ec-url"
-                  placeholder="Learner-facing intro (shown before questions)"
+                  placeholder="User-facing intro (shown before questions)"
                   value={editContentUrl}
                   onChange={(e) => setEditContentUrl(e.target.value)}
                   className="min-h-[72px] min-w-0 break-words"
@@ -5508,7 +5508,7 @@ export default function AdminCoursesClient() {
                       {" "}
                       — cancels every webinar session that starts on{" "}
                       {format(workshopPlannerDay, "EEEE d MMMM yyyy")} in your
-                      local timezone. Learner registrations for those sessions
+                      local timezone. User registrations for those sessions
                       are cleared. Linked &ldquo;live webinar&rdquo; library
                       items for those sessions are archived and detached from
                       units. The unit itself stays in Training Content.
@@ -5577,7 +5577,7 @@ export default function AdminCoursesClient() {
             <DialogTitle>Delete unit permanently?</DialogTitle>
             <DialogDescription>
               Removes this unit everywhere: certification links, attachments,
-              assignments, prerequisite edges, and related learner progress and quiz
+              assignments, prerequisite edges, and related user progress and quiz
               results. Library content items are kept but detached.
             </DialogDescription>
           </DialogHeader>

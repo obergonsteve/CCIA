@@ -1049,7 +1049,7 @@ export const registerForSession = mutation({
           sessionId,
           source: "system",
           level: "info",
-          message: `Learner registered in app (userId=${userId}). Queued addGraphAttendeeForWorkshopRegistration (Graph + optional Resend).`,
+          message: `User registered in app (userId=${userId}). Queued addGraphAttendeeForWorkshopRegistration (Graph + optional Resend).`,
         });
         await ctx.scheduler.runAfter(
           0,
@@ -1062,7 +1062,7 @@ export const registerForSession = mutation({
   },
 });
 
-/** Learner/admin UI: hide Teams/Resend debug panels when simulation mode is on. */
+/** User/admin UI: hide Teams/Resend debug panels when simulation mode is on. */
 export const workshopTeamsSimulationEnabled = query({
   args: {},
   handler: async () => isWorkshopTeamsSimulationEnabled(),

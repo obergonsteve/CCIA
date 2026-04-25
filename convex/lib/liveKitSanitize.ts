@@ -17,7 +17,7 @@ export function liveKitParticipantIdentityFromUserId(userId: string): string {
   const s = String(userId)
     .replace(/[^a-zA-Z0-9_-]/g, "_")
     .slice(0, MAX_IDENTITY_LEN);
-  return s.length > 0 ? s : "learner";
+  return s.length > 0 ? s : "user";
 }
 
 /** First whitespace-delimited token of `name` for LiveKit display (tiles, strip). */
