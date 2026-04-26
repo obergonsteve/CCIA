@@ -285,8 +285,9 @@ export function AdminUserDirectoryCertRow({
           "flex shrink-0 flex-row items-center justify-end gap-0.5 sm:flex-col sm:items-end sm:justify-start sm:gap-0.5 sm:pl-0 sm:pt-px",
           "pointer-events-auto opacity-100 transition-opacity duration-150",
           "sm:pointer-events-none sm:opacity-0",
-          "sm:group-hover:pointer-events-auto sm:group-hover:opacity-100",
-          "sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100",
+          "sm:group-hover/directoryRow:pointer-events-auto sm:group-hover/directoryRow:opacity-100",
+          "sm:group-focus-within/directoryRow:pointer-events-auto sm:group-focus-within/directoryRow:opacity-100",
+          "sm:[@media(hover:none)]:pointer-events-auto sm:[@media(hover:none)]:opacity-100",
         )}
       >
         {rowActions}

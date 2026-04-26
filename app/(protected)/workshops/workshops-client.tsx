@@ -38,6 +38,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent,
 } from "react";
@@ -83,6 +84,9 @@ const WORKSHOP_SECTION_CLOSED =
 
 const WORKSHOP_FILTER_BANNER =
   "border border-purple-500/30 bg-gradient-to-br from-purple-500/[0.07] via-background/44 to-purple-500/[0.04] shadow-sm dark:border-purple-400/25 dark:from-purple-500/[0.08] dark:via-background/10 dark:to-purple-500/[0.06]";
+
+const WORKSHOP_LIST_MOVE_OUT_MS = 300;
+const WORKSHOP_LIST_MOVE_IN_CLEAR_MS = 450;
 
 const WEEK_STARTS_ON = 1 as const;
 
@@ -382,6 +386,19 @@ function workshopCardSelectHandler(
   onRequestFocusSession(sessionId, startsAt);
 }
 
+function workshopSessionListItemMoveClass(
+  sessionId: Id<"workshopSessions">,
+  exitingId: Id<"workshopSessions"> | null,
+  enteringId: Id<"workshopSessions"> | null,
+) {
+  return cn(
+    exitingId === sessionId &&
+      "pointer-events-none opacity-0 scale-[0.98] -translate-y-0.5 transition-all ease-out [transition-duration:300ms] motion-reduce:scale-100 motion-reduce:translate-y-0 motion-reduce:opacity-0 motion-reduce:transition-none",
+    enteringId === sessionId &&
+      "animate-in fade-in-0 zoom-in-95 duration-300 [animation-duration:300ms] motion-reduce:animate-none motion-reduce:opacity-100",
+  );
+}
+
 function workshopListItemHighlightClass(
   sessionId: Id<"workshopSessions">,
   startsAt: number,
@@ -464,10 +481,12 @@ function OpenCertPathSessionCard({
   session,
   now,
   onRegister,
+  registerDisabled,
 }: {
   session: WorkshopBrowseRow;
   now: number;
   onRegister: () => void;
+  registerDisabled?: boolean;
 }) {
   const teamsJoinTrimmed = session.externalJoinUrl?.trim() ?? "";
   return (
@@ -496,7 +515,7 @@ function OpenCertPathSessionCard({
           type="button"
           size="sm"
           className="bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 dark:bg-sky-600 dark:hover:bg-sky-500"
-          disabled={session.full}
+          disabled={session.full || registerDisabled}
           onClick={onRegister}
         >
           {session.full ? "Full" : "Register"}
@@ -566,6 +585,7 @@ function RegisteredCertPathWorkshopCard({
   onUnregister,
   onTeamsJoinTracked,
   certPathLevelId,
+  unregisterDisabled,
 }: {
   session: Doc<"workshopSessions">;
   workshopTitle: string;
@@ -575,6 +595,7 @@ function RegisteredCertPathWorkshopCard({
   onUnregister: () => void;
   onTeamsJoinTracked: (sessionId: Id<"workshopSessions">) => Promise<void>;
   certPathLevelId: Id<"certificationLevels"> | null;
+  unregisterDisabled?: boolean;
 }) {
   const teamsJoinTrimmed = session.externalJoinUrl?.trim() ?? "";
   const openWebinarUnitHref = workshopsPageOpenUnitHref(
@@ -623,6 +644,7 @@ function RegisteredCertPathWorkshopCard({
             variant="outline"
             size="sm"
             className="border-amber-600/60 bg-amber-500/[0.22] text-amber-950 shadow-none hover:border-amber-600/75 hover:bg-amber-500/30 dark:border-amber-400/55 dark:bg-amber-500/28 dark:text-amber-50 dark:hover:border-amber-400/70 dark:hover:bg-amber-500/36"
+            disabled={unregisterDisabled}
             onClick={onUnregister}
           >
             Unregister
@@ -809,6 +831,75 @@ export default function WorkshopsClient() {
   const [calendarFocusedSessionId, setCalendarFocusedSessionId] = useState<
     Id<"workshopSessions"> | null
   >(null);
+  const [exitingWorkshopSessionId, setExitingWorkshopSessionId] = useState<
+    Id<"workshopSessions"> | null
+  >(null);
+  const [enteringWorkshopSessionId, setEnteringWorkshopSessionId] = useState<
+    Id<"workshopSessions"> | null
+  >(null);
+  const [workshopListMoveInProgress, setWorkshopListMoveInProgress] =
+    useState(false);
+  const workshopListMoveLockRef = useRef(false);
+
+  useEffect(() => {
+    if (enteringWorkshopSessionId == null) {
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setEnteringWorkshopSessionId(null);
+    }, WORKSHOP_LIST_MOVE_IN_CLEAR_MS);
+    return () => window.clearTimeout(t);
+  }, [enteringWorkshopSessionId]);
+
+  const runWorkshopRegisterWithListMove = useCallback(
+    async (sessionId: Id<"workshopSessions">) => {
+      if (workshopListMoveLockRef.current) {
+        return;
+      }
+      workshopListMoveLockRef.current = true;
+      setWorkshopListMoveInProgress(true);
+      setExitingWorkshopSessionId(sessionId);
+      try {
+        await new Promise((r) => setTimeout(r, WORKSHOP_LIST_MOVE_OUT_MS));
+        await register({ sessionId });
+        toast.success("Registered");
+        setExitingWorkshopSessionId(null);
+        setEnteringWorkshopSessionId(sessionId);
+      } catch (e) {
+        setExitingWorkshopSessionId(null);
+        toast.error(e instanceof Error ? e.message : "Failed");
+      } finally {
+        workshopListMoveLockRef.current = false;
+        setWorkshopListMoveInProgress(false);
+      }
+    },
+    [register],
+  );
+
+  const runWorkshopUnregisterWithListMove = useCallback(
+    async (sessionId: Id<"workshopSessions">) => {
+      if (workshopListMoveLockRef.current) {
+        return;
+      }
+      workshopListMoveLockRef.current = true;
+      setWorkshopListMoveInProgress(true);
+      setExitingWorkshopSessionId(sessionId);
+      try {
+        await new Promise((r) => setTimeout(r, WORKSHOP_LIST_MOVE_OUT_MS));
+        await unregister({ sessionId });
+        toast.success("Unregistered");
+        setExitingWorkshopSessionId(null);
+        setEnteringWorkshopSessionId(sessionId);
+      } catch (e) {
+        setExitingWorkshopSessionId(null);
+        toast.error(e instanceof Error ? e.message : "Failed");
+      } finally {
+        workshopListMoveLockRef.current = false;
+        setWorkshopListMoveInProgress(false);
+      }
+    },
+    [unregister],
+  );
 
   const focusWorkshopFromList = useCallback(
     (sessionId: Id<"workshopSessions">, startsAt: number) => {
@@ -1014,6 +1105,11 @@ export default function WorkshopsClient() {
                         key={session._id}
                         className={cn(
                           "min-w-0 rounded-xl transition-shadow",
+                          workshopSessionListItemMoveClass(
+                            session._id,
+                            exitingWorkshopSessionId,
+                            enteringWorkshopSessionId,
+                          ),
                           workshopListItemHighlightClass(
                             session._id,
                             session.startsAt,
@@ -1042,17 +1138,9 @@ export default function WorkshopsClient() {
                           onTeamsJoinTracked={async (sessionId) => {
                             await recordTeamsJoin({ sessionId });
                           }}
+                          unregisterDisabled={workshopListMoveInProgress}
                           onUnregister={() => {
-                            void (async () => {
-                              try {
-                                await unregister({ sessionId: session._id });
-                                toast.success("Unregistered");
-                              } catch (e) {
-                                toast.error(
-                                  e instanceof Error ? e.message : "Failed",
-                                );
-                              }
-                            })();
+                            void runWorkshopUnregisterWithListMove(session._id);
                           }}
                         />
                       </li>
@@ -1086,6 +1174,11 @@ export default function WorkshopsClient() {
                       key={s._id}
                       className={cn(
                         "min-w-0 rounded-xl transition-shadow",
+                        workshopSessionListItemMoveClass(
+                          s._id,
+                          exitingWorkshopSessionId,
+                          enteringWorkshopSessionId,
+                        ),
                         workshopListItemHighlightClass(
                           s._id,
                           s.startsAt,
@@ -1107,17 +1200,9 @@ export default function WorkshopsClient() {
                       <OpenCertPathSessionCard
                         session={s}
                         now={now}
+                        registerDisabled={workshopListMoveInProgress}
                         onRegister={() => {
-                          void (async () => {
-                            try {
-                              await register({ sessionId: s._id });
-                              toast.success("Registered");
-                            } catch (e) {
-                              toast.error(
-                                e instanceof Error ? e.message : "Failed",
-                              );
-                            }
-                          })();
+                          void runWorkshopRegisterWithListMove(s._id);
                         }}
                       />
                     </li>
