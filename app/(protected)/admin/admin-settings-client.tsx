@@ -107,13 +107,27 @@ export default function AdminSettingsClient() {
                 >
                   Hide sidebar when changing page
                 </Label>
-                <p
+                <div
                   id={`${navLabelId}-description`}
-                  className="text-xs text-muted-foreground leading-snug"
+                  className="text-sm text-muted-foreground leading-relaxed"
                 >
-                  After you open a different page, the left navigation panel
-                  closes. Use the menu button to open it again.
-                </p>
+                  <p className="m-0 min-w-0">
+                    After you open a different page, the left navigation panel
+                    closes. Use the{" "}
+                    <span className="font-medium text-foreground/90">
+                      menu button
+                    </span>{" "}
+                    <span
+                      className="ms-0.5 inline-flex w-5 flex-col items-stretch justify-center gap-[3px] py-0.5 align-middle"
+                      aria-hidden
+                    >
+                      <span className="h-0.5 rounded-full bg-brand-sky" />
+                      <span className="h-0.5 rounded-full bg-brand-sky" />
+                      <span className="h-0.5 rounded-full bg-brand-sky" />
+                    </span>{" "}
+                    in the top bar to open it again.
+                  </p>
+                </div>
               </div>
               <Switch
                 id={navSwitchId}
