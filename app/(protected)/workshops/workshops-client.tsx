@@ -60,6 +60,29 @@ const WORKSHOP_SESSION_TILE_CARD = "!gap-1.5 !py-1.5";
 const WORKSHOP_SESSION_TILE_HEADER = "!py-1";
 const WORKSHOP_SESSION_TILE_CONTENT = "flex flex-wrap gap-2 !pt-0 !pb-1";
 
+/**
+ * Webinar cards / shells use the same 3-stop panel gradient as
+ * `CERT_LIST_TIER_SECTION` on Certifications: `from-…/ via-muted/24 to-…/` + `shadow-sm shadow-…/15`.
+ * Open sessions = `brand-sky` (Silver tier) — not Tailwind `sky-500`.
+ */
+const WORKSHOP_SESSION_PURPLE_GRADIENT =
+  "border-2 border-purple-500/50 bg-gradient-to-br from-purple-500/[0.12] via-muted/24 to-purple-500/[0.08] ring-0 shadow-sm shadow-purple-500/15 dark:border-purple-500/40 dark:from-purple-500/[0.14] dark:via-muted/16 dark:to-purple-500/[0.10] dark:shadow-purple-500/10";
+const WORKSHOP_SESSION_SKY_GRADIENT =
+  "border-2 border-brand-sky/50 bg-gradient-to-br from-brand-sky/[0.12] via-muted/24 to-brand-sky/[0.08] ring-0 shadow-sm shadow-brand-sky/15 dark:border-brand-sky/40 dark:from-brand-sky/[0.14] dark:via-muted/16 dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10";
+const WORKSHOP_SESSION_SLATE_GRADIENT =
+  "border-2 border-slate-500/50 bg-gradient-to-br from-slate-500/[0.12] via-muted/24 to-slate-500/[0.08] ring-0 shadow-sm shadow-slate-400/20 dark:border-slate-500/40 dark:from-slate-500/[0.14] dark:via-muted/16 dark:to-slate-500/[0.10] dark:shadow-slate-500/12";
+
+/** List section shells — flat wash + frame only (gradients stay on session {@link Card}s). */
+const WORKSHOP_SECTION_REGISTERED =
+  "border-2 border-purple-500/45 bg-purple-500/[0.08] shadow-sm dark:border-purple-400/40 dark:bg-purple-500/[0.11]";
+const WORKSHOP_SECTION_OPEN =
+  "border-2 border-dashed border-sky-500/45 bg-sky-500/[0.06] shadow-sm dark:border-sky-400/40 dark:bg-sky-500/[0.1]";
+const WORKSHOP_SECTION_CLOSED =
+  "border-2 border-slate-400/40 bg-slate-500/[0.06] shadow-sm dark:border-slate-500/40 dark:bg-slate-500/[0.1]";
+
+const WORKSHOP_FILTER_BANNER =
+  "border border-purple-500/35 bg-gradient-to-br from-purple-500/[0.08] via-muted/24 to-purple-500/[0.05] shadow-sm dark:border-purple-400/30 dark:from-purple-500/[0.1] dark:via-muted/16 dark:to-purple-500/[0.07]";
+
 const WEEK_STARTS_ON = 1 as const;
 
 type WorkshopCalendarKind = "registered" | "open" | "closed";
@@ -158,7 +181,7 @@ function UserWorkshopsPathCalendar({
 
   return (
     <div
-      className="rounded-lg border-2 border-amber-500/45 bg-amber-500/[0.07] p-2 shadow-sm dark:border-amber-400/40 dark:bg-amber-500/[0.11]"
+      className="rounded-lg border-2 border-amber-500/35 bg-amber-500/[0.04] p-2 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/[0.07]"
       role="region"
       aria-label="Webinar calendar"
     >
@@ -451,7 +474,7 @@ function OpenCertPathSessionCard({
       size="sm"
       className={cn(
         WORKSHOP_SESSION_TILE_CARD,
-        "border border-sky-300/75 bg-sky-100 shadow-sm dark:border-sky-400/30 dark:bg-sky-500/[0.16]",
+        WORKSHOP_SESSION_SKY_GRADIENT,
       )}
     >
       <CardHeader className={WORKSHOP_SESSION_TILE_HEADER}>
@@ -564,7 +587,7 @@ function RegisteredCertPathWorkshopCard({
       size="sm"
       className={cn(
         WORKSHOP_SESSION_TILE_CARD,
-        "border border-purple-300/80 bg-purple-100 shadow-sm dark:border-purple-900/80 dark:bg-[color-mix(in_oklab,purple_32%,#0f0518)]",
+        WORKSHOP_SESSION_PURPLE_GRADIENT,
         past && "border-dashed opacity-80",
       )}
     >
@@ -703,7 +726,7 @@ function ClosedCertPathWorkshopCard({
       size="sm"
       className={cn(
         WORKSHOP_SESSION_TILE_CARD,
-        "border border-slate-300/90 bg-slate-50 shadow-sm dark:border-slate-700/90 dark:bg-slate-950",
+        WORKSHOP_SESSION_SLATE_GRADIENT,
       )}
     >
       <CardHeader
@@ -885,7 +908,10 @@ export default function WorkshopsClient() {
     <div className="mx-auto max-w-4xl space-y-3 px-3 pb-4 pt-0 sm:px-4 sm:pb-6 sm:pt-1">
       {filterUnitId ? (
         <div
-          className="flex flex-col gap-3 rounded-xl border border-purple-500/35 bg-purple-500/[0.06] px-4 py-3 dark:border-purple-400/30 dark:bg-purple-500/[0.08] sm:flex-row sm:items-start sm:justify-between"
+          className={cn(
+            "flex flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-start sm:justify-between",
+            WORKSHOP_FILTER_BANNER,
+          )}
           role="region"
           aria-label="Filtered webinar unit"
         >
@@ -956,7 +982,10 @@ export default function WorkshopsClient() {
               todayClockMs={now}
             />
             <div
-              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-purple-500/45 bg-purple-500/[0.08] p-3 dark:border-purple-400/40 dark:bg-purple-500/[0.11]"
+              className={cn(
+                "flex min-h-[4rem] flex-col gap-2 rounded-xl p-3",
+                WORKSHOP_SECTION_REGISTERED,
+              )}
               aria-labelledby="workshop-list-registered-heading"
             >
               <h3
@@ -1032,7 +1061,10 @@ export default function WorkshopsClient() {
               )}
             </div>
             <div
-              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-dashed border-sky-500/45 bg-sky-500/[0.06] p-3 dark:border-sky-400/40 dark:bg-sky-500/[0.1]"
+              className={cn(
+                "flex min-h-[4rem] flex-col gap-2 rounded-xl p-3",
+                WORKSHOP_SECTION_OPEN,
+              )}
               aria-labelledby="workshop-list-open-heading"
             >
               <h3
@@ -1093,7 +1125,10 @@ export default function WorkshopsClient() {
               )}
             </div>
             <div
-              className="flex min-h-[4rem] flex-col gap-2 rounded-xl border-2 border-slate-400/40 bg-slate-500/[0.06] p-3 dark:border-slate-500/40 dark:bg-slate-500/[0.1]"
+              className={cn(
+                "flex min-h-[4rem] flex-col gap-2 rounded-xl p-3",
+                WORKSHOP_SECTION_CLOSED,
+              )}
               aria-labelledby="workshop-list-closed-heading"
             >
               <h3

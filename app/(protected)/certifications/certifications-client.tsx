@@ -29,11 +29,11 @@ import { useMemo } from "react";
 /** 3-stop diagonal: two colours (brand + card); thick left bar per tier (green / blue / red). */
 const CERT_LIST_TIER_SECTION: Record<CertificationTierKey, string> = {
   bronze:
-    "border-2 border-t-brand-lime/40 border-r-brand-lime/40 border-b-brand-lime/40 border-l-4 border-l-brand-lime bg-gradient-to-br from-brand-lime/[0.12] via-card to-brand-lime/[0.08] shadow-sm shadow-brand-lime/15 dark:border-t-brand-lime/32 dark:border-r-brand-lime/32 dark:border-b-brand-lime/32 dark:border-l-brand-lime dark:from-brand-lime/[0.14] dark:via-card dark:to-brand-lime/[0.10] dark:shadow-brand-lime/10",
+    "border-2 border-t-brand-lime/40 border-r-brand-lime/40 border-b-brand-lime/40 border-l-4 border-l-brand-lime bg-gradient-to-br from-brand-lime/[0.12] via-muted/24 to-brand-lime/[0.08] shadow-sm shadow-brand-lime/15 dark:border-t-brand-lime/32 dark:border-r-brand-lime/32 dark:border-b-brand-lime/32 dark:border-l-brand-lime dark:from-brand-lime/[0.14] dark:via-muted/16 dark:to-brand-lime/[0.10] dark:shadow-brand-lime/10",
   silver:
-    "border-2 border-t-brand-sky/40 border-r-brand-sky/40 border-b-brand-sky/40 border-l-4 border-l-brand-sky bg-gradient-to-br from-brand-sky/[0.12] via-card to-brand-sky/[0.08] shadow-sm shadow-brand-sky/15 dark:border-t-brand-sky/32 dark:border-r-brand-sky/32 dark:border-b-brand-sky/32 dark:border-l-brand-sky dark:from-brand-sky/[0.14] dark:via-card dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10",
+    "border-2 border-t-brand-sky/40 border-r-brand-sky/40 border-b-brand-sky/40 border-l-4 border-l-brand-sky bg-gradient-to-br from-brand-sky/[0.12] via-muted/24 to-brand-sky/[0.08] shadow-sm shadow-brand-sky/15 dark:border-t-brand-sky/32 dark:border-r-brand-sky/32 dark:border-b-brand-sky/32 dark:border-l-brand-sky dark:from-brand-sky/[0.14] dark:via-muted/16 dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10",
   gold:
-    "border-2 border-t-brand-gold/40 border-r-brand-gold/40 border-b-brand-gold/40 border-l-4 border-l-brand-gold bg-gradient-to-br from-brand-gold/[0.12] via-card to-brand-gold/[0.08] shadow-sm shadow-brand-gold/20 dark:border-t-brand-gold/35 dark:border-r-brand-gold/35 dark:border-b-brand-gold/35 dark:border-l-brand-gold dark:from-brand-gold/[0.14] dark:via-card dark:to-brand-gold/[0.10] dark:shadow-brand-gold/15",
+    "border-2 border-t-brand-gold/40 border-r-brand-gold/40 border-b-brand-gold/40 border-l-4 border-l-brand-gold bg-gradient-to-br from-brand-gold/[0.12] via-muted/24 to-brand-gold/[0.08] shadow-sm shadow-brand-gold/20 dark:border-t-brand-gold/35 dark:border-r-brand-gold/35 dark:border-b-brand-gold/35 dark:border-l-brand-gold dark:from-brand-gold/[0.14] dark:via-muted/16 dark:to-brand-gold/[0.10] dark:shadow-brand-gold/15",
 };
 
 const CERT_LIST_LEVEL_CARD: Record<CertificationTierKey, string> = {
@@ -91,7 +91,7 @@ export default function CertificationsClient() {
 
   return (
     <div className="space-y-5 pb-6 md:space-y-6">
-      <div className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/30 bg-gradient-to-br from-brand-lime/14 via-card to-brand-sky/16 px-6 py-10 shadow-lg shadow-brand-sky/10 md:px-10 md:py-12">
+      <div className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/30 bg-gradient-to-br from-brand-lime/14 via-muted/22 to-brand-sky/16 px-6 py-10 shadow-lg shadow-brand-sky/10 md:px-10 md:py-12">
         <div
           className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-lime/30 blur-3xl"
           aria-hidden

@@ -182,9 +182,9 @@ export function ContentItemView({
     <Card
       className={cn(
         "gap-2 !py-2.5",
-        "bg-gradient-to-br from-brand-sky/[0.06] via-card to-brand-lime/[0.06] dark:from-brand-sky/[0.08] dark:via-card dark:to-brand-lime/[0.08]",
+        "bg-gradient-to-br from-brand-sky/[0.06] via-muted/22 to-brand-lime/[0.06] dark:from-brand-sky/[0.08] dark:via-muted/16 dark:to-brand-lime/[0.08]",
         isStepComplete &&
-          "ring-0 border-2 border-brand-lime/50 from-brand-lime/[0.10] via-card to-brand-lime/[0.10] dark:from-brand-lime/[0.12] dark:via-card dark:to-brand-lime/[0.12] dark:border-brand-lime/45",
+          "ring-0 border-2 border-brand-lime/50 from-brand-lime/[0.10] via-muted/22 to-brand-lime/[0.10] dark:from-brand-lime/[0.12] dark:via-muted/16 dark:to-brand-lime/[0.12] dark:border-brand-lime/45",
         isActive &&
           !isStepComplete &&
           !locked &&
