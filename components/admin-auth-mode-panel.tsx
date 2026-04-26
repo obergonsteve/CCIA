@@ -83,9 +83,8 @@ export function AdminAuthModePanel() {
           Authentication
         </CardTitle>
         <CardDescription className="text-red-950/80 dark:text-red-100/80">
-          Choose how sign-in is handled. Use legacy (session cookies) if Convex Auth has
-          issues. Env <code className="text-xs">AUTH_STRATEGY=legacy</code> overrides this
-          for emergencies.
+          Choose how sign-in is handled. Use legacy (session cookies) only as a
+          temporary fallback while investigating Convex Auth issues.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
