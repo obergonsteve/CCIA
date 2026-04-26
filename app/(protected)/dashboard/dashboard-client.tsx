@@ -530,6 +530,7 @@ export default function DashboardClient() {
         icon={CircleDot}
         rows={buckets.current}
         emptyMessage="No certifications in progress. Open one from the available certifications below to get started."
+        defaultExpanded
       />
 
       <CertificationBucketSection
