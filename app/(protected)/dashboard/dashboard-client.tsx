@@ -449,9 +449,9 @@ export default function DashboardClient() {
         <div
           className={cn(
             "flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-lg px-3 py-1.5 text-sm",
-            "border border-sky-200/70 bg-sky-100",
-            "border-l-4 border-l-brand-sky shadow-sm",
-            "dark:border-sky-500/30 dark:border-l-brand-sky/95 dark:bg-sky-950",
+            "border border-sky-500/50 bg-sky-100",
+            "border-l-4 border-l-sky-700 shadow-sm",
+            "dark:border-sky-400/40 dark:border-l-sky-300 dark:bg-sky-950",
           )}
         >
           <nav
