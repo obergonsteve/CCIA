@@ -14,7 +14,7 @@ export function AdminStudentDirectoryRow({
   return (
     <li
       className={cn(
-        "rounded-lg border border-slate-300/50 border-l-4 border-l-brand-sky/80 bg-gradient-to-br from-brand-sky/5 via-slate-50/98 to-brand-lime/6 shadow-sm",
+        "group rounded-lg border border-slate-300/50 border-l-4 border-l-brand-sky/80 bg-gradient-to-br from-brand-sky/5 via-slate-50/98 to-brand-lime/6 shadow-sm",
         "dark:border-slate-600/50 dark:border-l-brand-sky/65 dark:from-brand-sky/[0.06] dark:via-slate-900/60 dark:to-brand-lime/[0.05] dark:shadow-none",
         className,
       )}
