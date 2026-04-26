@@ -26,13 +26,38 @@ import {
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
+/** 3-stop diagonal: two colours (brand + card); thick left bar per tier (green / blue / red). */
 const CERT_LIST_TIER_SECTION: Record<CertificationTierKey, string> = {
   bronze:
-    "border-brand-lime/45 bg-brand-lime/[0.09] shadow-sm shadow-brand-lime/15 dark:border-brand-lime/35 dark:bg-brand-lime/[0.12] dark:shadow-brand-lime/10",
+    "border-2 border-t-brand-lime/40 border-r-brand-lime/40 border-b-brand-lime/40 border-l-4 border-l-brand-lime bg-gradient-to-br from-brand-lime/[0.12] via-card to-brand-lime/[0.08] shadow-sm shadow-brand-lime/15 dark:border-t-brand-lime/32 dark:border-r-brand-lime/32 dark:border-b-brand-lime/32 dark:border-l-brand-lime dark:from-brand-lime/[0.14] dark:via-card dark:to-brand-lime/[0.10] dark:shadow-brand-lime/10",
   silver:
-    "border-brand-sky/45 bg-brand-sky/[0.08] shadow-sm shadow-brand-sky/15 dark:border-brand-sky/35 dark:bg-brand-sky/[0.11] dark:shadow-brand-sky/10",
+    "border-2 border-t-brand-sky/40 border-r-brand-sky/40 border-b-brand-sky/40 border-l-4 border-l-brand-sky bg-gradient-to-br from-brand-sky/[0.12] via-card to-brand-sky/[0.08] shadow-sm shadow-brand-sky/15 dark:border-t-brand-sky/32 dark:border-r-brand-sky/32 dark:border-b-brand-sky/32 dark:border-l-brand-sky dark:from-brand-sky/[0.14] dark:via-card dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10",
   gold:
-    "border-brand-gold/50 bg-brand-gold/[0.10] shadow-sm shadow-brand-gold/20 dark:border-brand-gold/40 dark:bg-brand-gold/[0.13] dark:shadow-brand-gold/15",
+    "border-2 border-t-brand-gold/40 border-r-brand-gold/40 border-b-brand-gold/40 border-l-4 border-l-brand-gold bg-gradient-to-br from-brand-gold/[0.12] via-card to-brand-gold/[0.08] shadow-sm shadow-brand-gold/20 dark:border-t-brand-gold/35 dark:border-r-brand-gold/35 dark:border-b-brand-gold/35 dark:border-l-brand-gold dark:from-brand-gold/[0.14] dark:via-card dark:to-brand-gold/[0.10] dark:shadow-brand-gold/15",
+};
+
+const CERT_LIST_LEVEL_CARD: Record<CertificationTierKey, string> = {
+  bronze:
+    "border-2 border-brand-lime/50 bg-card/90 ring-0 transition-all duration-300 " +
+    "shadow-[0_10px_32px_-4px_rgba(0,0,0,0.1),0_3px_12px_color-mix(in_oklab,var(--brand-lime),transparent_78%)] " +
+    "dark:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.35),0_2px_10px_color-mix(in_oklab,var(--brand-lime),transparent_72%)] " +
+    "hover:border-brand-lime/80 hover:shadow-[0_12px_36px_-4px_rgba(0,0,0,0.12),0_4px_14px_color-mix(in_oklab,var(--brand-lime),transparent_70%)] " +
+    "dark:border-brand-lime/40 dark:hover:border-brand-lime/70 " +
+    "dark:hover:shadow-[0_10px_36px_-4px_rgba(0,0,0,0.4),0_3px_12px_color-mix(in_oklab,var(--brand-lime),transparent_65%)]",
+  silver:
+    "border-2 border-brand-sky/50 bg-card/90 ring-0 transition-all duration-300 " +
+    "shadow-[0_10px_32px_-4px_rgba(0,0,0,0.1),0_3px_12px_color-mix(in_oklab,var(--brand-sky),transparent_78%)] " +
+    "dark:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.35),0_2px_10px_color-mix(in_oklab,var(--brand-sky),transparent_72%)] " +
+    "hover:border-brand-sky/70 hover:shadow-[0_12px_36px_-4px_rgba(0,0,0,0.12),0_4px_14px_color-mix(in_oklab,var(--brand-sky),transparent_70%)] " +
+    "dark:border-brand-sky/40 dark:hover:border-brand-sky/65 " +
+    "dark:hover:shadow-[0_10px_36px_-4px_rgba(0,0,0,0.4),0_3px_12px_color-mix(in_oklab,var(--brand-sky),transparent_65%)]",
+  gold:
+    "border-2 border-brand-gold/50 bg-card/90 ring-0 transition-all duration-300 " +
+    "shadow-[0_10px_32px_-4px_rgba(0,0,0,0.1),0_3px_12px_color-mix(in_oklab,var(--brand-gold),transparent_78%)] " +
+    "dark:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.35),0_2px_10px_color-mix(in_oklab,var(--brand-gold),transparent_72%)] " +
+    "hover:border-brand-gold/70 hover:shadow-[0_12px_36px_-4px_rgba(0,0,0,0.12),0_4px_14px_color-mix(in_oklab,var(--brand-gold),transparent_70%)] " +
+    "dark:border-brand-gold/40 dark:hover:border-brand-gold/65 " +
+    "dark:hover:shadow-[0_10px_36px_-4px_rgba(0,0,0,0.4),0_3px_12px_color-mix(in_oklab,var(--brand-gold),transparent_65%)]",
 };
 
 export default function CertificationsClient() {
@@ -65,7 +90,7 @@ export default function CertificationsClient() {
   }
 
   return (
-    <div className="space-y-6 pb-8 md:space-y-7">
+    <div className="space-y-5 pb-6 md:space-y-6">
       <div className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/30 bg-gradient-to-br from-brand-lime/14 via-card to-brand-sky/16 px-6 py-10 shadow-lg shadow-brand-sky/10 md:px-10 md:py-12">
         <div
           className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-brand-lime/30 blur-3xl"
@@ -136,13 +161,13 @@ export default function CertificationsClient() {
               </a>
             ))}
           </nav>
-          <div className="space-y-10 md:space-y-12">
+          <div className="space-y-4 md:space-y-5">
           {grouped.map(({ tier, levels }) => (
             <section
               key={tier}
               id={`cert-tier-${tier}`}
               className={cn(
-                "scroll-mt-20 space-y-5 rounded-2xl border-2 p-5 md:p-6",
+                "scroll-mt-20 space-y-5 rounded-2xl p-5 md:p-6",
                 CERT_LIST_TIER_SECTION[tier],
               )}
             >
@@ -151,14 +176,19 @@ export default function CertificationsClient() {
                   {certificationTierSectionTitle(tier)}
                 </h3>
               </div>
-              <ul className="grid gap-8 md:grid-cols-2">
+              <ul className="grid gap-5 md:grid-cols-2">
                 {levels.map((level) => (
                   <li key={level._id}>
                     <Link
                       href={`/certifications/${level._id}`}
                       className="group block"
                     >
-                      <Card className="overflow-hidden border-border/80 bg-card/90 shadow-sm transition-all duration-300 hover:border-brand-sky/45 hover:shadow-lg hover:shadow-brand-gold/15">
+                      <Card
+                        className={cn(
+                          "overflow-hidden",
+                          CERT_LIST_LEVEL_CARD[tier],
+                        )}
+                      >
                         <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
                           {level.thumbnailUrl ? (
                             <Image
