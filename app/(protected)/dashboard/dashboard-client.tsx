@@ -82,7 +82,8 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     ),
     sectionSurface: cn(
-      "border border-brand-gold/55 bg-brand-gold/[0.16] dark:border-brand-gold/45 dark:bg-brand-gold/[0.12]",
+      "border border-brand-gold/55 bg-gradient-to-br from-brand-gold/[0.12] via-muted/24 to-brand-gold/[0.08] shadow-sm shadow-brand-gold/20",
+      "dark:border-brand-gold/45 dark:from-brand-gold/[0.14] dark:via-muted/16 dark:to-brand-gold/[0.10] dark:shadow-brand-gold/15",
       "border-t-2 border-t-brand-gold/70 dark:border-t-brand-gold/58",
     ),
     headerHover:
@@ -104,7 +105,8 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     ),
     sectionSurface: cn(
-      "border border-brand-sky/50 bg-brand-sky/[0.14] dark:border-brand-sky/45 dark:bg-brand-sky/[0.12]",
+      "border border-brand-sky/50 bg-gradient-to-br from-brand-sky/[0.12] via-muted/24 to-brand-sky/[0.08] shadow-sm shadow-brand-sky/15",
+      "dark:border-brand-sky/45 dark:from-brand-sky/[0.14] dark:via-muted/16 dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10",
       "border-t-2 border-t-brand-sky/68 dark:border-t-brand-sky/56",
     ),
     headerHover:
@@ -126,7 +128,8 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     ),
     sectionSurface: cn(
-      "border border-pink-500/45 bg-pink-500/[0.12] dark:border-pink-400/40 dark:bg-pink-500/[0.14]",
+      "border border-pink-500/45 bg-gradient-to-br from-pink-500/[0.12] via-muted/24 to-pink-500/[0.08] shadow-sm shadow-pink-500/20",
+      "dark:border-pink-400/40 dark:from-pink-500/[0.14] dark:via-muted/16 dark:to-pink-500/[0.10] dark:shadow-pink-500/15",
       "border-t-2 border-t-pink-500/62 dark:border-t-pink-400/52",
     ),
     headerHover:
@@ -148,7 +151,8 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     ),
     sectionSurface: cn(
-      "border border-brand-lime/50 bg-brand-lime/[0.14] dark:border-brand-lime/45 dark:bg-brand-lime/[0.12]",
+      "border border-brand-lime/50 bg-gradient-to-br from-brand-lime/[0.12] via-muted/24 to-brand-lime/[0.08] shadow-sm shadow-brand-lime/15",
+      "dark:border-brand-lime/45 dark:from-brand-lime/[0.14] dark:via-muted/16 dark:to-brand-lime/[0.10] dark:shadow-brand-lime/10",
       "border-t-2 border-t-brand-lime/68 dark:border-t-brand-lime/56",
     ),
     headerHover:
@@ -444,77 +448,77 @@ export default function DashboardClient() {
 
         <div
           className={cn(
-            "rounded-lg p-px",
-            "bg-[linear-gradient(90deg,var(--brand-gold),var(--brand-sky),var(--brand-lime))]",
+            "flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-lg px-3 py-1.5 text-sm",
+            "border border-sky-200/70 bg-sky-100",
+            "border-l-4 border-l-brand-sky shadow-sm",
+            "dark:border-sky-500/30 dark:border-l-brand-sky/95 dark:bg-sky-950",
           )}
         >
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-[calc(var(--radius)-1px)] bg-muted px-3 py-1.5 text-sm">
-        <nav
-          className="flex flex-wrap items-center gap-2 min-w-0"
-          aria-label="Certification sections"
-        >
-          <a
-            href={`#${DASHBOARD_CERT_SECTION_IDS.current}`}
-            className={DASHBOARD_CERT_BUCKET_STYLES.current.chipLink}
-            aria-label={`Current certifications, ${certSummary.current}`}
+          <nav
+            className="flex flex-wrap items-center gap-2 min-w-0"
+            aria-label="Certification sections"
           >
-            <span className="font-medium text-amber-900/90 dark:text-amber-100/95">
-              Current
-            </span>
-            <span className="text-base font-semibold tabular-nums text-amber-950 dark:text-amber-50">
-              {certSummary.current}
-            </span>
-          </a>
-          <a
-            href={`#${DASHBOARD_CERT_SECTION_IDS.roadmap}`}
-            className={DASHBOARD_CERT_BUCKET_STYLES.roadmap.chipLink}
-            aria-label={`Certification roadmap, ${certSummary.roadmap}`}
-          >
-            <span className="font-medium text-sky-900/90 dark:text-sky-100/95">
-              Roadmap
-            </span>
-            <span className="text-base font-semibold tabular-nums text-sky-950 dark:text-sky-50">
-              {certSummary.roadmap}
-            </span>
-          </a>
-          <a
-            href={`#${DASHBOARD_CERT_SECTION_IDS.available}`}
-            className={DASHBOARD_CERT_BUCKET_STYLES.available.chipLink}
-            aria-label={`Available certifications, ${certSummary.available}`}
-          >
-            <span className="font-medium text-pink-900/90 dark:text-pink-100/95">
-              Available
-            </span>
-            <span className="text-base font-semibold tabular-nums text-pink-950 dark:text-pink-50">
-              {certSummary.available}
-            </span>
-          </a>
-          <a
-            href={`#${DASHBOARD_CERT_SECTION_IDS.completed}`}
-            className={DASHBOARD_CERT_BUCKET_STYLES.completed.chipLink}
-            aria-label={`Completed certifications, ${certSummary.completed}`}
-          >
-            <span className="font-medium text-lime-900/90 dark:text-lime-100/95">
-              Completed
-            </span>
-            <span className="text-base font-semibold tabular-nums text-lime-950 dark:text-lime-50">
-              {certSummary.completed}
-            </span>
-          </a>
-        </nav>
-        <span
-          className="hidden h-5 w-0.5 shrink-0 rounded-full bg-brand-gold/85 sm:block dark:bg-brand-gold/75"
-          aria-hidden
-        />
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-muted-foreground">Role</span>
-          <span className="font-medium capitalize">{sessionUser.role}</span>
-          <Badge variant="secondary" className="text-xs font-normal">
-            {sessionUser.email}
-          </Badge>
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.current}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.current.chipLink}
+              aria-label={`Current certifications, ${certSummary.current}`}
+            >
+              <span className="font-medium text-amber-900/90 dark:text-amber-100/95">
+                Current
+              </span>
+              <span className="text-base font-semibold tabular-nums text-amber-950 dark:text-amber-50">
+                {certSummary.current}
+              </span>
+            </a>
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.roadmap}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.roadmap.chipLink}
+              aria-label={`Certification roadmap, ${certSummary.roadmap}`}
+            >
+              <span className="font-medium text-sky-900/90 dark:text-sky-100/95">
+                Roadmap
+              </span>
+              <span className="text-base font-semibold tabular-nums text-sky-950 dark:text-sky-50">
+                {certSummary.roadmap}
+              </span>
+            </a>
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.available}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.available.chipLink}
+              aria-label={`Available certifications, ${certSummary.available}`}
+            >
+              <span className="font-medium text-pink-900/90 dark:text-pink-100/95">
+                Available
+              </span>
+              <span className="text-base font-semibold tabular-nums text-pink-950 dark:text-pink-50">
+                {certSummary.available}
+              </span>
+            </a>
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.completed}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.completed.chipLink}
+              aria-label={`Completed certifications, ${certSummary.completed}`}
+            >
+              <span className="font-medium text-lime-900/90 dark:text-lime-100/95">
+                Completed
+              </span>
+              <span className="text-base font-semibold tabular-nums text-lime-950 dark:text-lime-50">
+                {certSummary.completed}
+              </span>
+            </a>
+          </nav>
+          <span
+            className="hidden h-5 w-0.5 shrink-0 rounded-full bg-brand-sky/35 sm:block dark:bg-brand-sky/45"
+            aria-hidden
+          />
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-muted-foreground">Role</span>
+            <span className="font-medium capitalize">{sessionUser.role}</span>
+            <Badge variant="secondary" className="text-xs font-normal">
+              {sessionUser.email}
+            </Badge>
+          </div>
         </div>
-      </div>
-      </div>
       </div>
 
       <div className="space-y-5">
