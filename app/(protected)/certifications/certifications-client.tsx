@@ -9,6 +9,7 @@ import { useQuery } from "convex/react";
 import {
   ArrowRight,
   BookOpen,
+  ChevronDown,
   ClipboardCheck,
   GraduationCap,
   Layers,
@@ -24,7 +25,7 @@ import {
   type CertificationTierKey,
 } from "@/lib/certificationTier";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 /** 3-stop diagonal: two colours (brand + card); thick left bar per tier (green / blue / red). */
 const CERT_LIST_TIER_SECTION: Record<CertificationTierKey, string> = {
@@ -34,6 +35,13 @@ const CERT_LIST_TIER_SECTION: Record<CertificationTierKey, string> = {
     "border-2 border-t-brand-sky/40 border-r-brand-sky/40 border-b-brand-sky/40 border-l-4 border-l-brand-sky bg-gradient-to-br from-brand-sky/[0.12] via-muted/24 to-brand-sky/[0.08] shadow-sm shadow-brand-sky/15 dark:border-t-brand-sky/32 dark:border-r-brand-sky/32 dark:border-b-brand-sky/32 dark:border-l-brand-sky dark:from-brand-sky/[0.14] dark:via-muted/16 dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10",
   gold:
     "border-2 border-t-brand-gold/40 border-r-brand-gold/40 border-b-brand-gold/40 border-l-4 border-l-brand-gold bg-gradient-to-br from-brand-gold/[0.12] via-muted/24 to-brand-gold/[0.08] shadow-sm shadow-brand-gold/20 dark:border-t-brand-gold/35 dark:border-r-brand-gold/35 dark:border-b-brand-gold/35 dark:border-l-brand-gold dark:from-brand-gold/[0.14] dark:via-muted/16 dark:to-brand-gold/[0.10] dark:shadow-brand-gold/15",
+};
+
+/** Collapsed-chevron color hint per tier (matches dashboard cert buckets). */
+const CERT_TIER_HEADER_CHEVRON: Record<CertificationTierKey, string> = {
+  bronze: "text-lime-800/50 dark:text-lime-200/45",
+  silver: "text-sky-800/50 dark:text-sky-200/45",
+  gold: "text-amber-900/50 dark:text-amber-200/45",
 };
 
 const CERT_LIST_LEVEL_CARD: Record<CertificationTierKey, string> = {
@@ -62,6 +70,18 @@ const CERT_LIST_LEVEL_CARD: Record<CertificationTierKey, string> = {
 
 export default function CertificationsClient() {
   const catalog = useQuery(api.certifications.listCatalogForUser);
+  const [openByTier, setOpenByTier] = useState<
+    Partial<Record<CertificationTierKey, boolean>>
+  >({});
+
+  const isTierOpen = (tier: CertificationTierKey) => openByTier[tier] !== false;
+
+  const toggleTier = (tier: CertificationTierKey) => {
+    setOpenByTier((prev) => {
+      const wasOpen = prev[tier] !== false;
+      return { ...prev, [tier]: !wasOpen };
+    });
+  };
 
   const grouped = useMemo(() => {
     if (!catalog?.length) {
@@ -171,12 +191,43 @@ export default function CertificationsClient() {
                 CERT_LIST_TIER_SECTION[tier],
               )}
             >
-              <div className="border-b border-foreground/10 pb-3 dark:border-foreground/15">
-                <h3 className="text-lg font-semibold tracking-tight">
-                  {certificationTierSectionTitle(tier)}
-                </h3>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => toggleTier(tier)}
+                  className={cn(
+                    "group flex w-full items-start justify-between gap-2 rounded-lg border-b border-foreground/10 -mx-1 px-1 pb-3 text-left outline-none",
+                    "transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "dark:border-foreground/15",
+                  )}
+                  aria-expanded={isTierOpen(tier)}
+                  aria-controls={`cert-tier-${tier}-list`}
+                >
+                  <h3 className="text-lg font-semibold tracking-tight">
+                    {certificationTierSectionTitle(tier)}
+                  </h3>
+                  <ChevronDown
+                    className={cn(
+                      "mt-0.5 h-5 w-5 shrink-0 transition-transform duration-200",
+                      CERT_TIER_HEADER_CHEVRON[tier],
+                      isTierOpen(tier) && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
+                </button>
+                {!isTierOpen(tier) && levels.length > 0 ? (
+                  <p className="px-0.5 text-sm text-muted-foreground">
+                    {levels.length}{" "}
+                    {levels.length === 1 ? "certification" : "certifications"}{" "}
+                    — expand to view.
+                  </p>
+                ) : null}
               </div>
-              <ul className="grid gap-5 md:grid-cols-2">
+              <ul
+                id={`cert-tier-${tier}-list`}
+                hidden={!isTierOpen(tier)}
+                className="grid gap-5 md:grid-cols-2"
+              >
                 {levels.map((level) => (
                   <li key={level._id}>
                     <Link
