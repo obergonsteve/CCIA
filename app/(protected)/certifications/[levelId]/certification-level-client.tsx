@@ -118,15 +118,16 @@ function PathStepNode({
   const shell = (
     <span
       className={cn(
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-background shadow-sm transition-colors",
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-gradient-to-br from-background via-background to-background shadow-sm transition-colors",
         step.status === "completed" &&
-          "border-brand-lime/70 bg-brand-lime/[0.12]",
+          "border-brand-lime/70 from-brand-lime/[0.10] via-background to-brand-lime/[0.10]",
         step.status === "in_progress" &&
-          "border-brand-gold/80 bg-brand-gold/[0.12] ring-2 ring-brand-gold/25",
+          "border-brand-gold/80 from-brand-gold/[0.10] via-background to-brand-gold/[0.10] ring-2 ring-brand-gold/25",
         (step.status === "not_started" || step.status === "locked") &&
           !unitLocked &&
-          "border-border",
-        unitLocked && "border-muted bg-muted/40",
+          "border-border from-muted/20 via-background to-muted/20",
+        unitLocked &&
+          "border-muted from-muted/30 via-background to-muted/30",
       )}
     >
       {icon}
@@ -142,7 +143,7 @@ function PathStepNode({
   if (blocked) {
     return (
       <span
-        className="inline-flex max-w-[5.25rem] cursor-not-allowed flex-col items-center gap-1 opacity-80"
+        className="inline-flex max-w-[5.25rem] cursor-not-allowed flex-col items-center gap-1"
         title={step.title}
       >
         {shell}
@@ -343,12 +344,14 @@ export default function CertificationLevelClient({
       <section
         id="certification-path"
         aria-labelledby="certification-path-heading"
-        className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/45 bg-muted/25 shadow-sm dark:border-brand-gold/40"
+        className={cn(
+          "relative overflow-hidden rounded-2xl border-2 border-brand-sky/28",
+          "border-t-4 border-t-brand-sky/75 dark:border-t-brand-sky/80",
+          "shadow-[inset_0_1px_0_0_color-mix(in_oklab,var(--brand-sky)45%,transparent)]",
+          "dark:shadow-[inset_0_1px_0_0_color-mix(in_oklab,var(--brand-sky)50%,transparent)]",
+          "bg-[color-mix(in_oklab,var(--brand-sky)_11%,var(--card))] dark:bg-[color-mix(in_oklab,var(--brand-sky)_15%,var(--card))]",
+        )}
       >
-        <div
-          className="h-1.5 w-full bg-gradient-to-r from-brand-lime/70 via-brand-gold/75 to-brand-sky/70"
-          aria-hidden
-        />
         <div className="p-3 md:p-5">
           <h2
             id="certification-path-heading"
@@ -398,26 +401,27 @@ export default function CertificationLevelClient({
                   : u.completed
                     ? 100
                     : 0;
+              /** Only not-assigned units are non-navigable; prereq / previous-unit are open for preview (view-only on unit page). */
               const certificationNavLocked =
-                u.locked && (!isWorkshop || u.lockReason === "entitlement");
+                u.locked && u.lockReason === "entitlement";
               const unitCardHref = withViewAsQuery(
                 `/units/${u.unitId}?level=${levelId}`,
                 viewAsUserId,
               );
+              /** One surface only (mutually exclusive) so `cn` + tailwind-merge never mix two gradients. */
+              const unitPathCardSurface = u.completed
+                ? "border-2 border-brand-lime/50 bg-gradient-to-br from-brand-lime/[0.11] via-card to-brand-lime/[0.11] hover:from-brand-lime/[0.15] hover:via-card hover:to-brand-lime/[0.15] dark:from-brand-lime/[0.13] dark:via-card dark:to-brand-lime/[0.13] dark:hover:from-brand-lime/[0.17] dark:hover:via-card dark:hover:to-brand-lime/[0.17]"
+                : u.locked && !isWorkshop
+                  ? "border border-border/80 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-gradient-to-br from-muted/28 via-card to-muted/28 hover:from-muted/34 hover:via-card hover:to-muted/34 dark:from-muted/32 dark:via-card dark:to-muted/32 dark:hover:from-muted/38 dark:hover:via-card dark:hover:to-muted/38"
+                  : isWorkshop
+                    ? "border border-purple-500/40 border-l-4 border-r-4 border-l-purple-600 border-r-purple-600 bg-gradient-to-br from-purple-500/[0.10] via-card to-purple-500/[0.10] hover:from-purple-500/[0.14] hover:via-card hover:to-purple-500/[0.14] hover:border-purple-500/55 hover:border-l-purple-500 hover:border-r-purple-500 dark:from-purple-400/[0.12] dark:via-card dark:to-purple-400/[0.12] dark:border-purple-400/45 dark:border-l-purple-400 dark:border-r-purple-400 dark:hover:from-purple-300/[0.16] dark:hover:via-card dark:hover:to-purple-300/[0.16] dark:hover:border-purple-300/55"
+                    : "border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-gradient-to-br from-brand-gold/[0.10] via-card to-brand-gold/[0.10] hover:from-brand-gold/[0.14] hover:via-card hover:to-brand-gold/[0.14] hover:border-brand-gold/55 hover:border-l-brand-gold hover:border-r-brand-gold dark:from-brand-gold/[0.12] dark:via-card dark:to-brand-gold/[0.12] dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:hover:from-brand-gold/[0.16] dark:hover:via-card dark:hover:to-brand-gold/[0.16] dark:hover:border-brand-gold/50";
               const cardClassName = cn(
-                "block w-full rounded-xl border bg-card px-3 py-2 text-left shadow-sm transition-colors hover:bg-muted/40",
-                u.completed && "border-2 border-brand-lime/50 bg-brand-lime/[0.06]",
-                certificationNavLocked && "cursor-not-allowed opacity-80",
-                u.locked &&
-                  !isWorkshop &&
-                  "border border-border/80 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-muted/25 dark:border-l-brand-gold dark:border-r-brand-gold",
-                !u.completed &&
-                  isWorkshop &&
-                  "border border-purple-500/40 border-l-4 border-r-4 border-l-purple-600 border-r-purple-600 bg-background hover:border-purple-500/55 hover:border-l-purple-500 hover:border-r-purple-500 dark:border-purple-400/45 dark:border-l-purple-400 dark:border-r-purple-400 dark:hover:border-purple-300/55",
-                !u.completed &&
-                  !isWorkshop &&
-                  !u.locked &&
-                  "border border-brand-gold/40 border-l-4 border-r-4 border-l-brand-gold border-r-brand-gold bg-background hover:border-brand-gold/55 hover:border-l-brand-gold hover:border-r-brand-gold dark:border-brand-gold/35 dark:border-l-brand-gold dark:border-r-brand-gold dark:hover:border-brand-gold/50",
+                "block w-full rounded-xl border px-3 py-2 text-left shadow-sm",
+                /* No base hover fill — it sits under the gradient and reads as a flat “disabled” card. */
+                unitPathCardSurface,
+                certificationNavLocked &&
+                  "cursor-not-allowed ring-1 ring-inset ring-foreground/10 dark:ring-foreground/15",
               );
               const reg = u.workshopRegistration;
               const showRegisteredSlot =
@@ -500,7 +504,15 @@ export default function CertificationLevelClient({
                   )}
                 </div>
               );
-              const linkAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, ${isWorkshop ? "live webinar" : "self-paced"}${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}`;
+              const linkAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, ${isWorkshop ? "live webinar" : "self-paced"}${u.completed ? ", completed" : ""}${
+                u.locked
+                  ? u.lockReason === "prerequisite"
+                    ? ", prerequisites required, open to review"
+                    : u.lockReason === "previous_unit"
+                      ? ", open to review, complete the previous unit to progress"
+                      : ", later in certification path"
+                  : ""
+              }`;
               const workshopOpenAria = `${unitCode ? `${unitCode}, ` : ""}${u.title}, live webinar${u.completed ? ", completed" : ""}${u.locked ? ", later in certification path" : ""}. Opens scheduled sessions for this unit.`;
               return (
                 <li
@@ -513,7 +525,7 @@ export default function CertificationLevelClient({
                         <div
                           className={cn(
                             cardClassName,
-                            "cursor-not-allowed opacity-80",
+                            "cursor-not-allowed opacity-100 ring-1 ring-inset ring-foreground/10 dark:ring-foreground/15",
                           )}
                           aria-label={`${u.title}, workshop preview (register as the student in the app)`}
                         >
@@ -523,7 +535,7 @@ export default function CertificationLevelClient({
                         <div
                           className={cn(
                             cardClassName,
-                            "cursor-not-allowed opacity-80",
+                            "cursor-not-allowed opacity-100 ring-1 ring-inset ring-foreground/10 dark:ring-foreground/15",
                           )}
                           aria-label={`${u.title}, not assigned to your account`}
                         >
@@ -553,17 +565,19 @@ export default function CertificationLevelClient({
                         {cardBody}
                       </button>
                       )
+                    ) : certificationNavLocked ? (
+                      <div
+                        role="group"
+                        className={cardClassName}
+                        aria-label={linkAria}
+                      >
+                        {cardBody}
+                      </div>
                     ) : (
                       <Link
                         href={unitCardHref}
                         className={cardClassName}
-                        aria-disabled={certificationNavLocked}
                         aria-label={linkAria}
-                        onClick={(e) => {
-                          if (certificationNavLocked) {
-                            e.preventDefault();
-                          }
-                        }}
                       >
                         {cardBody}
                       </Link>
@@ -573,7 +587,7 @@ export default function CertificationLevelClient({
                   {pathSteps.length > 0 ? (
                     <>
                       <ArrowRight
-                        className="hidden h-4 w-5 shrink-0 text-muted-foreground/40 sm:-mx-0.5 sm:block md:h-4 md:w-6"
+                        className="hidden h-4 w-5 shrink-0 text-muted-foreground/75 sm:-mx-0.5 sm:block md:h-4 md:w-6"
                         aria-hidden
                         strokeWidth={2}
                       />
@@ -595,7 +609,7 @@ export default function CertificationLevelClient({
                             >
                               {si > 0 ? (
                                 <ArrowRight
-                                  className="mx-0 h-3.5 w-4 shrink-0 text-muted-foreground/40 sm:h-4 sm:w-5"
+                                  className="mx-0 h-3.5 w-4 shrink-0 text-muted-foreground/75 sm:h-4 sm:w-5"
                                   aria-hidden
                                   strokeWidth={2}
                                 />
@@ -604,7 +618,9 @@ export default function CertificationLevelClient({
                                 step={step}
                                 unitId={u.unitId}
                                 levelId={levelId}
-                                unitLocked={u.locked}
+                                unitLocked={
+                                  u.locked && u.lockReason === "entitlement"
+                                }
                                 viewAsUserId={viewAsUserId}
                               />
                             </li>

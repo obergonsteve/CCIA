@@ -24,7 +24,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 export function ContentItemView({
@@ -36,6 +36,8 @@ export function ContentItemView({
   expandFromHash = false,
   pathStripNavTick = 0,
   certProgressRecordBlocked = false,
+  /** Rendered in the card header row (e.g. admin “In-app note”) */
+  headerAction,
 }: {
   item: Doc<"contentItems">;
   /** Required to submit tests/assignments on the unit page. */
@@ -53,6 +55,7 @@ export function ContentItemView({
    * Avoids server errors if lock state and URL level are briefly out of sync.
    */
   certProgressRecordBlocked?: boolean;
+  headerAction?: ReactNode;
 }) {
   const storageUrl = useQuery(
     api.content.getUrl,
@@ -178,48 +181,63 @@ export function ContentItemView({
   return (
     <Card
       className={cn(
-        locked && "opacity-70",
+        "gap-2 !py-2.5",
+        "bg-gradient-to-br from-brand-sky/[0.06] via-card to-brand-lime/[0.06] dark:from-brand-sky/[0.08] dark:via-card dark:to-brand-lime/[0.08]",
         isStepComplete &&
-          "border-2 border-brand-lime/50 bg-brand-lime/[0.05] dark:border-brand-lime/45 dark:bg-brand-lime/[0.06]",
+          "ring-0 border-2 border-brand-lime/50 from-brand-lime/[0.10] via-card to-brand-lime/[0.10] dark:from-brand-lime/[0.12] dark:via-card dark:to-brand-lime/[0.12] dark:border-brand-lime/45",
+        isActive &&
+          !isStepComplete &&
+          !locked &&
+          "ring-0 border-2 border-t-brand-gold/55 border-r-brand-gold/55 border-b-brand-gold/55 border-l-4 border-l-brand-gold shadow-[0_6px_22px_-4px_rgba(0,0,0,0.07),0_3px_10px_color-mix(in_oklab,var(--brand-gold),transparent_78%)] dark:border-t-brand-gold/50 dark:border-r-brand-gold/50 dark:border-b-brand-gold/50 dark:border-l-brand-gold dark:shadow-[0_8px_28px_-4px_rgba(0,0,0,0.2),0_2px_10px_color-mix(in_oklab,var(--brand-gold),transparent_72%)]",
+        locked &&
+          "ring-2 ring-inset ring-foreground/12 dark:ring-foreground/18",
       )}
     >
-      <CardHeader className="pb-2">
-        <button
-          type="button"
-          className="flex w-full items-start gap-2 rounded-md p-1 text-left -m-1 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          aria-expanded={isOpen}
-          aria-controls={stepBodyId}
-          onClick={() => setExpanded(!isOpen)}
-        >
-          {locked ? (
-            <Lock className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
-          ) : isStepComplete ? (
-            <CheckCircle2
-              className="mt-0.5 h-6 w-6 shrink-0 text-brand-lime"
+      <CardHeader className="!px-3 pb-1.5 pt-0.5">
+        <div className="flex items-start justify-between gap-2">
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-start gap-2 rounded-md p-1 text-left -m-1 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-expanded={isOpen}
+            aria-controls={stepBodyId}
+            onClick={() => setExpanded(!isOpen)}
+          >
+            {locked ? (
+              <Lock className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+            ) : isStepComplete ? (
+              <CheckCircle2
+                className="mt-0.5 h-6 w-6 shrink-0 text-brand-lime"
+                aria-hidden
+              />
+            ) : null}
+            <span className="min-w-0 flex-1 space-y-1">
+              <span className="font-heading text-base leading-snug font-medium text-foreground block">
+                {item.title}
+              </span>
+              <span className="text-sm text-muted-foreground capitalize block">
+                {typeLabel}
+              </span>
+            </span>
+            <ChevronDown
+              className={cn(
+                "mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200",
+                isOpen && "rotate-180",
+              )}
               aria-hidden
             />
+          </button>
+          {headerAction ? (
+            <div className="shrink-0 pt-0.5">{headerAction}</div>
           ) : null}
-          <span className="min-w-0 flex-1 space-y-1">
-            <span className="font-heading text-base leading-snug font-medium text-foreground block">
-              {item.title}
-            </span>
-            <span className="text-sm text-muted-foreground capitalize block">
-              {typeLabel}
-            </span>
-          </span>
-          <ChevronDown
-            className={cn(
-              "mt-0.5 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200",
-              isOpen && "rotate-180",
-            )}
-            aria-hidden
-          />
-        </button>
+        </div>
       </CardHeader>
       {isOpen ? (
       <CardContent
         id={stepBodyId}
-        className={cn("space-y-3", locked && "pointer-events-none select-none")}
+        className={cn(
+          "!px-3 !pt-0 !pb-2.5 space-y-3",
+          locked && "pointer-events-none select-none",
+        )}
       >
         {locked ? (
           <p className="text-sm text-muted-foreground pointer-events-none">

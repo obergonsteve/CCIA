@@ -1167,7 +1167,8 @@ export const roadmapForCertification = query({
         ctx,
         userId,
         unit._id,
-        locked,
+        /* Only entitlement blocks per-step preview on the cert path; prereq / order locks still show real step states and links. */
+        locked && lockReason === "entitlement",
         steps,
       );
       out.push({

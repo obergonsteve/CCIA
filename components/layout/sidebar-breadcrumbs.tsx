@@ -3,9 +3,9 @@
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +96,37 @@ function ChipCurrent({
   );
 }
 
+/** Red vertical bar between “Back” and the first crumb (chevrons stay between later crumbs). */
+function BackBreadcrumbRule() {
+  return (
+    <span
+      className="mx-2 h-5 w-0.5 shrink-0 self-center rounded-full bg-brand-gold dark:bg-brand-gold/90"
+      aria-hidden
+    />
+  );
+}
+
+function BackBreadcrumbChip() {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => router.back()}
+      className={cn(
+        chipBase,
+        "gap-1 border border-brand-sky/90 bg-brand-sky pl-2 pr-2.5 text-white shadow-sm",
+        "hover:bg-brand-sky/90 active:bg-brand-sky/85",
+        "dark:border-brand-sky dark:bg-brand-sky dark:hover:bg-brand-sky/90",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-sky/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+      )}
+      aria-label="Go back to the previous page"
+    >
+      <ArrowLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      Back
+    </button>
+  );
+}
+
 function CrumbTrail({ items }: { items: Crumb[] }) {
   if (items.length === 0) {
     return null;
@@ -105,6 +136,8 @@ function CrumbTrail({ items }: { items: Crumb[] }) {
       aria-label="Breadcrumb"
       className="flex flex-wrap items-center gap-x-1 gap-y-2 border-b border-border/60 pb-3 mb-1"
     >
+      <BackBreadcrumbChip />
+      <BackBreadcrumbRule />
       {items.map((item, i) => (
         <Fragment key={`${item.label}-${i}`}>
           {i > 0 ? (

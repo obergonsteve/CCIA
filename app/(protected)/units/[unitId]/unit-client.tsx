@@ -734,11 +734,15 @@ export default function UnitClient({
         </div>
       ) : null}
 
-      <div className="relative overflow-hidden rounded-2xl border-2 border-brand-gold/45 bg-muted/25 shadow-sm dark:border-brand-gold/40">
-        <div
-          className="h-1.5 w-full bg-gradient-to-r from-brand-lime/70 via-brand-gold/75 to-brand-sky/70"
-          aria-hidden
-        />
+      <div
+        className={cn(
+          "relative overflow-hidden rounded-2xl border-2 border-brand-sky/28",
+          "border-t-4 border-t-brand-sky/75 dark:border-t-brand-sky/80",
+          "shadow-[inset_0_1px_0_0_color-mix(in_oklab,var(--brand-sky)45%,transparent)]",
+          "dark:shadow-[inset_0_1px_0_0_color-mix(in_oklab,var(--brand-sky)50%,transparent)]",
+          "bg-[color-mix(in_oklab,var(--brand-sky)_11%,var(--card))] dark:bg-[color-mix(in_oklab,var(--brand-sky)_15%,var(--card))]",
+        )}
+      >
         <div className="p-3 md:p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
@@ -839,7 +843,7 @@ export default function UnitClient({
                     >
                       {si > 0 ? (
                         <ArrowRight
-                          className="mx-0.5 mt-2 h-3.5 w-4 shrink-0 text-muted-foreground/50 sm:mt-2 sm:h-4 sm:w-5"
+                          className="mx-0.5 mt-2 h-3.5 w-4 shrink-0 text-muted-foreground/75 sm:mt-2 sm:h-4 sm:w-5"
                           aria-hidden
                           strokeWidth={2}
                         />
@@ -881,7 +885,7 @@ export default function UnitClient({
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-3">
         {visibleSteps.length === 0 && roadmap.steps.length > 0 ? (
           <p className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
             Completed steps are hidden. Use{" "}
@@ -900,35 +904,8 @@ export default function UnitClient({
               <div
                 key={st.contentId}
                 id={`step-${st.contentId}`}
-                className={cn(
-                  "scroll-mt-24 rounded-xl transition-shadow",
-                  row.active && "ring-2 ring-brand-sky/40 ring-offset-2 ring-offset-background",
-                )}
+                className="scroll-mt-24 rounded-xl transition-shadow"
               >
-                {isAdmin && !readOnlyViewAs ? (
-                  <div className="mb-2 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 gap-1.5 px-2.5 text-xs"
-                      onClick={() => {
-                        setInAppPreset({
-                          kind: "content",
-                          contentId: st.contentId!,
-                          unitId,
-                          levelId,
-                          workshopSessionId: doc.workshopSessionId ?? undefined,
-                        });
-                        setInAppPresetSummary(doc.title);
-                        setInAppNotifOpen(true);
-                      }}
-                    >
-                      <Bell className="h-3.5 w-3.5" aria-hidden />
-                      In-app note
-                    </Button>
-                  </div>
-                ) : null}
                 <ContentItemView
                   item={doc}
                   unitId={unitId}
@@ -938,6 +915,30 @@ export default function UnitClient({
                   certProgressRecordBlocked={certProgressRecordBlocked}
                   expandFromHash={stepHash === `#step-${st.contentId}`}
                   pathStripNavTick={pathStripNavTick}
+                  headerAction={
+                    isAdmin && !readOnlyViewAs ? (
+                      <Button
+                        type="button"
+                        variant="ruby"
+                        size="icon-sm"
+                        className="shadow-md"
+                        aria-label="In-app note"
+                        onClick={() => {
+                          setInAppPreset({
+                            kind: "content",
+                            contentId: st.contentId!,
+                            unitId,
+                            levelId,
+                            workshopSessionId: doc.workshopSessionId ?? undefined,
+                          });
+                          setInAppPresetSummary(doc.title);
+                          setInAppNotifOpen(true);
+                        }}
+                      >
+                        <Bell className="h-4 w-4" aria-hidden />
+                      </Button>
+                    ) : null
+                  }
                 />
               </div>
             );
@@ -951,10 +952,7 @@ export default function UnitClient({
             <div
               key={st.assignmentId}
               id={`step-a-${st.assignmentId}`}
-              className={cn(
-                "scroll-mt-24 transition-shadow",
-                row.active && "ring-2 ring-brand-sky/40 ring-offset-2 ring-offset-background",
-              )}
+              className="scroll-mt-24 transition-shadow"
             >
               <LegacyAssignmentStepBlock
                 row={row}
