@@ -267,7 +267,7 @@ export default function AdminUsersClient() {
 
       <div className="grid lg:grid-cols-[minmax(0,280px)_1fr] gap-6 items-start">
         <div className="space-y-4">
-          <Card className="gap-1 border border-border/80 bg-card py-3 shadow-sm ring-1 ring-foreground/10 dark:border-white/10 dark:ring-foreground/8 border-l-4 border-l-brand-lime/55">
+          <Card className="gap-1 border border-border/80 bg-brand-lime/[0.05] py-3 shadow-sm ring-1 ring-foreground/10 dark:border-white/10 dark:ring-foreground/8 dark:bg-brand-lime/[0.10] border-l-4 border-l-brand-lime/55">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Building2
@@ -304,7 +304,7 @@ export default function AdminUsersClient() {
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <ScrollArea className="h-[min(680px,72vh)] rounded-md border border-border/60 dark:border-white/10">
+              <ScrollArea className="h-[min(680px,72vh)] rounded-md">
                 <ul className="p-0">
                   {(companies ?? []).map((c) => {
                     const count = memberCounts.get(c._id) ?? 0;
@@ -314,10 +314,11 @@ export default function AdminUsersClient() {
                         <div
                           data-active={active ? "true" : undefined}
                           className={cn(
-                            "group flex rounded-sm border transition-colors",
+                            "group flex rounded-sm border border-transparent transition-colors",
+                            "border-l-4",
                             active
-                              ? "border-transparent bg-brand-lime/16 ring-1 ring-inset ring-brand-lime/45 dark:bg-brand-lime/18 dark:ring-brand-lime/55"
-                              : "border-transparent hover:bg-muted/30",
+                              ? "border-l-brand-lime/80 bg-brand-lime/16 dark:border-l-brand-lime dark:bg-brand-lime/18"
+                              : "border-l-transparent hover:border-l-brand-lime/35 hover:bg-muted/30",
                           )}
                         >
                           <button

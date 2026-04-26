@@ -3,7 +3,6 @@
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -36,8 +35,8 @@ export default function AdminSettingsClient() {
   return (
     <div className="space-y-6">
       <div className="max-w-2xl">
-        <Card>
-          <CardHeader>
+        <Card className="gap-2 py-3">
+          <CardHeader className="gap-0.5 pb-0">
             <CardTitle className="flex items-center gap-2 text-lg">
               <UserCog
                 className="h-5 w-5 text-brand-gold"
@@ -45,15 +44,12 @@ export default function AdminSettingsClient() {
               />
               Your account
             </CardTitle>
-            <CardDescription>
-              Shown from your current browser session.
-            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-2 pt-2 text-sm">
             {isLoading ? (
               <p className="text-muted-foreground">Loading…</p>
             ) : user ? (
-              <dl className="space-y-2">
+              <dl className="space-y-1.5">
                 <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
                   <dt className="shrink-0 font-medium text-muted-foreground">
                     Name
