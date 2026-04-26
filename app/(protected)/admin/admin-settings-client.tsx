@@ -103,7 +103,7 @@ export default function AdminSettingsClient() {
                 <Label
                   id={navLabelId}
                   htmlFor={navSwitchId}
-                  className="text-sm font-medium text-foreground"
+                  className="text-base font-medium text-foreground"
                 >
                   Hide sidebar when changing page
                 </Label>

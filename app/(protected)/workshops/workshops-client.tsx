@@ -62,26 +62,27 @@ const WORKSHOP_SESSION_TILE_CONTENT = "flex flex-wrap gap-2 !pt-0 !pb-1";
 
 /**
  * Webinar cards / shells use the same 3-stop panel gradient as
- * `CERT_LIST_TIER_SECTION` on Certifications: `from-…/ via-muted/24 to-…/` + `shadow-sm shadow-…/15`.
+ * `CERT_LIST_TIER_SECTION` on Certifications: `from-…/ via-background/… to-…/` + `shadow-sm shadow-…/15`.
  * Open sessions = `brand-sky` (Silver tier) — not Tailwind `sky-500`.
+ * Each session `Card` uses a thicker, more saturated `border-s-4` (“inline start”) accent; other sides keep the soft `border-2` frame.
  */
 const WORKSHOP_SESSION_PURPLE_GRADIENT =
-  "border-2 border-purple-500/50 bg-gradient-to-br from-purple-500/[0.12] via-muted/24 to-purple-500/[0.08] ring-0 shadow-sm shadow-purple-500/15 dark:border-purple-500/40 dark:from-purple-500/[0.14] dark:via-muted/16 dark:to-purple-500/[0.10] dark:shadow-purple-500/10";
+  "border-2 border-s-4 border-s-purple-500/95 border-t-purple-500/50 border-e-purple-500/50 border-b-purple-500/50 bg-gradient-to-br from-purple-500/[0.19] via-background/58 to-purple-500/[0.13] ring-0 shadow-sm shadow-purple-500/17 dark:border-s-purple-400/95 dark:border-t-purple-500/45 dark:border-e-purple-500/45 dark:border-b-purple-500/45 dark:from-purple-500/[0.2] dark:via-background/15 dark:to-purple-500/[0.15] dark:shadow-purple-500/13";
 const WORKSHOP_SESSION_SKY_GRADIENT =
-  "border-2 border-brand-sky/50 bg-gradient-to-br from-brand-sky/[0.12] via-muted/24 to-brand-sky/[0.08] ring-0 shadow-sm shadow-brand-sky/15 dark:border-brand-sky/40 dark:from-brand-sky/[0.14] dark:via-muted/16 dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10";
+  "border-2 border-s-4 border-s-brand-sky/95 border-t-brand-sky/50 border-e-brand-sky/50 border-b-brand-sky/50 bg-gradient-to-br from-brand-sky/[0.19] via-background/58 to-brand-sky/[0.13] ring-0 shadow-sm shadow-brand-sky/17 dark:border-s-brand-sky/90 dark:border-t-brand-sky/45 dark:border-e-brand-sky/45 dark:border-b-brand-sky/45 dark:from-brand-sky/[0.2] dark:via-background/15 dark:to-brand-sky/[0.15] dark:shadow-brand-sky/13";
 const WORKSHOP_SESSION_SLATE_GRADIENT =
-  "border-2 border-slate-500/50 bg-gradient-to-br from-slate-500/[0.12] via-muted/24 to-slate-500/[0.08] ring-0 shadow-sm shadow-slate-400/20 dark:border-slate-500/40 dark:from-slate-500/[0.14] dark:via-muted/16 dark:to-slate-500/[0.10] dark:shadow-slate-500/12";
+  "border-2 border-s-4 border-s-slate-500/90 border-t-slate-500/45 border-e-slate-500/45 border-b-slate-500/45 bg-gradient-to-br from-slate-500/[0.1] via-background/48 to-slate-500/[0.07] ring-0 shadow-sm shadow-slate-400/16 dark:border-s-slate-400/90 dark:border-t-slate-500/35 dark:border-e-slate-500/35 dark:border-b-slate-500/35 dark:from-slate-500/[0.12] dark:via-background/12 dark:to-slate-500/[0.08] dark:shadow-slate-500/10";
 
 /** List section shells — flat wash + frame only (gradients stay on session {@link Card}s). */
 const WORKSHOP_SECTION_REGISTERED =
-  "border-2 border-purple-500/45 bg-purple-500/[0.08] shadow-sm dark:border-purple-400/40 dark:bg-purple-500/[0.11]";
+  "border-2 border-purple-500/45 bg-purple-500/[0.09] shadow-sm dark:border-purple-400/40 dark:bg-purple-500/[0.12]";
 const WORKSHOP_SECTION_OPEN =
-  "border-2 border-dashed border-sky-500/45 bg-sky-500/[0.06] shadow-sm dark:border-sky-400/40 dark:bg-sky-500/[0.1]";
+  "border-2 border-dashed border-sky-500/45 bg-sky-500/[0.09] shadow-sm dark:border-sky-400/40 dark:bg-sky-500/[0.12]";
 const WORKSHOP_SECTION_CLOSED =
-  "border-2 border-slate-400/40 bg-slate-500/[0.06] shadow-sm dark:border-slate-500/40 dark:bg-slate-500/[0.1]";
+  "border-2 border-slate-400/35 bg-slate-500/[0.05] shadow-sm dark:border-slate-500/35 dark:bg-slate-500/[0.08]";
 
 const WORKSHOP_FILTER_BANNER =
-  "border border-purple-500/35 bg-gradient-to-br from-purple-500/[0.08] via-muted/24 to-purple-500/[0.05] shadow-sm dark:border-purple-400/30 dark:from-purple-500/[0.1] dark:via-muted/16 dark:to-purple-500/[0.07]";
+  "border border-purple-500/30 bg-gradient-to-br from-purple-500/[0.07] via-background/44 to-purple-500/[0.04] shadow-sm dark:border-purple-400/25 dark:from-purple-500/[0.08] dark:via-background/10 dark:to-purple-500/[0.06]";
 
 const WEEK_STARTS_ON = 1 as const;
 
@@ -588,7 +589,7 @@ function RegisteredCertPathWorkshopCard({
       className={cn(
         WORKSHOP_SESSION_TILE_CARD,
         WORKSHOP_SESSION_PURPLE_GRADIENT,
-        past && "border-dashed opacity-80",
+        past && "border-dashed opacity-80 [border-inline-start-style:solid]",
       )}
     >
       <CardHeader className={cn("gap-0.5", WORKSHOP_SESSION_TILE_HEADER)}>
