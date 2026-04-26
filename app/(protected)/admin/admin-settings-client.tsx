@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AdminAuthModePanel } from "@/components/admin-auth-mode-panel";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { UserCog } from "lucide-react";
 import { useSessionUser } from "@/lib/use-session-user";
@@ -86,6 +87,8 @@ export default function AdminSettingsClient() {
       </div>
 
       <NotificationSettingsPanel showIntro={false} />
+
+      <AdminAuthModePanel />
     </div>
   );
 }

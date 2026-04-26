@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { AUTH_COOKIE, sessionCookieOptions } from "@/lib/auth-cookie";
 import { convexCloudUrlMisconfigurationMessage } from "@/lib/convex-deployment-url";
 import { formatConvexHttpFailure } from "@/lib/convex-http-failure-format";
+import { getEffectiveAuthModeForEdge } from "@/lib/auth-mode";
 import { signPasswordSessionCookie } from "@/lib/password-session";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   const convex = new ConvexHttpClient(convexUrl);
 
   try {
-    await convex.action(api.auth.register, {
+    await convex.action(api.passwordAuthActions.register, {
       email: body.email.trim(),
       password: body.password,
       name: body.name.trim(),
@@ -65,9 +66,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let user: FunctionReturnType<typeof api.auth.login>;
+  const cookieStore = await cookies();
+  const authMode = getEffectiveAuthModeForEdge({
+    getCookie: (name) => cookieStore.get(name)?.value,
+  });
+
+  let user: FunctionReturnType<typeof api.passwordAuthActions.login>;
   try {
-    user = await convex.action(api.auth.login, {
+    user = await convex.action(api.passwordAuthActions.login, {
       email: body.email.trim(),
       password: body.password,
     });
@@ -106,6 +112,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  try {
+    await convex.mutation(api.users.recordLoginDev, {
+      userId: user.userId as Id<"users">,
+    });
+  } catch {
+    /* optional */
+  }
+
+  if (authMode === "convex") {
+    return NextResponse.json({ ...jsonBody, auth: "convex" as const });
+  }
+
   let token: string;
   try {
     token = signPasswordSessionCookie({
@@ -128,15 +146,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    await convex.mutation(api.users.recordLoginDev, {
-      userId: user.userId as Id<"users">,
-    });
-  } catch {
-    /* optional */
-  }
-
-  try {
-    const cookieStore = await cookies();
     cookieStore.set(AUTH_COOKIE, token, sessionCookieOptions());
   } catch (e) {
     const message =

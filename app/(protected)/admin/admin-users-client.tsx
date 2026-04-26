@@ -64,8 +64,8 @@ export default function AdminUsersClient() {
   const removeCompany = useMutation(api.companies.remove);
   const adminUpdateUserProfile = useMutation(api.users.adminUpdateProfile);
   const adminDeleteUser = useMutation(api.users.adminDelete);
-  const adminSetPassword = useAction(api.auth.adminSetPassword);
-  const adminCreateUser = useAction(api.auth.adminCreateUser);
+  const adminSetPassword = useAction(api.passwordAuthActions.adminSetPassword);
+  const adminCreateUser = useAction(api.passwordAuthActions.adminCreateUser);
   const [selectedCompanyId, setSelectedCompanyId] =
     useState<Id<"companies"> | null>(null);
   const [companyName, setCompanyName] = useState("");

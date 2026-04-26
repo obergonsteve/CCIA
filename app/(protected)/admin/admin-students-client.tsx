@@ -36,7 +36,7 @@ export default function AdminStudentsClient() {
   const { user: sessionUser } = useSessionUser();
   const students = useQuery(api.users.listWithoutCompany);
   const certLevels = useQuery(api.certifications.listAllAdmin);
-  const adminCreateUser = useAction(api.auth.adminCreateUser);
+  const adminCreateUser = useAction(api.passwordAuthActions.adminCreateUser);
   const adminDeleteUser = useMutation(api.users.adminDelete);
   const adminSetEntitlements = useMutation(
     api.users.adminSetStudentCertificationEntitlements,

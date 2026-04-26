@@ -38,9 +38,9 @@ export async function POST(request: Request) {
   }
 
   const convex = new ConvexHttpClient(convexUrl);
-  let user: FunctionReturnType<typeof api.auth.login>;
+  let user: FunctionReturnType<typeof api.passwordAuthActions.login>;
   try {
-    user = await convex.action(api.auth.login, {
+    user = await convex.action(api.passwordAuthActions.login, {
       email: body.email.trim().toLowerCase(),
       password: body.password,
     });

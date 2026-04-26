@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuthModeContext } from "@/components/auth-mode-context";
 import { api } from "@/convex/_generated/api";
 import { NotificationStack } from "@/components/notification-stack";
 import { PinnedInAppNotices } from "@/components/pinned-in-app-notices";
@@ -61,6 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const { setTheme, resolvedTheme } = useTheme();
   const { user: sessionUser } = useSessionUser();
+  const authMode = useAuthModeContext();
   const certificationLevels = useQuery(api.certifications.listForUser);
 
   const isWorkshopSimShell = pathname.startsWith("/workshop-sim");
@@ -89,7 +91,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       : null;
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    if (authMode === "convex") {
+      await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "auth:signOut", args: {} }),
+      });
+    } else {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    }
     router.push("/login");
     router.refresh();
   }
@@ -226,13 +237,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </nav>
       </ScrollArea>
-      <div className="shrink-0 space-y-0.5 border-t border-white/10 px-2 py-1.5">
+      <div className="shrink-0 space-y-0 border-t border-white/10 px-2 pt-0.5 pb-1.5">
         {sessionUser ? <SidebarUserBlock sessionUser={sessionUser} /> : null}
         <Button
           variant="ghost"
           size="sm"
           className={cn(
-            "w-full justify-start font-normal",
+            "h-8 w-full justify-start text-sm font-normal",
             "text-sidebar-foreground/55 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground/92",
             "focus-visible:border-sidebar-border focus-visible:ring-sidebar-ring/40 focus-visible:ring-offset-0",
           )}

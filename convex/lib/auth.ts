@@ -1,6 +1,9 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { getEffectiveAuthModeInConvex } from "./authMode";
 import { isLive } from "./softDelete";
 import {
   canStudentStartCertification,
@@ -8,11 +11,11 @@ import {
 } from "./studentEntitlements";
 
 /**
- * Convex “acting user” for browser queries (no Convex Auth JWT in this app).
+ * Legacy deployment fallback (when `appSettings` / `AUTH_STRATEGY` is `legacy`).
  * 1) `CONVEX_DEV_USER_ID` on the deployment if set (must be an existing `users` id).
  * 2) Else exactly one `users` row with email `steve.moore@ccia-landlease.com` (see `seed.ts`).
  *
- * Note: `.unique()` on `by_email` throws if there are 0 or 2+ matches — that surfaced as a
+ * Note: `.unique()` on the `email` index throws if there are 0 or 2+ matches — that surfaced as a
  * generic client “Server Error”. We use `.collect()` and explicit errors instead.
  */
 const FALLBACK_ADMIN_EMAIL = "steve.moore@ccia-landlease.com";
@@ -42,7 +45,7 @@ export async function resolveDeploymentUserId(
   const email = FALLBACK_ADMIN_EMAIL.toLowerCase();
   const candidates = await ctx.db
     .query("users")
-    .withIndex("by_email", (q) => q.eq("email", email))
+    .withIndex("email", (q) => q.eq("email", email))
     .collect();
 
   if (candidates.length === 0) {
@@ -63,6 +66,15 @@ export async function resolveDeploymentUserId(
 export async function requireUserId(
   ctx: QueryCtx | MutationCtx,
 ): Promise<Id<"users">> {
+  const row = await ctx.runQuery(internal.appSettings.getAppSettingsRow, {});
+  const mode = await getEffectiveAuthModeInConvex(ctx, row);
+  if (mode === "convex") {
+    const id = await getAuthUserId(ctx);
+    if (id === null) {
+      throw new ConvexError("Unauthorized");
+    }
+    return id;
+  }
   return resolveDeploymentUserId(ctx);
 }
 

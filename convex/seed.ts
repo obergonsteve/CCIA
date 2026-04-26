@@ -191,7 +191,7 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
     const email = a.email.toLowerCase().trim();
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .unique();
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -218,7 +218,7 @@ async function runSeedCommunityOperatorsAndAdmins(ctx: MutationCtx) {
     const email = a.email.toLowerCase().trim();
     const row = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .unique();
     if (row) {
       adminUserIds[email] = row._id;
@@ -647,7 +647,7 @@ async function runSeedStudentsWithCertEntitlements(
     const email = spec.email.toLowerCase().trim();
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .unique();
     if (existing && existing.companyId != null) {
       details.push({
@@ -719,7 +719,7 @@ async function runSeedMemberDemoUsers(
     const email = spec.email.toLowerCase().trim();
     const existing = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .unique();
     if (existing && existing.accountType === "student") {
       details.push({
@@ -766,7 +766,7 @@ async function runSeedMemberDemoUsers(
     }
     const u = (await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .unique())!;
     if (spec.touchFirstUnits) {
       const levelId = levelIdByCourseName.get(
@@ -811,7 +811,7 @@ async function runSeedMemberDemoUsers(
     for (const e of toRegister) {
       const u = await ctx.db
         .query("users")
-        .withIndex("by_email", (q) => q.eq("email", e.toLowerCase().trim()))
+        .withIndex("email", (q) => q.eq("email", e.toLowerCase().trim()))
         .unique();
       if (!u) {
         continue;

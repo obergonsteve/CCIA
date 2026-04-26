@@ -60,14 +60,24 @@ function useCookieConvexAuth() {
   };
 }
 
-export function ConvexClientProvider({ children }: { children: ReactNode }) {
+export function ConvexClientProvider({
+  children,
+  clientOverride,
+}: {
+  children: ReactNode;
+  /** When set (e.g. from [AppConvexProviders]), reuse the same client instance as a sibling mode branch. */
+  clientOverride?: ConvexReactClient;
+}) {
   const client = useMemo(() => {
+    if (clientOverride) {
+      return clientOverride;
+    }
     const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
     if (!url) {
       return null;
     }
     return new ConvexReactClient(url);
-  }, []);
+  }, [clientOverride]);
 
   // Avoid `new ConvexReactClient()` at module scope: `next build` prerenders
   // routes (e.g. /_not-found) where CI may not inject NEXT_PUBLIC_* yet.

@@ -1,6 +1,14 @@
 import type { AuthConfig } from "convex/server";
 
-/** No Convex Auth / OIDC; identity for queries comes from `convex/lib/auth.ts` fallback. */
+/**
+ * JWT verification for Convex Auth (`@convex-dev/auth`).
+ * Set `JWT_PRIVATE_KEY`, `JWKS`, and `CONVEX_SITE_URL` on the deployment (see labs manual setup).
+ */
 export default {
-  providers: [],
+  providers: [
+    {
+      domain: process.env.CONVEX_SITE_URL ?? "",
+      applicationID: "convex",
+    },
+  ],
 } satisfies AuthConfig;

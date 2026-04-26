@@ -1,6 +1,8 @@
 "use client";
 
+import { useAuthModeContext } from "@/components/auth-mode-context";
 import { api } from "@/convex/_generated/api";
+import { signInWithConvexPassword } from "@/lib/convex-auth-sign-in-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "convex/react";
 import { useState } from "react";
@@ -40,6 +42,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 export function RegisterForm() {
+  const authMode = useAuthModeContext();
   const companies = useQuery(api.companies.listForRegister);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +79,20 @@ export function RegisterForm() {
     if (!res.ok) {
       setError(data.error ?? "Registration failed");
       return;
+    }
+    const reg = data as { auth?: string };
+    if (authMode === "convex" || reg.auth === "convex") {
+      const signIn = await signInWithConvexPassword(
+        values.email,
+        values.password,
+      );
+      if (!signIn.ok) {
+        setError(
+          signIn.error +
+            " — Account was created. Try signing in from the login page.",
+        );
+        return;
+      }
     }
     window.location.assign("/dashboard");
   }

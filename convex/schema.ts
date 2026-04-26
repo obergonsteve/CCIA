@@ -1,7 +1,16 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
+
+const { users: _authUsersDefault, ...convexAuthTables } = authTables;
 
 export default defineSchema({
+  ...convexAuthTables,
+  appSettings: defineTable({
+    authMode: v.union(v.literal("legacy"), v.literal("convex")),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }),
   companies: defineTable({
     name: v.string(),
     logoUrl: v.optional(v.string()),
@@ -26,7 +35,17 @@ export default defineSchema({
     timezone: v.optional(v.string()),
   }).index("by_name", ["name"]),
 
+  /**
+   * App profile + Convex Auth (extends https://labs.convex.dev/auth/setup/schema).
+   * `image` / `email` optional fields match auth’s default `users` shape; we keep
+   * `email` + `name` + `passwordHash` required for this app.
+   */
   users: defineTable({
+    image: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
     email: v.string(),
     name: v.string(),
     passwordHash: v.string(),
@@ -79,7 +98,8 @@ export default defineSchema({
       v.array(v.id("userNotifications")),
     ),
   })
-    .index("by_email", ["email"])
+    .index("email", ["email"])
+    .index("phone", ["phone"])
     .index("by_company", ["companyId"])
     .index("by_account_type", ["accountType"]),
 

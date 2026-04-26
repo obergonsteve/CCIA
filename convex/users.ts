@@ -53,7 +53,7 @@ export const getByEmailInternal = internalQuery({
     const key = email.toLowerCase().trim();
     const rows = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", key))
+      .withIndex("email", (q) => q.eq("email", key))
       .collect();
     if (rows.length === 0) {
       return null;
@@ -117,7 +117,14 @@ export const me = query({
     /* omit passwordHash from client-facing payload */
     const { passwordHash: _omitPw, ...safe } = user;
     void _omitPw;
-    return safe;
+    const company = user.companyId
+      ? await ctx.db.get(user.companyId)
+      : null;
+    const companyTimezone =
+      company?.timezone && typeof company.timezone === "string"
+        ? company.timezone.trim() || undefined
+        : undefined;
+    return { ...safe, companyTimezone };
   },
 });
 
@@ -363,7 +370,7 @@ export const adminUpdateProfile = mutation({
     if (email !== row.email) {
       const clash = await ctx.db
         .query("users")
-        .withIndex("by_email", (q) => q.eq("email", email))
+        .withIndex("email", (q) => q.eq("email", email))
         .unique();
       if (clash && clash._id !== args.userId) {
         throw new Error("Another user already uses that email");

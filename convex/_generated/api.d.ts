@@ -10,6 +10,7 @@
 
 import type * as adminDeleted from "../adminDeleted.js";
 import type * as adminStats from "../adminStats.js";
+import type * as appSettings from "../appSettings.js";
 import type * as assignments from "../assignments.js";
 import type * as auth from "../auth.js";
 import type * as authMutations from "../authMutations.js";
@@ -24,6 +25,7 @@ import type * as curriculumSeedData from "../curriculumSeedData.js";
 import type * as entityCodesAdmin from "../entityCodesAdmin.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_authMode from "../lib/authMode.js";
 import type * as lib_certTier from "../lib/certTier.js";
 import type * as lib_entityCodes from "../lib/entityCodes.js";
 import type * as lib_httpCookies from "../lib/httpCookies.js";
@@ -40,6 +42,7 @@ import type * as lib_workshopSyncLog from "../lib/workshopSyncLog.js";
 import type * as lib_workshopTeamsSimulation from "../lib/workshopTeamsSimulation.js";
 import type * as lib_workshopUnitLevels from "../lib/workshopUnitLevels.js";
 import type * as migrateLegacyCategories from "../migrateLegacyCategories.js";
+import type * as passwordAuthActions from "../passwordAuthActions.js";
 import type * as prerequisites from "../prerequisites.js";
 import type * as progress from "../progress.js";
 import type * as seed from "../seed.js";
@@ -68,6 +71,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   adminDeleted: typeof adminDeleted;
   adminStats: typeof adminStats;
+  appSettings: typeof appSettings;
   assignments: typeof assignments;
   auth: typeof auth;
   authMutations: typeof authMutations;
@@ -82,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   entityCodesAdmin: typeof entityCodesAdmin;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/authMode": typeof lib_authMode;
   "lib/certTier": typeof lib_certTier;
   "lib/entityCodes": typeof lib_entityCodes;
   "lib/httpCookies": typeof lib_httpCookies;
@@ -98,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "lib/workshopTeamsSimulation": typeof lib_workshopTeamsSimulation;
   "lib/workshopUnitLevels": typeof lib_workshopUnitLevels;
   migrateLegacyCategories: typeof migrateLegacyCategories;
+  passwordAuthActions: typeof passwordAuthActions;
   prerequisites: typeof prerequisites;
   progress: typeof progress;
   seed: typeof seed;

@@ -1,10 +1,12 @@
 import { httpRouter } from "convex/server";
+import { auth } from "./auth";
 
 /**
- * §4 — Convex HTTP surface (extend with routes as needed).
- * Browser sessions use a signed httpOnly cookie from Next.js (see `lib/password-session.ts`).
+ * Convex HTTP: JWT/OAuth routes for Convex Auth + existing cookie helpers.
  */
 const http = httpRouter();
+
+auth.addHttpRoutes(http);
 
 export default http;
 

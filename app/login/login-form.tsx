@@ -24,10 +24,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useAuthModeContext } from "@/components/auth-mode-context";
 import {
   AUTH_INPUT,
   AUTH_INPUT_PASSWORD,
 } from "@/lib/auth-page-field-classes";
+import { signInWithConvexPassword } from "@/lib/convex-auth-sign-in-client";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
@@ -128,6 +130,7 @@ function buildSignInProblemReport(parts: {
 }
 
 export function LoginForm() {
+  const authMode = useAuthModeContext();
   const [showPassword, setShowPassword] = useState(false);
   const [signInProblemOpen, setSignInProblemOpen] = useState(false);
   const [signInProblemReport, setSignInProblemReport] = useState<
@@ -164,6 +167,46 @@ export function LoginForm() {
   async function onSubmit(values: Values) {
     setSignInProblemOpen(false);
     setSignInProblemReport(null);
+
+    if (authMode === "convex") {
+      try {
+        const result = await signInWithConvexPassword(
+          values.email,
+          values.password,
+        );
+        if (!result.ok) {
+          setSignInProblemReport(
+            buildSignInProblemReport({
+              headline: result.error || "Sign in failed",
+            }),
+          );
+          setSignInProblemOpen(true);
+          return;
+        }
+        try {
+          if (values.rememberMe) {
+            localStorage.setItem(
+              REMEMBERED_LOGIN_EMAIL_KEY,
+              values.email.trim().toLowerCase(),
+            );
+          } else {
+            localStorage.removeItem(REMEMBERED_LOGIN_EMAIL_KEY);
+          }
+        } catch {
+          /* ignore */
+        }
+        window.location.assign(safeNextFromSearch(window.location.search));
+      } catch (thrown) {
+        setSignInProblemReport(
+          buildSignInProblemReport({
+            headline: "Unexpected error during Convex Auth sign-in",
+            thrown,
+          }),
+        );
+        setSignInProblemOpen(true);
+      }
+      return;
+    }
 
     try {
       let res: Response;

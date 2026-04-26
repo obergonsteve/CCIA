@@ -1,5 +1,8 @@
-import { ConvexClientProvider } from "@/components/convex-provider";
+import { AppConvexProviders } from "@/components/app-convex-providers";
 import { ThemeProvider } from "@/components/theme-provider";
+import { getEffectiveAuthModeForEdge } from "@/lib/auth-mode";
+import { cookies } from "next/headers";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { Toaster } from "@/components/ui/sonner";
 import {
   SITE_APP_NAME,
@@ -42,7 +45,19 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies();
+  const authMode = getEffectiveAuthModeForEdge({
+    getCookie: (name) => cookieStore.get(name)?.value,
+  });
+
+  const appTree = (
+    <ThemeProvider>
+      <AppConvexProviders authMode={authMode}>{children}</AppConvexProviders>
+      <Toaster richColors position="top-center" />
+    </ThemeProvider>
+  );
+
   return (
     <html
       lang="en-AU"
@@ -73,10 +88,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="font-sans antialiased min-h-svh">
-        <ThemeProvider>
-          <ConvexClientProvider>{children}</ConvexClientProvider>
-          <Toaster richColors position="top-center" />
-        </ThemeProvider>
+        {authMode === "convex" ? (
+          <ConvexAuthNextjsServerProvider>{appTree}</ConvexAuthNextjsServerProvider>
+        ) : (
+          appTree
+        )}
       </body>
     </html>
   );
