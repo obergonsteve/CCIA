@@ -276,7 +276,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header
           id="ccia-app-header"
-          className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-border bg-card py-1 pl-3 pr-4 text-card-foreground sm:pl-4 sm:pr-6 dark:border-white/10 dark:bg-white/[0.07] dark:text-foreground"
+          className="relative z-40 flex min-h-[72px] shrink-0 items-center gap-2 border-b border-sky-200/55 bg-[color-mix(in_srgb,theme('colors.sky.50')_50%,theme('colors.sky.100')_50%)] py-1 pl-3 pr-4 text-foreground sm:pl-4 sm:pr-6 dark:border-sky-400/28 dark:bg-[color-mix(in_srgb,theme('colors.sky.800')_50%,theme('colors.sky.900')_50%)] dark:text-foreground"
         >
           <div
             className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-brand-lime via-brand-gold to-brand-sky"
