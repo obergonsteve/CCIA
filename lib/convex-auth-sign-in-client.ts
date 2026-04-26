@@ -38,6 +38,16 @@ export async function signInWithConvexPassword(
   if (data.error) {
     return { ok: false, error: data.error };
   }
+  try {
+    await fetch("/api/auth/mode-cookie", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ authMode: "convex" }),
+    });
+  } catch {
+    /* best-effort cookie sync for proxy/layout mode selection */
+  }
   if (data.tokens?.token) {
     const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
     if (url) {

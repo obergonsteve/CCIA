@@ -1,8 +1,10 @@
 import { AppConvexProviders } from "@/components/app-convex-providers";
 import { ThemeProvider } from "@/components/theme-provider";
-import { getEffectiveAuthModeForEdge } from "@/lib/auth-mode";
+import { authStrategyFromProcessEnv, getEffectiveAuthModeForEdge } from "@/lib/auth-mode";
 import { cookies } from "next/headers";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
 import { Toaster } from "@/components/ui/sonner";
 import {
   SITE_APP_NAME,
@@ -45,11 +47,33 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const cookieStore = await cookies();
-  const authMode = getEffectiveAuthModeForEdge({
+async function resolveAuthModeForServer(
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+) {
+  const fromEnv = authStrategyFromProcessEnv();
+  if (fromEnv) {
+    return fromEnv;
+  }
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
+  if (convexUrl) {
+    try {
+      const client = new ConvexHttpClient(convexUrl);
+      const row = await client.query(api.appSettings.getAuthModeForUi, {});
+      if (row?.effectiveMode === "legacy" || row?.effectiveMode === "convex") {
+        return row.effectiveMode;
+      }
+    } catch {
+      // Fall back to cookie/default below.
+    }
+  }
+  return getEffectiveAuthModeForEdge({
     getCookie: (name) => cookieStore.get(name)?.value,
   });
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies();
+  const authMode = await resolveAuthModeForServer(cookieStore);
 
   const appTree = (
     <ThemeProvider>

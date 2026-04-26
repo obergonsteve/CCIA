@@ -59,6 +59,9 @@ function isProtectedPath(pathname: string) {
  * session cookie (same as before this change).
  */
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/api/auth") {
+    return convex(request, noopEvent);
+  }
   const mode = getEffectiveAuthModeForEdge({
     getCookie: (n) => request.cookies.get(n)?.value,
   });
