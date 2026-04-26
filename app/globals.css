@@ -62,9 +62,9 @@
   --brand-charcoal: #222222;
 
   /* Light “paper” — cards sit slightly above base for depth */
-  --background: oklch(0.955 0.018 98);
+  --background: oklch(0.985 0.014 98);
   --foreground: oklch(0.24 0.025 145);
-  --card: oklch(0.99 0.012 98);
+  --card: oklch(0.995 0.01 98);
   --card-foreground: oklch(0.24 0.025 145);
   --popover: oklch(0.99 0.012 98);
   --popover-foreground: oklch(0.24 0.025 145);
@@ -101,11 +101,11 @@
 }
 
 .dark {
-  --background: oklch(0.22 0.022 255);
+  --background: oklch(0.3 0.021 255);
   --foreground: oklch(0.96 0.012 95);
-  --card: oklch(0.27 0.024 255);
+  --card: oklch(0.33 0.022 255);
   --card-foreground: oklch(0.96 0.012 95);
-  --popover: oklch(0.27 0.024 255);
+  --popover: oklch(0.33 0.022 255);
   --popover-foreground: oklch(0.96 0.012 95);
   --primary: oklch(0.68 0.1 240);
   --primary-foreground: oklch(0.98 0.01 240);
@@ -143,17 +143,17 @@
     background-image:
       radial-gradient(
         ellipse 120% 80% at 0% -20%,
-        oklch(0.72 0.09 125 / 0.07),
+        oklch(0.72 0.09 125 / 0.04),
         transparent 55%
       ),
       radial-gradient(
         ellipse 100% 70% at 100% 0%,
-        oklch(0.58 0.1 240 / 0.06),
+        oklch(0.58 0.1 240 / 0.03),
         transparent 50%
       ),
       radial-gradient(
         ellipse 80% 50% at 50% 100%,
-        oklch(0.55 0.09 30 / 0.05),
+        oklch(0.55 0.09 30 / 0.025),
         transparent 45%
       );
   }
@@ -161,17 +161,17 @@
     background-image:
       radial-gradient(
         ellipse 110% 70% at 0% 0%,
-        oklch(0.58 0.09 125 / 0.12),
+        oklch(0.58 0.09 125 / 0.08),
         transparent 55%
       ),
       radial-gradient(
         ellipse 90% 60% at 100% 20%,
-        oklch(0.52 0.09 240 / 0.1),
+        oklch(0.52 0.09 240 / 0.06),
         transparent 50%
       ),
       radial-gradient(
         ellipse 70% 45% at 50% 100%,
-        oklch(0.5 0.08 30 / 0.09),
+        oklch(0.5 0.08 30 / 0.055),
         transparent 45%
       );
   }
