@@ -88,7 +88,9 @@ export default function AdminSettingsClient() {
 
       <NotificationSettingsPanel showIntro={false} />
 
-      <AdminAuthModePanel />
+      <div className="max-w-2xl">
+        <AdminAuthModePanel />
+      </div>
     </div>
   );
 }
