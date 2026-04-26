@@ -68,6 +68,8 @@ type SendInAppNoticeDialogProps = {
   targetUserId?: Id<"users">;
   /** e.g. name and email, shown in the “Who receives it” line. */
   targetUserSummary?: string;
+  /** Learner (non-admin): only a personal note to the signed-in user; pass with `targetUserId` = self. */
+  selfNoteToCurrentUser?: boolean;
 };
 
 export function SendInAppNoticeDialog({
@@ -79,6 +81,7 @@ export function SendInAppNoticeDialog({
   initialAudience = "all",
   targetUserId,
   targetUserSummary,
+  selfNoteToCurrentUser = false,
 }: SendInAppNoticeDialogProps) {
   const { user: sessionUser } = useSessionUser();
   const companies = useQuery(api.companies.list, open ? {} : "skip");
@@ -182,6 +185,10 @@ export function SendInAppNoticeDialog({
         : "Selected company only";
 
   const singleUserTarget = targetUserId != null;
+  const isSelfNoteSend =
+    selfNoteToCurrentUser &&
+    singleUserTarget &&
+    sessionUser?.userId === targetUserId;
   /** Students admin “Send in-app note”: one picker (all students vs one) — no global audience row. */
   const studentNotesOnly = initialAudience === "students" && !singleUserTarget;
 
@@ -413,8 +420,15 @@ export function SendInAppNoticeDialog({
         )}
       >
         <DialogHeader className="shrink-0 space-y-0 border-b border-border/50 px-4 pb-3 pt-4 pr-12 text-left sm:text-left">
-          <DialogTitle className="text-lg text-red-700 dark:text-red-400">
-            Send in-app note
+          <DialogTitle
+            className={cn(
+              "text-lg",
+              isSelfNoteSend
+                ? "text-emerald-800 dark:text-emerald-200"
+                : "text-red-700 dark:text-red-400",
+            )}
+          >
+            {isSelfNoteSend ? "Note to yourself" : "Send in-app note"}
           </DialogTitle>
         </DialogHeader>
         <div
@@ -430,10 +444,18 @@ export function SendInAppNoticeDialog({
                 className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm text-foreground"
                 id="inapp-single-user-summary"
               >
-                <span className="font-medium text-muted-foreground">
-                  This person only:{" "}
-                </span>
-                {targetUserSummary?.trim() || "Selected user"}
+                {isSelfNoteSend ? (
+                  <span className="font-medium text-muted-foreground">
+                    Yourself only
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-medium text-muted-foreground">
+                      This person only:{" "}
+                    </span>
+                    {targetUserSummary?.trim() || "Selected user"}
+                  </>
+                )}
               </p>
             </div>
           ) : (
@@ -932,14 +954,25 @@ export function SendInAppNoticeDialog({
           </Button>
           <Button
             type="button"
-            className="bg-brand-sky text-white hover:bg-brand-sky/90"
+            variant={isSelfNoteSend ? "limeInverse" : "default"}
+            className={
+              isSelfNoteSend
+                ? "shadow-sm"
+                : "bg-brand-sky text-white hover:bg-brand-sky/90"
+            }
             onClick={async () => {
               if (!sessionUser?.userId) {
                 toast.error("Not signed in.");
                 return;
               }
-              if (sessionUser.role !== "admin") {
+              if (sessionUser.role !== "admin" && !isSelfNoteSend) {
                 toast.error("Admins only.");
+                return;
+              }
+              if (isSelfNoteSend && !preset) {
+                toast.error(
+                  "A certification or unit link is required for a personal note.",
+                );
                 return;
               }
               const t = inAppTitle.trim();
@@ -1099,7 +1132,11 @@ export function SendInAppNoticeDialog({
                   "status" in r
                 ) {
                   if (r.status === "created") {
-                    toast.success("Note sent to that user.");
+                    toast.success(
+                      isSelfNoteSend
+                        ? "Note added for you."
+                        : "Note sent to that user.",
+                    );
                   } else if (r.status === "skipped_dismissed") {
                     toast.message(
                       "A previous note for this person was dismissed; this send was skipped. Try again with a new title or wait for the system to allow a new note.",
@@ -1176,7 +1213,7 @@ export function SendInAppNoticeDialog({
               }
             }}
           >
-            Send
+            {isSelfNoteSend ? "Add note" : "Send"}
           </Button>
         </DialogFooter>
       </DialogContent>

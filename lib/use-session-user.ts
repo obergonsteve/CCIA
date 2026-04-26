@@ -1,9 +1,10 @@
 "use client";
 
 import { useAuthModeContext } from "@/components/auth-mode-context";
+import { useAdminTestMode } from "@/lib/admin-test-mode-context";
 import { api } from "@/convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type SessionUser = {
   userId: string;
@@ -25,7 +26,10 @@ export type SessionUser = {
 export function useSessionUser(): {
   user: SessionUser | null;
   isLoading: boolean;
+  /** Role from the session before “Disable admin” UI test override; use for the switch and exit banner. */
+  actualRole: SessionUser["role"] | null;
 } {
+  const { disableAdmin } = useAdminTestMode();
   const authMode = useAuthModeContext();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(
@@ -34,7 +38,7 @@ export function useSessionUser(): {
       ? {}
       : "skip",
   );
-  const [user, setUser] = useState<SessionUser | null>(null);
+  const [rawUser, setRawUser] = useState<SessionUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const legacy = authMode === "legacy";
@@ -47,7 +51,7 @@ export function useSessionUser(): {
         return;
       }
       if (!isAuthenticated) {
-        setUser(null);
+        setRawUser(null);
         setIsLoading(false);
         return;
       }
@@ -56,11 +60,11 @@ export function useSessionUser(): {
         return;
       }
       if (me === null) {
-        setUser(null);
+        setRawUser(null);
         setIsLoading(false);
         return;
       }
-      setUser({
+      setRawUser({
         userId: me._id,
         email: me.email,
         name: me.name,
@@ -83,11 +87,11 @@ export function useSessionUser(): {
         const res = await fetch("/api/auth/session", { credentials: "include" });
         const data = (await res.json()) as { user: SessionUser | null };
         if (!cancel) {
-          setUser(data.user);
+          setRawUser(data.user);
         }
       } catch {
         if (!cancel) {
-          setUser(null);
+          setRawUser(null);
         }
       } finally {
         if (!cancel) {
@@ -100,5 +104,19 @@ export function useSessionUser(): {
     };
   }, [legacy]);
 
-  return { user, isLoading };
+  const user = useMemo((): SessionUser | null => {
+    if (rawUser == null) {
+      return null;
+    }
+    if (rawUser.role === "admin" && disableAdmin) {
+      return { ...rawUser, role: "operator" };
+    }
+    return rawUser;
+  }, [rawUser, disableAdmin]);
+
+  return {
+    user,
+    isLoading,
+    actualRole: rawUser?.role ?? null,
+  };
 }

@@ -7,9 +7,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useSessionUser } from "@/lib/use-session-user";
 import { Bell } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   SendInAppNoticeDialog,
   type SendInAppNoticePreset,
@@ -51,6 +53,11 @@ type TextButtonProps = {
   initialAudience?: "all" | "company" | "students";
   label?: string;
   className?: string;
+  /**
+   * Learner: label “Note to self”, green button, in-app note only to the signed-in
+   * user. Requires a page `preset` (cert or unit) so the link target is set.
+   */
+  selfNote?: boolean;
 };
 
 /**
@@ -65,19 +72,33 @@ export function SendInAppNoticeTextButton({
   initialAudience = "all",
   label = "Send in-app note…",
   className,
+  selfNote = false,
 }: TextButtonProps) {
+  const { user: sessionUser } = useSessionUser();
   const [open, setOpen] = useState(false);
+  const selfUserId = sessionUser?.userId as Id<"users"> | undefined;
   return (
     <>
       <Button
         type="button"
-        variant="ruby"
+        variant={selfNote ? "limeInverse" : "ruby"}
         size="sm"
         className={cn("gap-2 shadow-md", className)}
-        onClick={() => setOpen(true)}
+        disabled={selfNote && !selfUserId}
+        onClick={() => {
+          if (selfNote && !selfUserId) {
+            toast.error("Sign in to add a personal note.");
+            return;
+          }
+          if (selfNote && !preset) {
+            toast.error("A page link is required for a personal note.");
+            return;
+          }
+          setOpen(true);
+        }}
       >
         <Bell className="h-4 w-4" aria-hidden />
-        {label}
+        {selfNote ? "Note to self" : label}
       </Button>
       <SendInAppNoticeDialog
         open={open}
@@ -86,6 +107,16 @@ export function SendInAppNoticeTextButton({
         presetSummary={presetSummary}
         defaultCompanyId={defaultCompanyId}
         initialAudience={initialAudience}
+        targetUserId={selfNote ? selfUserId : undefined}
+        targetUserSummary={
+          selfNote && sessionUser
+            ? [sessionUser.name, sessionUser.email]
+                .map((s) => s?.trim())
+                .filter(Boolean)
+                .join(" · ")
+            : undefined
+        }
+        selfNoteToCurrentUser={selfNote}
       />
     </>
   );

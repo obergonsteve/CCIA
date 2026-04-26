@@ -28,6 +28,7 @@ import {
 } from "@/lib/sidebar-nav";
 import { appPageGradientClass } from "@/lib/app-page-surface";
 import { getHideSidebarOnNavigate } from "@/lib/sidebar-on-nav-pref";
+import { useAdminTestMode } from "@/lib/admin-test-mode-context";
 import { SITE_APP_NAME, SITE_FOOTER_APP } from "@/lib/site-brand";
 import { useSessionUser, type SessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
@@ -62,7 +63,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setTheme, resolvedTheme } = useTheme();
-  const { user: sessionUser } = useSessionUser();
+  const { user: sessionUser, actualRole } = useSessionUser();
+  const { disableAdmin, setDisableAdmin } = useAdminTestMode();
   const authMode = useAuthModeContext();
   const certificationLevels = useQuery(api.certifications.listForUser);
 
@@ -407,6 +409,26 @@ export function AppShell({ children }: { children: ReactNode }) {
                   : "max-w-5xl",
             )}
           >
+            {actualRole === "admin" && disableAdmin ? (
+              <div
+                role="status"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/50 bg-amber-100/90 px-3 py-2 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-50"
+              >
+                <p className="m-0 min-w-0 font-medium leading-snug">
+                  Admin UI is off (testing as a non-admin). Server permissions
+                  are unchanged.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-amber-800/35 bg-background/90 text-amber-950 hover:bg-background dark:border-amber-400/35 dark:bg-amber-950/60 dark:text-amber-50 dark:hover:bg-amber-900/50"
+                  onClick={() => setDisableAdmin(false)}
+                >
+                  Restore admin UI
+                </Button>
+              </div>
+            ) : null}
             <PwaInstallPrompt />
             <OfflineTrainingBanner />
             {!isWorkshopSimShell ? (

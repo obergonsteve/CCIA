@@ -635,11 +635,19 @@ export default function UnitClient({
             >
               {isLiveWorkshopUnit ? "Webinar" : "Self-paced"}
             </Badge>
-            {isAdmin && !readOnlyViewAs ? (
-              <SendInAppNoticeTextButton
-                preset={{ kind: "unit", unitId, levelId }}
-                presetSummary={unit.title}
-              />
+            {!readOnlyViewAs ? (
+              isAdmin ? (
+                <SendInAppNoticeTextButton
+                  preset={{ kind: "unit", unitId, levelId }}
+                  presetSummary={unit.title}
+                />
+              ) : (
+                <SendInAppNoticeTextButton
+                  selfNote
+                  preset={{ kind: "unit", unitId, levelId }}
+                  presetSummary={unit.title}
+                />
+              )
             ) : null}
           </div>
         </div>
@@ -916,13 +924,13 @@ export default function UnitClient({
                   expandFromHash={stepHash === `#step-${st.contentId}`}
                   pathStripNavTick={pathStripNavTick}
                   headerAction={
-                    isAdmin && !readOnlyViewAs ? (
+                    !readOnlyViewAs ? (
                       <Button
                         type="button"
-                        variant="ruby"
+                        variant={isAdmin ? "ruby" : "limeInverse"}
                         size="icon-sm"
                         className="shadow-md"
-                        aria-label="In-app note"
+                        aria-label={isAdmin ? "In-app note" : "Note to self"}
                         onClick={() => {
                           setInAppPreset({
                             kind: "content",
@@ -979,7 +987,7 @@ export default function UnitClient({
         </p>
       ) : null}
 
-      {isAdmin && !readOnlyViewAs ? (
+      {!readOnlyViewAs ? (
         <SendInAppNoticeDialog
           open={inAppNotifOpen}
           onOpenChange={(o) => {
@@ -991,6 +999,20 @@ export default function UnitClient({
           }}
           preset={inAppPreset}
           presetSummary={inAppPresetSummary || undefined}
+          selfNoteToCurrentUser={!isAdmin}
+          targetUserId={
+            !isAdmin && sessionUser?.userId
+              ? (sessionUser.userId as Id<"users">)
+              : undefined
+          }
+          targetUserSummary={
+            !isAdmin && sessionUser
+              ? [sessionUser.name, sessionUser.email]
+                  .map((s) => s?.trim())
+                  .filter(Boolean)
+                  .join(" · ")
+              : undefined
+          }
         />
       ) : null}
     </div>

@@ -16,6 +16,7 @@ import {
 } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { computeLearnerCertPathBuckets } from "./certifications";
+import { requireUserId } from "./lib/auth";
 import { isLive } from "./lib/softDelete";
 
 /** Stored in `userIdKey` when `userId` is omitted = broadcast to all users. */
@@ -1105,7 +1106,19 @@ export const adminSendInAppNotification = mutation({
     linkRef: v.optional(userNotificationLinkRef),
   },
   handler: async (ctx, args) => {
-    await assertIsAdmin(ctx, args.forUserId);
+    const callerId = await requireUserId(ctx);
+    if (args.forUserId !== callerId) {
+      throw new ConvexError("Not authorized");
+    }
+    const selfUserScope =
+      args.scope === "user" &&
+      args.targetUserId != null &&
+      args.targetUserId === args.forUserId;
+    if (selfUserScope) {
+      /* Personal reminder to yourself — any signed-in user */
+    } else {
+      await assertIsAdmin(ctx, args.forUserId);
+    }
     const title = args.title.trim();
     if (!title) {
       throw new ConvexError("Title is required");

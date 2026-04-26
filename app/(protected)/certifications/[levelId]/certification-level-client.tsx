@@ -332,12 +332,20 @@ export default function CertificationLevelClient({
         </div>
       )}
 
-      {isAdmin && !viewAs ? (
+      {!viewAs ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <SendInAppNoticeTextButton
-            preset={{ kind: "certificationLevel", levelId }}
-            presetSummary={level.name}
-          />
+          {isAdmin ? (
+            <SendInAppNoticeTextButton
+              preset={{ kind: "certificationLevel", levelId }}
+              presetSummary={level.name}
+            />
+          ) : (
+            <SendInAppNoticeTextButton
+              selfNote
+              preset={{ kind: "certificationLevel", levelId }}
+              presetSummary={level.name}
+            />
+          )}
         </div>
       ) : null}
 

@@ -14,8 +14,12 @@ import {
   getHideSidebarOnNavigate,
   setHideSidebarOnNavigate,
 } from "@/lib/sidebar-on-nav-pref";
-import { Settings2, UserCog } from "lucide-react";
+import { useAuthModeContext } from "@/components/auth-mode-context";
+import { useAdminTestMode } from "@/lib/admin-test-mode-context";
+import { api } from "@/convex/_generated/api";
+import { Settings2, UserCog, FlaskConical } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+import { useQuery, useConvexAuth } from "convex/react";
 import { useSessionUser } from "@/lib/use-session-user";
 
 function formatRole(
@@ -37,10 +41,25 @@ function formatRole(
 }
 
 export default function AdminSettingsClient() {
-  const { user, isLoading } = useSessionUser();
+  const authMode = useAuthModeContext();
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { user, isLoading, actualRole } = useSessionUser();
+  const { disableAdmin, setDisableAdmin } = useAdminTestMode();
   const [hideSidebarOnNavigate, setHideSidebarOnNavigateState] = useState(false);
   const navSwitchId = useId();
   const navLabelId = useId();
+  const disableAdminSwitchId = useId();
+  const disableAdminLabelId = useId();
+
+  /** Server role from Convex; only `admin` may see the UI-testing switch (not content creators, etc.). */
+  const me = useQuery(
+    api.users.me,
+    authMode === "convex" && isAuthenticated && !authLoading ? {} : "skip",
+  );
+  const showAdminUiTestCard =
+    authMode === "convex"
+      ? me !== undefined && me !== null && me.role === "admin"
+      : !isLoading && actualRole === "admin";
 
   useEffect(() => {
     setHideSidebarOnNavigateState(getHideSidebarOnNavigate());
@@ -75,6 +94,12 @@ export default function AdminSettingsClient() {
                 <dt className="pt-0.5 font-medium text-muted-foreground">Role</dt>
                 <dd className="min-w-0 break-words text-foreground">
                   {formatRole(user.role)}
+                  {actualRole === "admin" && disableAdmin ? (
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Your account is Admin; the app is simulating an operator
+                      for UI testing.
+                    </span>
+                  ) : null}
                 </dd>
               </dl>
             ) : (
@@ -150,6 +175,53 @@ export default function AdminSettingsClient() {
       <div className="max-w-2xl">
         <AdminAuthModePanel />
       </div>
+
+      {showAdminUiTestCard ? (
+        <div className="max-w-2xl">
+          <Card
+            className="gap-2 border border-amber-200/80 bg-amber-50/90 py-3 shadow-sm ring-1 ring-amber-200/50 dark:border-amber-500/35 dark:bg-amber-950/30 dark:ring-amber-500/20"
+          >
+            <CardHeader className="gap-0.5 pb-0">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FlaskConical
+                  className="h-5 w-5 text-amber-700 dark:text-amber-400"
+                  aria-hidden
+                />
+                UI testing
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                  <Label
+                    id={disableAdminLabelId}
+                    htmlFor={disableAdminSwitchId}
+                    className="text-base font-medium text-foreground"
+                  >
+                    Disable admin
+                  </Label>
+                  <p
+                    id={`${disableAdminLabelId}-description`}
+                    className="text-sm text-muted-foreground leading-relaxed m-0"
+                  >
+                    Hide admin navigation and treat your session like a
+                    non-admin in the app (operator). Convex still enforces your
+                    real role on mutations.
+                  </p>
+                </div>
+                <Switch
+                  id={disableAdminSwitchId}
+                  className="shrink-0"
+                  checked={disableAdmin}
+                  onCheckedChange={setDisableAdmin}
+                  aria-labelledby={disableAdminLabelId}
+                  aria-describedby={`${disableAdminLabelId}-description`}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

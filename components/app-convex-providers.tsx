@@ -5,6 +5,7 @@ import { ConvexReactClient } from "convex/react";
 import { useMemo, type ReactNode } from "react";
 import { AuthModeProvider } from "@/components/auth-mode-context";
 import { ConvexClientProvider } from "@/components/convex-provider";
+import { AdminTestModeProvider } from "@/lib/admin-test-mode-context";
 import type { AuthMode } from "@/lib/auth-mode";
 
 function makeClient(): ConvexReactClient | null {
@@ -34,16 +35,26 @@ export function AppConvexProviders({
         "[convex] NEXT_PUBLIC_CONVEX_URL is not set. Add it in .env.local or your host.",
       );
     }
-    return <AuthModeProvider mode={authMode}>{children}</AuthModeProvider>;
+    return (
+      <AuthModeProvider mode={authMode}>
+        <AdminTestModeProvider>{children}</AdminTestModeProvider>
+      </AuthModeProvider>
+    );
   }
 
   return (
     <AuthModeProvider mode={authMode}>
-      {authMode === "convex" ? (
-        <ConvexAuthNextjsProvider client={client}>{children}</ConvexAuthNextjsProvider>
-      ) : (
-        <ConvexClientProvider clientOverride={client}>{children}</ConvexClientProvider>
-      )}
+      <AdminTestModeProvider>
+        {authMode === "convex" ? (
+          <ConvexAuthNextjsProvider client={client}>
+            {children}
+          </ConvexAuthNextjsProvider>
+        ) : (
+          <ConvexClientProvider clientOverride={client}>
+            {children}
+          </ConvexClientProvider>
+        )}
+      </AdminTestModeProvider>
     </AuthModeProvider>
   );
 }

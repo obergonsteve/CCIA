@@ -11,6 +11,9 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
         lime:
           "bg-brand-lime text-brand-charcoal hover:bg-brand-lime/85 dark:text-brand-charcoal dark:hover:bg-brand-lime/85",
+        /** Green field with light text (e.g. learner “Note to self”). */
+        limeInverse:
+          "bg-brand-lime text-white shadow-sm hover:bg-[color-mix(in_oklab,var(--brand-lime)_82%,black)] active:bg-[color-mix(in_oklab,var(--brand-lime)_76%,black)] dark:bg-brand-lime dark:text-white dark:hover:bg-[color-mix(in_oklab,var(--brand-lime)_82%,black)]",
         ruby:
           "bg-brand-gold text-white shadow-sm hover:bg-[color-mix(in_oklab,var(--brand-gold)_78%,black)] active:bg-[color-mix(in_oklab,var(--brand-gold)_72%,black)] dark:bg-brand-gold dark:text-white dark:hover:bg-[color-mix(in_oklab,var(--brand-gold)_78%,black)]",
         outline:
