@@ -186,7 +186,7 @@ function UserWorkshopsPathCalendar({
 
   return (
     <div
-      className="rounded-lg border-2 border-amber-500/35 bg-amber-500/[0.04] p-2 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/[0.07]"
+      className="rounded-lg border-2 border-amber-500/35 bg-amber-500/[0.04] p-2 shadow-[0_2px_8px_-1px_rgba(15,23,42,0.1),0_4px_14px_-3px_rgba(245,158,11,0.14)] dark:border-amber-400/30 dark:bg-amber-500/[0.07] dark:shadow-[0_2px_10px_-1px_rgba(0,0,0,0.45),0_4px_18px_-3px_rgba(245,158,11,0.12)]"
       role="region"
       aria-label="Webinar calendar"
     >

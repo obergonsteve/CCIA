@@ -277,8 +277,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       {!isWorkshopSimShell ? (
         <aside
           className={cn(
-            "relative flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out",
-            navOpen ? "w-60" : "w-0 border-r-0",
+            "relative z-20 flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out",
+            "shadow-[4px_0_12px_-3px_rgba(15,23,42,0.12),1px_0_0_rgba(0,0,0,0.04)] dark:shadow-[4px_0_16px_-2px_rgba(0,0,0,0.42),1px_0_0_rgba(0,0,0,0.2)]",
+            navOpen ? "w-60" : "w-0 border-r-0 shadow-none",
           )}
           aria-hidden={!navOpen}
         >
