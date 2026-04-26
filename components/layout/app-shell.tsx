@@ -11,14 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useQuery } from "convex/react";
-import { LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import { LogOut, Moon, Sun, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SidebarBreadcrumbs } from "@/components/layout/sidebar-breadcrumbs";
 import { SidebarMainPageHeading } from "@/components/layout/sidebar-main-page-heading";
 import {
@@ -27,6 +27,7 @@ import {
   primarySidebarNav,
 } from "@/lib/sidebar-nav";
 import { appPageGradientClass } from "@/lib/app-page-surface";
+import { getHideSidebarOnNavigate } from "@/lib/sidebar-on-nav-pref";
 import { SITE_APP_NAME, SITE_FOOTER_APP } from "@/lib/site-brand";
 import { useSessionUser, type SessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
@@ -111,6 +112,20 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   /** Open by default so users see nav immediately after sign-in (menu still toggles). */
   const [navOpen, setNavOpen] = useState(true);
+  const skipPathnameNavCollapse = useRef(true);
+
+  useEffect(() => {
+    if (skipPathnameNavCollapse.current) {
+      skipPathnameNavCollapse.current = false;
+      return;
+    }
+    if (isWorkshopSimShell) {
+      return;
+    }
+    if (getHideSidebarOnNavigate()) {
+      setNavOpen(false);
+    }
+  }, [pathname, isWorkshopSimShell]);
 
   const sidebarNav = (
     <>
@@ -326,18 +341,23 @@ export function AppShell({ children }: { children: ReactNode }) {
             <>
               <div className="flex w-full min-w-0 flex-1 items-center justify-between gap-2 sm:gap-3">
                 <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+                    className="-ml-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-foreground transition-opacity outline-none select-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:-ml-2"
                     aria-label={navOpen ? "Toggle navigation" : "Open navigation"}
                     aria-expanded={navOpen}
                     aria-controls="app-sidebar-nav"
                     onClick={() => setNavOpen((o) => !o)}
                   >
-                    <Menu className="h-5 w-5" />
-                  </Button>
+                    <span
+                      className="flex w-5 flex-col items-stretch justify-center gap-[3px] py-0.5"
+                      aria-hidden
+                    >
+                      <span className="h-0.5 rounded-full bg-brand-sky" />
+                      <span className="h-0.5 rounded-full bg-brand-sky" />
+                      <span className="h-0.5 rounded-full bg-brand-sky" />
+                    </span>
+                  </button>
                   <Image
                     src="/LLLIA_trans.png"
                     alt={SITE_APP_NAME}
