@@ -68,17 +68,17 @@ const WORKSHOP_SESSION_TILE_CONTENT = "flex flex-wrap gap-2 !pt-0 !pb-1";
  * Each session `Card` uses a thicker, more saturated `border-s-4` (“inline start”) accent; other sides keep the soft `border-2` frame.
  */
 const WORKSHOP_SESSION_PURPLE_GRADIENT =
-  "border-2 border-s-4 border-s-purple-500/95 border-t-purple-500/50 border-e-purple-500/50 border-b-purple-500/50 bg-gradient-to-br from-purple-500/[0.19] via-background/58 to-purple-500/[0.13] ring-0 shadow-sm shadow-purple-500/17 dark:border-s-purple-400/95 dark:border-t-purple-500/45 dark:border-e-purple-500/45 dark:border-b-purple-500/45 dark:from-purple-500/[0.2] dark:via-background/15 dark:to-purple-500/[0.15] dark:shadow-purple-500/13";
+  "border-2 border-s-4 border-s-purple-500/78 border-t-purple-500/40 border-e-purple-500/40 border-b-purple-500/40 bg-gradient-to-br from-purple-500/[0.11] via-background/50 to-purple-500/[0.09] ring-0 shadow-sm shadow-purple-500/9 dark:border-s-purple-400/80 dark:border-t-purple-500/35 dark:border-e-purple-500/35 dark:border-b-purple-500/35 dark:from-purple-500/[0.12] dark:via-background/12 dark:to-purple-500/[0.1] dark:shadow-purple-500/8";
 const WORKSHOP_SESSION_SKY_GRADIENT =
-  "border-2 border-s-4 border-s-brand-sky/95 border-t-brand-sky/50 border-e-brand-sky/50 border-b-brand-sky/50 bg-gradient-to-br from-brand-sky/[0.19] via-background/58 to-brand-sky/[0.13] ring-0 shadow-sm shadow-brand-sky/17 dark:border-s-brand-sky/90 dark:border-t-brand-sky/45 dark:border-e-brand-sky/45 dark:border-b-brand-sky/45 dark:from-brand-sky/[0.2] dark:via-background/15 dark:to-brand-sky/[0.15] dark:shadow-brand-sky/13";
+  "border-2 border-s-4 border-s-brand-sky/64 border-t-brand-sky/32 border-e-brand-sky/32 border-b-brand-sky/32 bg-gradient-to-br from-brand-sky/[0.075] via-background/44 to-brand-sky/[0.06] ring-0 shadow-sm shadow-brand-sky/6 dark:border-s-brand-sky/60 dark:border-t-brand-sky/28 dark:border-e-brand-sky/28 dark:border-b-brand-sky/28 dark:from-brand-sky/[0.09] dark:via-background/10 dark:to-brand-sky/[0.07] dark:shadow-brand-sky/6";
 const WORKSHOP_SESSION_SLATE_GRADIENT =
-  "border-2 border-s-4 border-s-slate-500/90 border-t-slate-500/45 border-e-slate-500/45 border-b-slate-500/45 bg-gradient-to-br from-slate-500/[0.1] via-background/48 to-slate-500/[0.07] ring-0 shadow-sm shadow-slate-400/16 dark:border-s-slate-400/90 dark:border-t-slate-500/35 dark:border-e-slate-500/35 dark:border-b-slate-500/35 dark:from-slate-500/[0.12] dark:via-background/12 dark:to-slate-500/[0.08] dark:shadow-slate-500/10";
+  "border-2 border-s-4 border-s-slate-500/72 border-t-slate-500/38 border-e-slate-500/38 border-b-slate-500/38 bg-gradient-to-br from-slate-500/[0.08] via-background/46 to-slate-500/[0.06] ring-0 shadow-sm shadow-slate-400/10 dark:border-s-slate-400/72 dark:border-t-slate-500/32 dark:border-e-slate-500/32 dark:border-b-slate-500/32 dark:from-slate-500/[0.1] dark:via-background/10 dark:to-slate-500/[0.07] dark:shadow-slate-500/7";
 
 /** List section shells — flat wash + frame only (gradients stay on session {@link Card}s). */
 const WORKSHOP_SECTION_REGISTERED =
   "border-2 border-purple-500/45 bg-purple-500/[0.09] shadow-sm dark:border-purple-400/40 dark:bg-purple-500/[0.12]";
 const WORKSHOP_SECTION_OPEN =
-  "border-2 border-dashed border-sky-500/45 bg-sky-500/[0.09] shadow-sm dark:border-sky-400/40 dark:bg-sky-500/[0.12]";
+  "border-2 border-dashed border-brand-sky/36 bg-brand-sky/[0.085] shadow-sm dark:border-brand-sky/32 dark:bg-brand-sky/[0.11]";
 const WORKSHOP_SECTION_CLOSED =
   "border-2 border-slate-400/35 bg-slate-500/[0.05] shadow-sm dark:border-slate-500/35 dark:bg-slate-500/[0.08]";
 

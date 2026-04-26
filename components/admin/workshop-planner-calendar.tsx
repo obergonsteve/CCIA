@@ -67,24 +67,36 @@ function DroppablePlannerDayCell({
   const highlighted =
     dropHighlightDayMs != null && dropHighlightDayMs === dayStart.getTime();
   const hasScheduledWorkshop = scheduled > 0;
+  const isToday = isSameDay(day, new Date());
 
   return (
     <button
       ref={setNodeRef}
       type="button"
       role="gridcell"
-      aria-label={format(day, "EEEE d MMMM yyyy")}
+      aria-label={
+        isToday
+          ? `${format(day, "EEEE d MMMM yyyy")} — today`
+          : format(day, "EEEE d MMMM yyyy")
+      }
+      aria-current={isToday ? "date" : undefined}
       aria-selected={selected}
       onClick={() => onSelectDay(dayStart)}
       className={cn(
         "relative flex aspect-square max-h-11 flex-col items-center justify-center border border-transparent text-sm transition-colors",
-        hasScheduledWorkshop && !selected
-          ? "rounded-full ring-1 ring-inset ring-muted-foreground/40 dark:ring-muted-foreground/35"
-          : "rounded-md",
+        isToday
+          ? "rounded-full ring-2 ring-inset ring-brand-lime/80 bg-brand-lime/12 dark:ring-brand-lime/60 dark:bg-brand-lime/14"
+          : hasScheduledWorkshop && !selected
+            ? "rounded-full ring-1 ring-inset ring-muted-foreground/40 dark:ring-muted-foreground/35"
+            : "rounded-md",
         inMonth ? "text-foreground" : "text-muted-foreground/45",
         selected
-          ? "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30"
-          : "hover:bg-muted/80",
+          ? cn(
+              "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30",
+              isToday &&
+                "ring-2 ring-inset ring-brand-lime/85 dark:ring-brand-lime/70",
+            )
+          : !isToday && "hover:bg-muted/80",
         (isOver || highlighted) &&
           "ring-2 ring-inset ring-purple-500/55 dark:ring-purple-400/50",
       )}
@@ -131,23 +143,35 @@ function StaticPlannerDayCell({
   const scheduled = daySessions.filter((s) => s.status === "scheduled").length;
   const cancelled = daySessions.filter((s) => s.status === "cancelled").length;
   const hasScheduledWorkshop = scheduled > 0;
+  const isToday = isSameDay(day, new Date());
 
   return (
     <button
       type="button"
       role="gridcell"
-      aria-label={format(day, "EEEE d MMMM yyyy")}
+      aria-label={
+        isToday
+          ? `${format(day, "EEEE d MMMM yyyy")} — today`
+          : format(day, "EEEE d MMMM yyyy")
+      }
+      aria-current={isToday ? "date" : undefined}
       aria-selected={selected}
       onClick={() => onSelectDay(dayStart)}
       className={cn(
         "relative flex aspect-square max-h-11 flex-col items-center justify-center border border-transparent text-sm transition-colors",
-        hasScheduledWorkshop && !selected
-          ? "rounded-full ring-1 ring-inset ring-muted-foreground/40 dark:ring-muted-foreground/35"
-          : "rounded-md",
+        isToday
+          ? "rounded-full ring-2 ring-inset ring-brand-lime/80 bg-brand-lime/12 dark:ring-brand-lime/60 dark:bg-brand-lime/14"
+          : hasScheduledWorkshop && !selected
+            ? "rounded-full ring-1 ring-inset ring-muted-foreground/40 dark:ring-muted-foreground/35"
+            : "rounded-md",
         inMonth ? "text-foreground" : "text-muted-foreground/45",
         selected
-          ? "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30"
-          : "hover:bg-muted/80",
+          ? cn(
+              "z-[1] border-2 border-brand-gold bg-brand-gold/35 font-semibold text-foreground shadow-sm shadow-brand-gold/25 dark:border-amber-400 dark:bg-brand-gold/40 dark:shadow-brand-gold/30",
+              isToday &&
+                "ring-2 ring-inset ring-brand-lime/85 dark:ring-brand-lime/70",
+            )
+          : !isToday && "hover:bg-muted/80",
       )}
     >
       <span className="tabular-nums leading-none">{format(day, "d")}</span>
