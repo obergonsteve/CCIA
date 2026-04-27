@@ -253,13 +253,13 @@ function PinnedLine({
         >
         {isNoteToSelf ? (
           <span
-            className="pointer-events-none absolute -left-0.5 -top-2.5 z-[5] flex size-4 items-center justify-center rounded-full border border-brand-lime/45 bg-background/95 shadow-sm ring-1 ring-brand-lime/25 dark:border-brand-lime/50 dark:bg-card/90 dark:ring-brand-lime/20"
+            className="pointer-events-none absolute -left-0.5 -top-2 z-[5] flex size-3.5 items-center justify-center rounded-full border border-white/25 bg-brand-lime text-white shadow-sm ring-1 ring-black/10 dark:border-white/20 dark:bg-brand-lime dark:ring-white/10"
             title="Note to self"
             aria-label="Note to self"
             role="img"
           >
             <UserRound
-              className="h-3 w-3 text-[color-mix(in_oklab,var(--brand-lime)_78%,#5a6a3c)] dark:text-[color-mix(in_oklab,var(--brand-lime)_80%,#6a7a48)]"
+              className="h-2.5 w-2.5 text-white"
               aria-hidden
               strokeWidth={2.1}
             />
