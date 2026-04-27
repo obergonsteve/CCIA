@@ -81,6 +81,14 @@ const DASHBOARD_CERT_SECTION_IDS = {
 
 type DashboardCertBucketKey = keyof typeof DASHBOARD_CERT_SECTION_IDS;
 
+function getDefaultOpenSection(
+  b: { current: { length: number }; planned?: { length: number } | null },
+): DashboardCertBucketKey {
+  if (b.current.length >= 1) return "current";
+  if ((b.planned?.length ?? 0) >= 1) return "roadmap";
+  return "available";
+}
+
 /** Shared with nav chips: border, tint, top accent, and in-section typography. */
 const DASHBOARD_CERT_BUCKET_STYLES: Record<
   DashboardCertBucketKey,
@@ -106,7 +114,7 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
     sectionSurface: cn(
       "border border-brand-gold/55 bg-gradient-to-br from-brand-gold/[0.12] via-muted/24 to-brand-gold/[0.08] shadow-sm shadow-brand-gold/20",
       "dark:border-brand-gold/45 dark:from-brand-gold/[0.14] dark:via-muted/16 dark:to-brand-gold/[0.10] dark:shadow-brand-gold/15",
-      "border-t-2 border-t-brand-gold/70 dark:border-t-brand-gold/58",
+      "border-t-4 border-t-brand-gold/72 dark:border-t-brand-gold/60",
     ),
     headerHover:
       "hover:bg-brand-gold/18 dark:hover:bg-brand-gold/14 focus-visible:ring-brand-gold/40",
@@ -129,7 +137,7 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
     sectionSurface: cn(
       "border border-brand-sky/50 bg-gradient-to-br from-brand-sky/[0.12] via-muted/24 to-brand-sky/[0.08] shadow-sm shadow-brand-sky/15",
       "dark:border-brand-sky/45 dark:from-brand-sky/[0.14] dark:via-muted/16 dark:to-brand-sky/[0.10] dark:shadow-brand-sky/10",
-      "border-t-2 border-t-brand-sky/68 dark:border-t-brand-sky/56",
+      "border-t-4 border-t-brand-sky/72 dark:border-t-brand-sky/60",
     ),
     headerHover:
       "hover:bg-brand-sky/16 dark:hover:bg-brand-sky/14 focus-visible:ring-brand-sky/40",
@@ -145,29 +153,6 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
   available: {
     chipLink: cn(
       "inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm shadow-sm transition-colors",
-      "border-pink-500/45 bg-pink-500/[0.12] hover:border-pink-500/65 hover:bg-pink-500/20",
-      "dark:border-pink-400/40 dark:bg-pink-500/[0.14] dark:hover:bg-pink-500/22",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-    ),
-    sectionSurface: cn(
-      "border border-pink-500/45 bg-gradient-to-br from-pink-500/[0.12] via-muted/24 to-pink-500/[0.08] shadow-sm shadow-pink-500/20",
-      "dark:border-pink-400/40 dark:from-pink-500/[0.14] dark:via-muted/16 dark:to-pink-500/[0.10] dark:shadow-pink-500/15",
-      "border-t-2 border-t-pink-500/62 dark:border-t-pink-400/52",
-    ),
-    headerHover:
-      "hover:bg-pink-500/14 dark:hover:bg-pink-500/12 focus-visible:ring-pink-400/40",
-    title: "text-pink-950 dark:text-pink-50",
-    muted: "text-pink-900/78 dark:text-pink-100/72",
-    chevron: "text-pink-900/50 dark:text-pink-200/50",
-    emptyInner: cn(
-      "border border-pink-500/40 bg-pink-500/[0.08] dark:border-pink-400/35 dark:bg-pink-500/[0.08]",
-    ),
-    icon: "text-pink-600 dark:text-pink-300",
-    cardBorder: "border-l-pink-500/75 dark:border-l-pink-400/70",
-  },
-  completed: {
-    chipLink: cn(
-      "inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm shadow-sm transition-colors",
       "border-brand-lime/50 bg-brand-lime/[0.14] hover:border-brand-lime/70 hover:bg-brand-lime/22",
       "dark:border-brand-lime/45 dark:bg-brand-lime/[0.12] dark:hover:bg-brand-lime/20",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -175,7 +160,7 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
     sectionSurface: cn(
       "border border-brand-lime/50 bg-gradient-to-br from-brand-lime/[0.12] via-muted/24 to-brand-lime/[0.08] shadow-sm shadow-brand-lime/15",
       "dark:border-brand-lime/45 dark:from-brand-lime/[0.14] dark:via-muted/16 dark:to-brand-lime/[0.10] dark:shadow-brand-lime/10",
-      "border-t-2 border-t-brand-lime/68 dark:border-t-brand-lime/56",
+      "border-t-4 border-t-brand-lime/80 dark:border-t-brand-lime/65",
     ),
     headerHover:
       "hover:bg-brand-lime/16 dark:hover:bg-brand-lime/14 focus-visible:ring-brand-lime/40",
@@ -188,6 +173,29 @@ const DASHBOARD_CERT_BUCKET_STYLES: Record<
     icon: "text-brand-lime",
     cardBorder: "border-l-brand-lime/75",
   },
+  completed: {
+    chipLink: cn(
+      "inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm shadow-sm transition-colors",
+      "border-slate-400/50 bg-slate-200/55 hover:border-slate-500/55 hover:bg-slate-200/85",
+      "dark:border-slate-500/50 dark:bg-slate-800/45 dark:hover:border-slate-400/45 dark:hover:bg-slate-800/70",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    ),
+    sectionSurface: cn(
+      "border border-slate-400/45 bg-gradient-to-br from-slate-200/75 via-muted/35 to-slate-300/40 shadow-sm shadow-slate-400/12",
+      "dark:border-slate-600/50 dark:from-slate-800/60 dark:via-muted/18 dark:to-slate-900/45 dark:shadow-black/25",
+      "border-t-4 border-t-slate-500/80 dark:border-t-slate-500/70",
+    ),
+    headerHover:
+      "hover:bg-slate-300/40 dark:hover:bg-slate-800/50 focus-visible:ring-slate-400/35",
+    title: "text-slate-900 dark:text-slate-100",
+    muted: "text-slate-700/88 dark:text-slate-300/88",
+    chevron: "text-slate-600/55 dark:text-slate-400/55",
+    emptyInner: cn(
+      "border border-slate-400/42 bg-slate-200/45 dark:border-slate-600/48 dark:bg-slate-900/40",
+    ),
+    icon: "text-slate-600 dark:text-slate-400",
+    cardBorder: "border-l-slate-500/90 dark:border-l-slate-400/80",
+  },
 };
 
 function CertificationBucketSection({
@@ -199,7 +207,8 @@ function CertificationBucketSection({
   emptyMessage,
   extraCardFooter,
   sectionId,
-  defaultExpanded = false,
+  isOpen,
+  onHeaderClick,
   getCardClassNameForLevel,
 }: {
   title: string;
@@ -211,14 +220,14 @@ function CertificationBucketSection({
   extraCardFooter?: (row: BucketRow) => ReactNode;
   /** When set, enables same-page links from the summary chips. */
   sectionId?: string;
-  /** When true, section body starts expanded (default is collapsed). */
-  defaultExpanded?: boolean;
+  isOpen: boolean;
+  onHeaderClick: () => void;
   /** e.g. roadmap add/remove enter/exit fades */
   getCardClassNameForLevel?: (levelId: Id<"certificationLevels">) => string;
 }) {
   const s = DASHBOARD_CERT_BUCKET_STYLES[bucketKey];
-  const [open, setOpen] = useState(defaultExpanded);
   const bodyId = sectionId ? `${sectionId}-panel` : "cert-bucket-panel";
+  const open = isOpen;
 
   return (
     <section
@@ -236,7 +245,7 @@ function CertificationBucketSection({
         )}
         aria-expanded={open}
         aria-controls={bodyId}
-        onClick={() => setOpen((v) => !v)}
+        onClick={onHeaderClick}
       >
         <div className="min-w-0 flex-1 space-y-0.5 pr-1">
           <h2
@@ -418,6 +427,256 @@ function CertificationBucketSection({
   );
 }
 
+type DashboardMainProps = {
+  sessionUser: NonNullable<ReturnType<typeof useSessionUser>["user"]>;
+  buckets: NonNullable<
+    ReturnType<typeof useQuery<typeof api.certifications.listDashboardBucketsForUser>>
+  >;
+  me: ReturnType<typeof useQuery<typeof api.users.me>>;
+  certSummary: {
+    current: number;
+    roadmap: number;
+    available: number;
+    completed: number;
+  };
+  getRoadmapMoveCardClass: (
+    list: "future" | "planned",
+    levelId: Id<"certificationLevels">,
+  ) => string;
+  addToRoadmapWithAnim: (levelId: Id<"certificationLevels">) => void;
+  removeFromRoadmapWithAnim: (levelId: Id<"certificationLevels">) => void;
+  roadmapMoveBusy: boolean;
+};
+
+function DashboardMain({
+  sessionUser,
+  buckets,
+  me,
+  certSummary,
+  getRoadmapMoveCardClass,
+  addToRoadmapWithAnim,
+  removeFromRoadmapWithAnim,
+  roadmapMoveBusy,
+}: DashboardMainProps) {
+  const [openSection, setOpenSection] = useState<DashboardCertBucketKey | null>(
+    () => getDefaultOpenSection(buckets),
+  );
+
+  const canAddCertToRoadmap = (levelId: Id<"certificationLevels">) => {
+    if (me === undefined || me === null) {
+      return true;
+    }
+    if (me.companyId != null) {
+      return true;
+    }
+    if (me.role === "admin" || me.role === "content_creator") {
+      return true;
+    }
+    const e = me.studentEntitledCertificationLevelIds;
+    if (e === undefined) {
+      return true;
+    }
+    return e.includes(levelId);
+  };
+
+  const selectNavSection = (key: DashboardCertBucketKey) => {
+    setOpenSection(key);
+  };
+
+  const firstName =
+    sessionUser.name.trim().split(/\s+/)[0] ||
+    sessionUser.name.trim() ||
+    sessionUser.name;
+
+  return (
+    <div className="-mt-8 space-y-5">
+      <div className="space-y-4">
+        <h2 className="text-center text-2xl font-semibold tracking-tight text-[oklch(0.43_0.095_232)] dark:text-brand-sky/95">
+          Welcome {firstName}!
+        </h2>
+
+        <div
+          className={cn(
+            "flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-lg px-3 py-1.5 text-sm",
+            "border border-sky-500/50 bg-sky-100",
+            "border-l-4 border-l-sky-700 shadow-sm",
+            "dark:border-sky-400/40 dark:border-l-sky-300 dark:bg-sky-950",
+          )}
+        >
+          <nav
+            className="flex flex-wrap items-center gap-2 min-w-0"
+            aria-label="Certification sections"
+          >
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.current}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.current.chipLink}
+              aria-label={`Current certifications, ${certSummary.current}`}
+              onClick={() => selectNavSection("current")}
+            >
+              <span className="font-medium text-amber-900/90 dark:text-amber-100/95">
+                Current
+              </span>
+              <span className="text-base font-semibold tabular-nums text-amber-950 dark:text-amber-50">
+                {certSummary.current}
+              </span>
+            </a>
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.roadmap}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.roadmap.chipLink}
+              aria-label={`Certification roadmap, ${certSummary.roadmap}`}
+              onClick={() => selectNavSection("roadmap")}
+            >
+              <span className="font-medium text-sky-900/90 dark:text-sky-100/95">
+                Roadmap
+              </span>
+              <span className="text-base font-semibold tabular-nums text-sky-950 dark:text-sky-50">
+                {certSummary.roadmap}
+              </span>
+            </a>
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.available}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.available.chipLink}
+              aria-label={`Available certifications, ${certSummary.available}`}
+              onClick={() => selectNavSection("available")}
+            >
+              <span className="font-medium text-lime-900/90 dark:text-lime-100/95">
+                Available
+              </span>
+              <span className="text-base font-semibold tabular-nums text-lime-950 dark:text-lime-50">
+                {certSummary.available}
+              </span>
+            </a>
+            <a
+              href={`#${DASHBOARD_CERT_SECTION_IDS.completed}`}
+              className={DASHBOARD_CERT_BUCKET_STYLES.completed.chipLink}
+              aria-label={`Completed certifications, ${certSummary.completed}`}
+              onClick={() => selectNavSection("completed")}
+            >
+              <span className="font-medium text-slate-800/95 dark:text-slate-200/95">
+                Completed
+              </span>
+              <span className="text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                {certSummary.completed}
+              </span>
+            </a>
+          </nav>
+          <span
+            className="hidden h-5 w-0.5 shrink-0 rounded-full bg-brand-sky/35 sm:block dark:bg-brand-sky/45"
+            aria-hidden
+          />
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-muted-foreground">Role</span>
+            <span className="font-medium capitalize">{sessionUser.role}</span>
+            <Badge
+              variant="secondary"
+              className="border-0 bg-white/70 text-foreground/90 shadow-none dark:bg-white/[0.09] dark:text-foreground/92"
+            >
+              {sessionUser.email}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        <CertificationBucketSection
+          bucketKey="current"
+          sectionId={DASHBOARD_CERT_SECTION_IDS.current}
+          title="Current certifications"
+          description="You’ve started these — pick up where you left off."
+          icon={CircleDot}
+          rows={buckets.current}
+          emptyMessage="No certifications in progress. Open one from the available certifications below to get started."
+          isOpen={openSection === "current"}
+          onHeaderClick={() =>
+            setOpenSection((p) => (p === "current" ? null : "current"))
+          }
+        />
+
+        <CertificationBucketSection
+          bucketKey="roadmap"
+          sectionId={DASHBOARD_CERT_SECTION_IDS.roadmap}
+          title="Certification roadmap"
+          description="Certifications you marked from Available certifications — still not started."
+          icon={Bookmark}
+          rows={buckets.planned ?? []}
+          getCardClassNameForLevel={(id) => getRoadmapMoveCardClass("planned", id)}
+          emptyMessage="Nothing on your roadmap yet. Use “Add to roadmap” on a certification in the available certifications below."
+          isOpen={openSection === "roadmap"}
+          onHeaderClick={() =>
+            setOpenSection((p) => (p === "roadmap" ? null : "roadmap"))
+          }
+          extraCardFooter={(row) => (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit border-destructive/35 text-destructive hover:bg-destructive/10"
+              disabled={roadmapMoveBusy}
+              onClick={() => removeFromRoadmapWithAnim(row.level._id)}
+            >
+              Remove from roadmap
+            </Button>
+          )}
+        />
+
+        <CertificationBucketSection
+          bucketKey="available"
+          sectionId={DASHBOARD_CERT_SECTION_IDS.available}
+          title="Available certifications"
+          description="Available to you — not started yet."
+          icon={Sparkles}
+          rows={buckets.future}
+          getCardClassNameForLevel={(id) => getRoadmapMoveCardClass("future", id)}
+          emptyMessage="No upcoming certifications, or you’ve already engaged with everything available."
+          isOpen={openSection === "available"}
+          onHeaderClick={() =>
+            setOpenSection((p) => (p === "available" ? null : "available"))
+          }
+          extraCardFooter={(row) =>
+            canAddCertToRoadmap(row.level._id) ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                disabled={roadmapMoveBusy}
+                onClick={() => addToRoadmapWithAnim(row.level._id)}
+              >
+                Add to roadmap
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground max-w-xs">
+                Not assigned to your account — you can still browse this
+                certification in the catalog.
+              </p>
+            )
+          }
+        />
+
+        <CertificationBucketSection
+          bucketKey="completed"
+          sectionId={DASHBOARD_CERT_SECTION_IDS.completed}
+          title="Completed certifications"
+          description="Every unit in these certifications is marked complete."
+          icon={CheckCircle2}
+          rows={buckets.completed}
+          emptyMessage="None completed yet. Finish all units in a certification to see it here."
+          isOpen={openSection === "completed"}
+          onHeaderClick={() =>
+            setOpenSection((p) => (p === "completed" ? null : "completed"))
+          }
+        />
+      </div>
+
+      {sessionUser.role === "operator" || sessionUser.role === "supervisor" ? (
+        <div className="border-t border-border/60 pt-5">
+          <NotificationSettingsPanel showIntro={false} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function DashboardClient() {
   const { user: sessionUser, isLoading: sessionLoading } = useSessionUser();
   const me = useQuery(api.users.me);
@@ -513,23 +772,6 @@ export default function DashboardClient() {
     [buckets],
   );
 
-  const canAddCertToRoadmap = (levelId: Id<"certificationLevels">) => {
-    if (me === undefined || me === null) {
-      return true;
-    }
-    if (me.companyId != null) {
-      return true;
-    }
-    if (me.role === "admin" || me.role === "content_creator") {
-      return true;
-    }
-    const e = me.studentEntitledCertificationLevelIds;
-    if (e === undefined) {
-      return true;
-    }
-    return e.includes(levelId);
-  };
-
   if (sessionLoading || !sessionUser || !buckets) {
     return (
       <div className="animate-pulse space-y-4">
@@ -539,186 +781,16 @@ export default function DashboardClient() {
     );
   }
 
-  const firstName =
-    sessionUser.name.trim().split(/\s+/)[0] ||
-    sessionUser.name.trim() ||
-    sessionUser.name;
-
-  const currentCount = buckets.current.length;
-  const plannedCount = buckets.planned?.length ?? 0;
-  /** Open “Current” when there is work in progress; otherwise open “Roadmap” if it has items. */
-  const defaultExpandCurrent = currentCount >= 1;
-  const defaultExpandRoadmap =
-    !defaultExpandCurrent && plannedCount >= 1;
-  /** When nothing in Current or Roadmap, surface Available so learners see what to start. */
-  const defaultExpandAvailable =
-    currentCount === 0 && plannedCount === 0;
-
   return (
-    <div className="-mt-2 space-y-5">
-      <div className="space-y-4">
-        <h2 className="text-center text-2xl font-semibold tracking-tight text-[oklch(0.43_0.095_232)] dark:text-brand-sky/95">
-          Welcome, {firstName}!
-        </h2>
-
-        <div
-          className={cn(
-            "flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-lg px-3 py-1.5 text-sm",
-            "border border-sky-500/50 bg-sky-100",
-            "border-l-4 border-l-sky-700 shadow-sm",
-            "dark:border-sky-400/40 dark:border-l-sky-300 dark:bg-sky-950",
-          )}
-        >
-          <nav
-            className="flex flex-wrap items-center gap-2 min-w-0"
-            aria-label="Certification sections"
-          >
-            <a
-              href={`#${DASHBOARD_CERT_SECTION_IDS.current}`}
-              className={DASHBOARD_CERT_BUCKET_STYLES.current.chipLink}
-              aria-label={`Current certifications, ${certSummary.current}`}
-            >
-              <span className="font-medium text-amber-900/90 dark:text-amber-100/95">
-                Current
-              </span>
-              <span className="text-base font-semibold tabular-nums text-amber-950 dark:text-amber-50">
-                {certSummary.current}
-              </span>
-            </a>
-            <a
-              href={`#${DASHBOARD_CERT_SECTION_IDS.roadmap}`}
-              className={DASHBOARD_CERT_BUCKET_STYLES.roadmap.chipLink}
-              aria-label={`Certification roadmap, ${certSummary.roadmap}`}
-            >
-              <span className="font-medium text-sky-900/90 dark:text-sky-100/95">
-                Roadmap
-              </span>
-              <span className="text-base font-semibold tabular-nums text-sky-950 dark:text-sky-50">
-                {certSummary.roadmap}
-              </span>
-            </a>
-            <a
-              href={`#${DASHBOARD_CERT_SECTION_IDS.available}`}
-              className={DASHBOARD_CERT_BUCKET_STYLES.available.chipLink}
-              aria-label={`Available certifications, ${certSummary.available}`}
-            >
-              <span className="font-medium text-pink-900/90 dark:text-pink-100/95">
-                Available
-              </span>
-              <span className="text-base font-semibold tabular-nums text-pink-950 dark:text-pink-50">
-                {certSummary.available}
-              </span>
-            </a>
-            <a
-              href={`#${DASHBOARD_CERT_SECTION_IDS.completed}`}
-              className={DASHBOARD_CERT_BUCKET_STYLES.completed.chipLink}
-              aria-label={`Completed certifications, ${certSummary.completed}`}
-            >
-              <span className="font-medium text-lime-900/90 dark:text-lime-100/95">
-                Completed
-              </span>
-              <span className="text-base font-semibold tabular-nums text-lime-950 dark:text-lime-50">
-                {certSummary.completed}
-              </span>
-            </a>
-          </nav>
-          <span
-            className="hidden h-5 w-0.5 shrink-0 rounded-full bg-brand-sky/35 sm:block dark:bg-brand-sky/45"
-            aria-hidden
-          />
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-muted-foreground">Role</span>
-            <span className="font-medium capitalize">{sessionUser.role}</span>
-            <Badge variant="secondary" className="text-xs font-normal">
-              {sessionUser.email}
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-5">
-      <CertificationBucketSection
-        bucketKey="current"
-        sectionId={DASHBOARD_CERT_SECTION_IDS.current}
-        title="Current certifications"
-        description="You’ve started these — pick up where you left off."
-        icon={CircleDot}
-        rows={buckets.current}
-        emptyMessage="No certifications in progress. Open one from the available certifications below to get started."
-        defaultExpanded={defaultExpandCurrent}
-      />
-
-      <CertificationBucketSection
-        bucketKey="roadmap"
-        sectionId={DASHBOARD_CERT_SECTION_IDS.roadmap}
-        title="Certification roadmap"
-        description="Certifications you marked from Available certifications — still not started."
-        icon={Bookmark}
-        rows={buckets.planned ?? []}
-        defaultExpanded={defaultExpandRoadmap}
-        getCardClassNameForLevel={(id) => getRoadmapMoveCardClass("planned", id)}
-        emptyMessage="Nothing on your roadmap yet. Use “Add to roadmap” on a certification in the available certifications below."
-        extraCardFooter={(row) => (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-fit border-destructive/35 text-destructive hover:bg-destructive/10"
-            disabled={roadmapMoveBusy}
-            onClick={() => removeFromRoadmapWithAnim(row.level._id)}
-          >
-            Remove from roadmap
-          </Button>
-        )}
-      />
-
-      <CertificationBucketSection
-        bucketKey="available"
-        sectionId={DASHBOARD_CERT_SECTION_IDS.available}
-        title="Available certifications"
-        description="Available to you — not started yet."
-        icon={Sparkles}
-        rows={buckets.future}
-        defaultExpanded={defaultExpandAvailable}
-        getCardClassNameForLevel={(id) => getRoadmapMoveCardClass("future", id)}
-        emptyMessage="No upcoming certifications, or you’ve already engaged with everything available."
-        extraCardFooter={(row) =>
-          canAddCertToRoadmap(row.level._id) ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              disabled={roadmapMoveBusy}
-              onClick={() => addToRoadmapWithAnim(row.level._id)}
-            >
-              Add to roadmap
-            </Button>
-          ) : (
-            <p className="text-xs text-muted-foreground max-w-xs">
-              Not assigned to your account — you can still browse this
-              certification in the catalog.
-            </p>
-          )
-        }
-      />
-
-      <CertificationBucketSection
-        bucketKey="completed"
-        sectionId={DASHBOARD_CERT_SECTION_IDS.completed}
-        title="Completed certifications"
-        description="Every unit in these certifications is marked complete."
-        icon={CheckCircle2}
-        rows={buckets.completed}
-        emptyMessage="None completed yet. Finish all units in a certification to see it here."
-      />
-      </div>
-
-      {sessionUser.role === "operator" || sessionUser.role === "supervisor" ? (
-        <div className="border-t border-border/60 pt-5">
-          <NotificationSettingsPanel showIntro={false} />
-        </div>
-      ) : null}
-    </div>
+    <DashboardMain
+      sessionUser={sessionUser}
+      buckets={buckets}
+      me={me}
+      certSummary={certSummary}
+      getRoadmapMoveCardClass={getRoadmapMoveCardClass}
+      addToRoadmapWithAnim={addToRoadmapWithAnim}
+      removeFromRoadmapWithAnim={removeFromRoadmapWithAnim}
+      roadmapMoveBusy={roadmapMoveBusy}
+    />
   );
 }
