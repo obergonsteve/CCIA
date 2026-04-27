@@ -89,6 +89,44 @@ function getDefaultOpenSection(
   return "available";
 }
 
+function aggregateCurrentBucketProgress(rows: BucketRow[]):
+  | {
+      mode: "steps" | "units" | "empty";
+      done: number;
+      total: number;
+      pct: number;
+    }
+  | null {
+  if (rows.length === 0) return null;
+  let totalSteps = 0;
+  let doneSteps = 0;
+  let totalUnits = 0;
+  let doneUnits = 0;
+  for (const r of rows) {
+    totalSteps += r.contentStepsTotal;
+    doneSteps += r.contentStepsCompleted;
+    totalUnits += r.unitTotal;
+    doneUnits += r.completedCount;
+  }
+  if (totalSteps > 0) {
+    return {
+      mode: "steps",
+      done: doneSteps,
+      total: totalSteps,
+      pct: Math.min(100, Math.round((doneSteps / totalSteps) * 100)),
+    };
+  }
+  if (totalUnits > 0) {
+    return {
+      mode: "units",
+      done: doneUnits,
+      total: totalUnits,
+      pct: Math.min(100, Math.round((doneUnits / totalUnits) * 100)),
+    };
+  }
+  return { mode: "empty", done: 0, total: 0, pct: 0 };
+}
+
 /** Shared with nav chips: border, tint, top accent, and in-section typography. */
 const DASHBOARD_CERT_BUCKET_STYLES: Record<
   DashboardCertBucketKey,
@@ -210,6 +248,7 @@ function CertificationBucketSection({
   isOpen,
   onHeaderClick,
   getCardClassNameForLevel,
+  sectionSummary,
 }: {
   title: string;
   description: string;
@@ -224,10 +263,13 @@ function CertificationBucketSection({
   onHeaderClick: () => void;
   /** e.g. roadmap add/remove enter/exit fades */
   getCardClassNameForLevel?: (levelId: Id<"certificationLevels">) => string;
+  /** Renders inside the section header, below the title row (e.g. overall progress). */
+  sectionSummary?: ReactNode;
 }) {
   const s = DASHBOARD_CERT_BUCKET_STYLES[bucketKey];
   const bodyId = sectionId ? `${sectionId}-panel` : "cert-bucket-panel";
   const open = isOpen;
+  const hasSectionSummary = sectionSummary != null && rows.length > 0;
 
   return (
     <section
@@ -240,45 +282,70 @@ function CertificationBucketSection({
       <button
         type="button"
         className={cn(
-          "flex w-full items-start justify-between gap-2 rounded-lg p-1 -m-1 text-left outline-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "flex w-full flex-col gap-2 rounded-lg p-1 -m-1 text-left outline-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           s.headerHover,
         )}
         aria-expanded={open}
         aria-controls={bodyId}
         onClick={onHeaderClick}
       >
-        <div className="min-w-0 flex-1 space-y-0.5 pr-1">
-          <h2
+        <div className="flex w-full min-w-0 flex-col gap-1.5">
+          <div
             className={cn(
-              "flex items-center gap-2 text-lg font-semibold",
-              s.title,
+              "grid w-full min-w-0 items-start gap-x-2 gap-y-2",
+              "grid-cols-[1fr_auto]",
+              hasSectionSummary
+                ? "sm:grid-cols-[minmax(0,1fr)_minmax(10rem,20rem)_auto] sm:gap-x-3"
+                : "sm:grid-cols-[1fr_auto] sm:gap-x-2",
             )}
           >
-            <Icon className={cn("h-5 w-5 shrink-0", s.icon)} aria-hidden />
-            <span className="min-w-0">{title}</span>
-          </h2>
-          {open && rows.length > 0 ? (
-            <p className={cn("text-sm", s.muted)}>{description}</p>
-          ) : null}
-          {!open && rows.length > 0 ? (
-            <p className={cn("text-sm", s.muted)}>
-              {rows.length}{" "}
-              {rows.length === 1 ? "certification" : "certifications"} — expand
-              to view.
-            </p>
-          ) : null}
-          {!open && rows.length === 0 ? (
-            <p className={cn("text-sm line-clamp-3", s.muted)}>{emptyMessage}</p>
-          ) : null}
+            <div className="col-start-1 row-start-1 min-w-0 space-y-0.5 pr-0.5 self-start">
+              <h2
+                className={cn(
+                  "flex w-full min-w-0 items-center gap-2 text-left text-lg font-semibold",
+                  s.title,
+                )}
+              >
+                <Icon className={cn("h-5 w-5 shrink-0", s.icon)} aria-hidden />
+                <span className="min-w-0">{title}</span>
+              </h2>
+              {open && rows.length > 0 ? (
+                <p className={cn("text-left text-sm", s.muted)}>{description}</p>
+              ) : null}
+              {!open && rows.length > 0 ? (
+                <p className={cn("text-left text-sm", s.muted)}>
+                  {rows.length}{" "}
+                  {rows.length === 1 ? "certification" : "certifications"} — expand
+                  to view.
+                </p>
+              ) : null}
+              {!open && rows.length === 0 ? (
+                <p className={cn("line-clamp-3 text-left text-sm", s.muted)}>
+                  {emptyMessage}
+                </p>
+              ) : null}
+            </div>
+            {hasSectionSummary ? (
+              <div
+                className="col-span-2 row-start-2 min-w-0 w-full self-start sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:self-center sm:w-auto rounded-lg border border-border/45 bg-background/30 px-2.5 py-1.5 sm:px-3 sm:py-1.5 dark:border-border/35 dark:bg-background/15"
+                data-dashboard-cert-section-summary
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                {sectionSummary}
+              </div>
+            ) : null}
+            <ChevronDown
+              className={cn(
+                "col-start-2 row-start-1 h-5 w-5 justify-self-end transition-transform duration-200",
+                s.chevron,
+                hasSectionSummary && "sm:col-start-3",
+                open && "rotate-180",
+              )}
+              aria-hidden
+            />
+          </div>
         </div>
-        <ChevronDown
-          className={cn(
-            "mt-0.5 h-5 w-5 shrink-0 transition-transform duration-200",
-            s.chevron,
-            open && "rotate-180",
-          )}
-          aria-hidden
-        />
       </button>
       <div id={bodyId} hidden={!open} className="space-y-3">
         {rows.length === 0 ? (
@@ -483,6 +550,31 @@ function DashboardMain({
     setOpenSection(key);
   };
 
+  const currentSectionSummary = useMemo(() => {
+    const agg = aggregateCurrentBucketProgress(buckets.current);
+    if (!agg) return null;
+    return (
+      <div
+        className="max-w-full space-y-1 min-w-0"
+        role="group"
+        aria-label="Overall progress for current certifications"
+      >
+        <div className="flex items-baseline justify-between gap-1.5 text-[0.65rem] sm:text-xs leading-tight">
+          <span className="font-medium text-amber-950/90 dark:text-amber-50/95">
+            Overall progress
+          </span>
+          <span className="tabular-nums text-xs font-semibold sm:text-sm text-amber-950 dark:text-amber-50">
+            {agg.pct}%
+          </span>
+        </div>
+        <Progress
+          value={agg.pct}
+          className="w-full max-w-full gap-0 [&_[data-slot=progress-track]]:h-2 sm:[&_[data-slot=progress-track]]:h-3"
+        />
+      </div>
+    );
+  }, [buckets.current]);
+
   const firstName =
     sessionUser.name.trim().split(/\s+/)[0] ||
     sessionUser.name.trim() ||
@@ -590,6 +682,7 @@ function DashboardMain({
           onHeaderClick={() =>
             setOpenSection((p) => (p === "current" ? null : "current"))
           }
+          sectionSummary={currentSectionSummary}
         />
 
         <CertificationBucketSection
