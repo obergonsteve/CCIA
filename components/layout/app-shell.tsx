@@ -280,7 +280,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <aside
           className={cn(
             "relative z-20 flex shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-in-out",
-            "shadow-[4px_0_12px_-3px_rgba(15,23,42,0.12),1px_0_0_rgba(0,0,0,0.04)] dark:shadow-[4px_0_16px_-2px_rgba(0,0,0,0.42),1px_0_0_rgba(0,0,0,0.2)]",
+            "shadow-[5px_0_12px_-2px_rgba(15,23,42,0.16),10px_0_28px_-6px_rgba(15,23,42,0.1),1px_0_0_rgba(0,0,0,0.06)]",
+            "dark:shadow-[5px_0_16px_-1px_rgba(0,0,0,0.5),12px_0_36px_-6px_rgba(0,0,0,0.32),1px_0_0_rgba(0,0,0,0.35)]",
             navOpen ? "w-60" : "w-0 border-r-0 shadow-none",
           )}
           aria-hidden={!navOpen}
