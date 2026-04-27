@@ -81,7 +81,7 @@ export const listForUser = query({
     const userId = await requireUserId(ctx);
     return await ctx.db
       .query("userProgress")
-      .filter((q) => q.eq(q.field("userId"), userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
   },
 });

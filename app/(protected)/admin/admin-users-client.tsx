@@ -577,25 +577,37 @@ export default function AdminUsersClient() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <form
+                  className="contents"
+                  autoComplete="off"
+                  onSubmit={(e) => e.preventDefault()}
+                >
                 <div className="space-y-3 rounded-lg border border-slate-300/40 bg-white/55 p-4 shadow-sm dark:border-slate-600/40 dark:bg-slate-950/25">
                   <h4 className="text-sm font-medium">Add user</h4>
                   <div className="grid sm:grid-cols-2 gap-3 max-w-2xl">
                     <Input
+                      name="cciaAddUserName"
                       placeholder="Name"
                       value={newUserName}
                       onChange={(e) => setNewUserName(e.target.value)}
+                      autoComplete="off"
                     />
                     <Input
+                      name="cciaAddUserEmail"
                       placeholder="Email"
                       type="email"
+                      inputMode="email"
                       value={newUserEmail}
                       onChange={(e) => setNewUserEmail(e.target.value)}
+                      autoComplete="off"
                     />
                     <Input
+                      name="cciaAddUserTempPassword"
                       placeholder="Temporary password (min 8 chars)"
                       type="password"
                       value={newUserPass}
                       onChange={(e) => setNewUserPass(e.target.value)}
+                      autoComplete="new-password"
                     />
                     <Select
                       value={newUserRole}
@@ -651,6 +663,7 @@ export default function AdminUsersClient() {
                     Add user to {coDetailName.trim() || selectedCompany.name}
                   </Button>
                 </div>
+                </form>
 
                 <div>
                   {certLevels === undefined || companyUsers === undefined ? (

@@ -174,11 +174,19 @@ export const listByCompany = query({
         return u;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
+    const allLiveCertificationLevels = (
+      await ctx.db.query("certificationLevels").collect()
+    ).filter((l) => isLive(l));
+    const bucketOpts = {
+      includeContentStepStats: false,
+      allLiveCertificationLevels,
+    } as const;
     return await Promise.all(
       base.map(async (u) => {
         const { current, completed } = await computeLearnerCertPathBuckets(
           ctx,
           u._id,
+          bucketOpts,
         );
         return {
           ...u,
@@ -214,11 +222,19 @@ export const listWithoutCompany = query({
         return u;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
+    const allLiveCertificationLevels = (
+      await ctx.db.query("certificationLevels").collect()
+    ).filter((l) => isLive(l));
+    const bucketOpts = {
+      includeContentStepStats: false,
+      allLiveCertificationLevels,
+    } as const;
     return await Promise.all(
       base.map(async (u) => {
         const { current, completed } = await computeLearnerCertPathBuckets(
           ctx,
           u._id,
+          bucketOpts,
         );
         return {
           ...u,

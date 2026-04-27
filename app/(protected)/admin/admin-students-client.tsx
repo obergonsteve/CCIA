@@ -168,22 +168,31 @@ export default function AdminStudentsClient() {
           </CardHeader>
           <CardContent>
             {canWrite ? (
+              <form
+                className="contents"
+                autoComplete="off"
+                onSubmit={(e) => e.preventDefault()}
+              >
               <div className="space-y-3 rounded-lg border border-brand-gold/25 bg-brand-gold/[0.04] p-4 dark:border-brand-gold/20 dark:bg-brand-gold/[0.06]">
                 <div className="grid sm:grid-cols-2 gap-3 max-w-2xl">
                   <Input
+                    name="cciaAddStudentName"
                     placeholder="Name"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     autoComplete="off"
                   />
                   <Input
+                    name="cciaAddStudentEmail"
                     type="email"
+                    inputMode="email"
                     placeholder="Email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     autoComplete="off"
                   />
                   <Input
+                    name="cciaAddStudentTempPassword"
                     type="password"
                     placeholder="Temporary password (min 8 chars)"
                     value={newPassword}
@@ -225,6 +234,7 @@ export default function AdminStudentsClient() {
                   Create student
                 </Button>
               </div>
+              </form>
             ) : (
               <p className="text-sm text-muted-foreground">
                 You can view this list, but only admins and content creators can

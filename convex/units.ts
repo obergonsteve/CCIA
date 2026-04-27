@@ -107,7 +107,7 @@ export async function collectUnitsForLevel(
   }
   const legacy = await ctx.db
     .query("units")
-    .filter((q) => q.eq(q.field("levelId"), levelId))
+    .withIndex("by_cert_level", (q) => q.eq("levelId", levelId))
     .collect();
   const legacyOnly = legacy
     .filter((u) => isLive(u) && !linkedUnitIds.has(u._id))

@@ -189,7 +189,9 @@ export default defineSchema({
     deletedAt: v.optional(v.number()),
   })
     .index("by_unit_category", ["unitCategoryId"])
-    .index("by_code", ["code"]),
+    .index("by_code", ["code"])
+    /** Legacy pre–`certificationUnits` link; `collectUnitsForLevel` must not full-scan `units`. */
+    .index("by_cert_level", ["levelId"]),
 
   /**
    * Associates a reusable unit with a certification track. `order` is scoped to that certification.
@@ -404,6 +406,7 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
     lastAccessed: v.number(),
   })
+    .index("by_user", ["userId"])
     .index("by_user_unit", ["userId", "unitId"])
     .index("by_unit", ["unitId"]),
 

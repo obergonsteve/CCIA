@@ -42,6 +42,8 @@ async function buildDashboardCertRow(
   userId: Id<"users">,
   level: Doc<"certificationLevels">,
   progressByUnit: Map<Id<"units">, Doc<"userProgress">>,
+  /** When false, skips per-unit `countUnitStepProgress` (huge read savings when only bucketing matters). */
+  includeContentStepStats: boolean = true,
 ): Promise<DashboardCertRow | null> {
   const user = await ctx.db.get(userId);
   if (!user) {
@@ -64,9 +66,11 @@ async function buildDashboardCertRow(
         completedCount += 1;
       }
     }
-    const stepCounts = await countUnitStepProgress(ctx, userId, uid);
-    contentStepsTotal += stepCounts.total;
-    contentStepsCompleted += stepCounts.completed;
+    if (includeContentStepStats) {
+      const stepCounts = await countUnitStepProgress(ctx, userId, uid);
+      contentStepsTotal += stepCounts.total;
+      contentStepsCompleted += stepCounts.completed;
+    }
   }
   return {
     level,
@@ -111,20 +115,40 @@ export const listForUser = query({
 });
 
 /**
+ * Optional tuning for {@link computeLearnerCertPathBuckets} (batch admin, notifications, etc.).
+ */
+export type LearnerCertPathBucketsOptions = {
+  /**
+   * When false, skips per-unit content-step reads. Buckets use the same `userProgress`-based
+   * completed/touched rules; step counts on rows stay 0. Default true (learner dashboard).
+   */
+  includeContentStepStats?: boolean;
+  /**
+   * When set, avoids a full `certificationLevels` scan. Must be the live (non-deleted) levels;
+   * the same per-user company filter is still applied. Use for `listByCompany`–style batch calls.
+   */
+  allLiveCertificationLevels?: Doc<"certificationLevels">[];
+};
+
+/**
  * Same bucketing as the learner dashboard (current / planned roadmap / future).
  * Exported for `workshops` to filter sessions to units on those certification paths.
  */
 export async function computeLearnerCertPathBuckets(
   ctx: QueryCtx,
   userId: Id<"users">,
+  options?: LearnerCertPathBucketsOptions,
 ): Promise<LearnerCertPathBuckets> {
   const user = await ctx.db.get(userId);
   if (!user) {
     return { current: [], future: [], completed: [], planned: [] };
   }
-  const all = (await ctx.db.query("certificationLevels").collect()).filter(
-    (l) => isLive(l),
-  );
+  const includeContentStepStats = options?.includeContentStepStats ?? true;
+  const all = options?.allLiveCertificationLevels
+    ? options.allLiveCertificationLevels
+    : (await ctx.db.query("certificationLevels").collect()).filter(
+        (l) => isLive(l),
+      );
   const levels =
     user.role === "admin" || user.role === "content_creator"
       ? all
@@ -135,7 +159,7 @@ export async function computeLearnerCertPathBuckets(
 
   const allProgress = await ctx.db
     .query("userProgress")
-    .filter((q) => q.eq(q.field("userId"), userId))
+    .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
   const progressByUnit = new Map<
     Id<"units">,
@@ -152,6 +176,7 @@ export async function computeLearnerCertPathBuckets(
       userId,
       level,
       progressByUnit,
+      includeContentStepStats,
     );
     if (row) {
       rows.push(row);
@@ -210,6 +235,7 @@ export async function collectLiveWorkshopUnitIdsOnLearnerCertPaths(
   const { current, planned, future } = await computeLearnerCertPathBuckets(
     ctx,
     userId,
+    { includeContentStepStats: false },
   );
   const levelIds = new Set<Id<"certificationLevels">>();
   for (const row of [...current, ...planned, ...future]) {
@@ -257,7 +283,7 @@ export const addCertificationLevelToMyPlan = mutation({
     }
     const allProgress = await ctx.db
       .query("userProgress")
-      .filter((q) => q.eq(q.field("userId"), userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     const progressByUnit = new Map<Id<"units">, (typeof allProgress)[number]>();
     for (const p of allProgress) {

@@ -1041,7 +1041,9 @@ async function userHasInAppLinkOnCurrentOrRoadmap(
   if (levelIds.length === 0) {
     return false;
   }
-  const buckets = await computeLearnerCertPathBuckets(ctx, userId);
+  const buckets = await computeLearnerCertPathBuckets(ctx, userId, {
+    includeContentStepStats: false,
+  });
   const onPath = new Set<Id<"certificationLevels">>([
     ...buckets.current.map((r) => r.level._id),
     ...buckets.planned.map((r) => r.level._id),
