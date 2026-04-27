@@ -185,7 +185,7 @@ const STAR_AMBIENT_SHADOW: Record<CertificationTierKey, string> = {
 /** Metallic tier star (bronze / silver / gold) for badges and filters. */
 export function CertificationTierMedallion({
   tier,
-  /** Default for tight badge rows; pass a larger `className` in context (e.g. `size-6` from `certificationTierBadgeMedallionClass`). */
+  /** Default for tight badge rows; pass a larger `className` in context (e.g. `size-8` from `certificationTierBadgeMedallionClass`). */
   className = "size-4",
   "aria-hidden": ariaHidden = true,
 }: {
