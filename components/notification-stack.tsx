@@ -1,7 +1,6 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
-import { Button } from "@/components/ui/button";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
@@ -518,7 +517,6 @@ export function NotificationStack() {
       : "skip",
   );
   const dismissM = useMutation(api.userNotifications.dismiss);
-  const dismissAllM = useMutation(api.userNotifications.dismissAll);
 
   const [mounted, setMounted] = useState(false);
   const [positions, setPositions] = useState<
@@ -693,29 +691,6 @@ export function NotificationStack() {
             </div>
           );
         })}
-        {rows.length > 1 ? (
-          <div
-            className="pointer-events-auto fixed right-4 bottom-1 z-[30000] max-[480px]:right-2 max-[480px]:bottom-1"
-          >
-            <Button
-              type="button"
-              size="sm"
-              className={cn(
-                "text-xs font-medium shadow-md",
-                "border border-brand-lime/60 bg-brand-lime/90 text-foreground",
-                "hover:bg-brand-lime dark:border-brand-lime/50 dark:bg-brand-lime/80 dark:hover:bg-brand-lime/90",
-              )}
-              onClick={() => {
-                for (const r of rows) {
-                  removeNotifPosition(forUserKey, r._id);
-                }
-                void dismissAllM({ forUserId });
-              }}
-            >
-              Dismiss all
-            </Button>
-          </div>
-        ) : null}
       </div>
     </div>,
     document.body,

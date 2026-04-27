@@ -325,21 +325,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               )}
               <div className="min-w-0 flex-1" aria-hidden />
-              <Button
-                size="icon"
-                variant="ghost"
-                className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
-                onClick={() =>
-                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                }
-                aria-label="Toggle theme"
-              >
-                {resolvedTheme === "dark" ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
-                  <Moon className="h-4 w-4" />
-                )}
-              </Button>
             </>
           ) : (
             <>
@@ -373,21 +358,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
                 <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
                   <PinnedInAppNotices />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
-                    onClick={() =>
-                      setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                    }
-                    aria-label="Toggle theme"
-                  >
-                    {resolvedTheme === "dark" ? (
-                      <Sun className="h-4 w-4" />
-                    ) : (
-                      <Moon className="h-4 w-4" />
-                    )}
-                  </Button>
                 </div>
               </div>
             </>
@@ -440,8 +410,28 @@ export function AppShell({ children }: { children: ReactNode }) {
             ) : null}
             {children}
           </main>
-          <footer className="shrink-0 border-t border-border/60 text-center text-xs text-muted-foreground py-3 px-4">
-            {SITE_FOOTER_APP}
+          <footer className="shrink-0 border-t border-border/60 flex items-center gap-2 py-2.5 px-4 sm:px-6">
+            <div className="min-w-0 flex-1" aria-hidden />
+            <p className="text-center text-xs text-muted-foreground">
+              {SITE_FOOTER_APP}
+            </p>
+            <div className="flex min-w-0 flex-1 justify-end">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="shrink-0 text-card-foreground hover:bg-muted/80 dark:text-foreground dark:hover:bg-white/10"
+                onClick={() =>
+                  setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                }
+                aria-label="Toggle theme"
+              >
+                {resolvedTheme === "dark" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </footer>
         </div>
       </div>
