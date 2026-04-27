@@ -555,7 +555,7 @@ function DashboardMain({
     if (!agg) return null;
     return (
       <div
-        className="max-w-full space-y-1 min-w-0"
+        className="max-w-full min-w-0 flex min-h-0 flex-col gap-0.5"
         role="group"
         aria-label="Overall progress for current certifications"
       >
