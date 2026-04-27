@@ -38,7 +38,7 @@ import {
 } from "@/lib/certificationTier";
 import { useSessionUser } from "@/lib/use-session-user";
 import { cn } from "@/lib/utils";
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 type BucketRow = {
   level: Doc<"certificationLevels">;
@@ -48,6 +48,28 @@ type BucketRow = {
   contentStepsTotal: number;
   contentStepsCompleted: number;
 };
+
+/** Add/remove roadmap: fade out source card, then fade in in the other section. */
+type RoadmapMoveAnimState =
+  | { phase: "idle" }
+  | {
+      phase: "exiting";
+      levelId: Id<"certificationLevels">;
+      from: "future" | "planned";
+    }
+  | {
+      phase: "entering";
+      levelId: Id<"certificationLevels">;
+      inSection: "future" | "planned";
+    };
+
+const ROADMAP_MOVE_EXIT_MS = 200;
+const ROADMAP_MOVE_ENTER_MS = 400;
+
+const CERT_CARD_EXIT_CLASS =
+  "pointer-events-none opacity-0 scale-[0.99] transition-all duration-200 ease-out will-change-transform";
+const CERT_CARD_ENTER_CLASS =
+  "animate-in fade-in-0 duration-300 motion-reduce:opacity-100 will-change-transform";
 
 /** In-page anchors for dashboard certification summary chips. */
 const DASHBOARD_CERT_SECTION_IDS = {
@@ -178,6 +200,7 @@ function CertificationBucketSection({
   extraCardFooter,
   sectionId,
   defaultExpanded = false,
+  getCardClassNameForLevel,
 }: {
   title: string;
   description: string;
@@ -190,6 +213,8 @@ function CertificationBucketSection({
   sectionId?: string;
   /** When true, section body starts expanded (default is collapsed). */
   defaultExpanded?: boolean;
+  /** e.g. roadmap add/remove enter/exit fades */
+  getCardClassNameForLevel?: (levelId: Id<"certificationLevels">) => string;
 }) {
   const s = DASHBOARD_CERT_BUCKET_STYLES[bucketKey];
   const [open, setOpen] = useState(defaultExpanded);
@@ -284,7 +309,11 @@ function CertificationBucketSection({
             return (
               <Card
                 key={level._id}
-                className={cn("border-l-4", s.cardBorder)}
+                className={cn(
+                  "border-l-4",
+                  s.cardBorder,
+                  getCardClassNameForLevel?.(level._id),
+                )}
               >
                 <div className="relative -mt-4 aspect-[2/1] w-full shrink-0 overflow-hidden bg-muted sm:aspect-[16/9]">
                   {thumb ? (
@@ -397,6 +426,82 @@ export default function DashboardClient() {
   const removeFromPlan = useMutation(
     api.certifications.removeCertificationLevelFromMyPlan,
   );
+  const [roadmapMoveAnim, setRoadmapMoveAnim] = useState<RoadmapMoveAnimState>({
+    phase: "idle",
+  });
+
+  const getRoadmapMoveCardClass = useCallback(
+    (list: "future" | "planned", levelId: Id<"certificationLevels">) => {
+      const m = roadmapMoveAnim;
+      if (m.phase === "exiting" && m.levelId === levelId && m.from === list) {
+        return CERT_CARD_EXIT_CLASS;
+      }
+      if (
+        m.phase === "entering" &&
+        m.levelId === levelId &&
+        m.inSection === list
+      ) {
+        return CERT_CARD_ENTER_CLASS;
+      }
+      return "";
+    },
+    [roadmapMoveAnim],
+  );
+
+  const addToRoadmapWithAnim = useCallback(
+    (levelId: Id<"certificationLevels">) => {
+      setRoadmapMoveAnim({ phase: "exiting", levelId, from: "future" });
+      window.setTimeout(() => {
+        addToPlan({ levelId })
+          .then(() => {
+            // Defer so `useQuery` can render the new row in Roadmap before fade-in.
+            window.setTimeout(() => {
+              setRoadmapMoveAnim({
+                phase: "entering",
+                levelId,
+                inSection: "planned",
+              });
+              window.setTimeout(
+                () => setRoadmapMoveAnim({ phase: "idle" }),
+                ROADMAP_MOVE_ENTER_MS,
+              );
+            }, 0);
+          })
+          .catch(() => {
+            setRoadmapMoveAnim({ phase: "idle" });
+          });
+      }, ROADMAP_MOVE_EXIT_MS);
+    },
+    [addToPlan],
+  );
+
+  const removeFromRoadmapWithAnim = useCallback(
+    (levelId: Id<"certificationLevels">) => {
+      setRoadmapMoveAnim({ phase: "exiting", levelId, from: "planned" });
+      window.setTimeout(() => {
+        removeFromPlan({ levelId })
+          .then(() => {
+            window.setTimeout(() => {
+              setRoadmapMoveAnim({
+                phase: "entering",
+                levelId,
+                inSection: "future",
+              });
+              window.setTimeout(
+                () => setRoadmapMoveAnim({ phase: "idle" }),
+                ROADMAP_MOVE_ENTER_MS,
+              );
+            }, 0);
+          })
+          .catch(() => {
+            setRoadmapMoveAnim({ phase: "idle" });
+          });
+      }, ROADMAP_MOVE_EXIT_MS);
+    },
+    [removeFromPlan],
+  );
+
+  const roadmapMoveBusy = roadmapMoveAnim.phase !== "idle";
 
   const certSummary = useMemo(
     () => ({
@@ -438,6 +543,16 @@ export default function DashboardClient() {
     sessionUser.name.trim().split(/\s+/)[0] ||
     sessionUser.name.trim() ||
     sessionUser.name;
+
+  const currentCount = buckets.current.length;
+  const plannedCount = buckets.planned?.length ?? 0;
+  /** Open “Current” when there is work in progress; otherwise open “Roadmap” if it has items. */
+  const defaultExpandCurrent = currentCount >= 1;
+  const defaultExpandRoadmap =
+    !defaultExpandCurrent && plannedCount >= 1;
+  /** When nothing in Current or Roadmap, surface Available so learners see what to start. */
+  const defaultExpandAvailable =
+    currentCount === 0 && plannedCount === 0;
 
   return (
     <div className="-mt-2 space-y-5">
@@ -530,7 +645,7 @@ export default function DashboardClient() {
         icon={CircleDot}
         rows={buckets.current}
         emptyMessage="No certifications in progress. Open one from the available certifications below to get started."
-        defaultExpanded
+        defaultExpanded={defaultExpandCurrent}
       />
 
       <CertificationBucketSection
@@ -540,6 +655,8 @@ export default function DashboardClient() {
         description="Certifications you marked from Available certifications — still not started."
         icon={Bookmark}
         rows={buckets.planned ?? []}
+        defaultExpanded={defaultExpandRoadmap}
+        getCardClassNameForLevel={(id) => getRoadmapMoveCardClass("planned", id)}
         emptyMessage="Nothing on your roadmap yet. Use “Add to roadmap” on a certification in the available certifications below."
         extraCardFooter={(row) => (
           <Button
@@ -547,9 +664,8 @@ export default function DashboardClient() {
             variant="outline"
             size="sm"
             className="w-fit border-destructive/35 text-destructive hover:bg-destructive/10"
-            onClick={() =>
-              removeFromPlan({ levelId: row.level._id }).catch(() => {})
-            }
+            disabled={roadmapMoveBusy}
+            onClick={() => removeFromRoadmapWithAnim(row.level._id)}
           >
             Remove from roadmap
           </Button>
@@ -563,6 +679,8 @@ export default function DashboardClient() {
         description="Available to you — not started yet."
         icon={Sparkles}
         rows={buckets.future}
+        defaultExpanded={defaultExpandAvailable}
+        getCardClassNameForLevel={(id) => getRoadmapMoveCardClass("future", id)}
         emptyMessage="No upcoming certifications, or you’ve already engaged with everything available."
         extraCardFooter={(row) =>
           canAddCertToRoadmap(row.level._id) ? (
@@ -571,9 +689,8 @@ export default function DashboardClient() {
               variant="outline"
               size="sm"
               className="w-fit"
-              onClick={() =>
-                addToPlan({ levelId: row.level._id }).catch(() => {})
-              }
+              disabled={roadmapMoveBusy}
+              onClick={() => addToRoadmapWithAnim(row.level._id)}
             >
               Add to roadmap
             </Button>
