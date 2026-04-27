@@ -440,7 +440,10 @@ function CertificationBucketSection({
                         </span>
                       </div>
                       {unitTotal > 0 ? (
-                        <Progress value={unitsPct} className="h-2 w-full" />
+                        <Progress
+                          value={unitsPct}
+                          className="h-2.5 w-full gap-0 [&_[data-slot=progress-track]]:h-[9px]"
+                        />
                       ) : (
                         <p className="text-xs text-muted-foreground">
                           No units in this certification yet
@@ -459,7 +462,7 @@ function CertificationBucketSection({
                         </div>
                         <Progress
                           value={contentPct}
-                          className="h-2 w-full"
+                          className="h-2.5 w-full gap-0 [&_[data-slot=progress-track]]:h-[9px]"
                         />
                       </div>
                     ) : null}
