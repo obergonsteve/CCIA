@@ -428,7 +428,7 @@ export function SendInAppNoticeDialog({
                 : "text-red-700 dark:text-red-400",
             )}
           >
-            {isSelfNoteSend ? "Note to yourself" : "Send in-app note"}
+            {isSelfNoteSend ? "Note to self" : "Send in-app note"}
           </DialogTitle>
         </DialogHeader>
         <div

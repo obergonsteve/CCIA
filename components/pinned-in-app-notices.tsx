@@ -4,12 +4,14 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "convex/react";
+import { isInAppPostItNoteToSelf } from "@/lib/in-app-self-note";
 import {
   Archive,
   ArchiveRestore,
   ChevronDown,
   ExternalLink,
   TrendingUp,
+  UserRound,
   Video,
 } from "lucide-react";
 import Link from "next/link";
@@ -212,6 +214,7 @@ function PinnedLine({
   const [expanded, setExpanded] = useState(false);
   const importance = (row.importance ?? "normal") as NotificationImportance;
   const th = postItChromeForNotification(row);
+  const isNoteToSelf = isInAppPostItNoteToSelf(row);
   const a11yIcon =
     row.kind === "webinar_reminder"
       ? "Webinar reminder"
@@ -241,7 +244,27 @@ function PinnedLine({
   return (
     <li className="list-none">
       <div className={cn(postItCardWidthClass, "shrink-0")}>
-        <div className={cn("w-full overflow-hidden", th.shell)}>
+        <div
+          className={cn(
+            "relative w-full",
+            th.shell,
+            isNoteToSelf ? "!overflow-visible" : "overflow-hidden",
+          )}
+        >
+        {isNoteToSelf ? (
+          <span
+            className="pointer-events-none absolute -left-0.5 -top-2.5 z-[5] flex size-4 items-center justify-center rounded-full border border-brand-lime/45 bg-background/95 shadow-sm ring-1 ring-brand-lime/25 dark:border-brand-lime/50 dark:bg-card/90 dark:ring-brand-lime/20"
+            title="Note to self"
+            aria-label="Note to self"
+            role="img"
+          >
+            <UserRound
+              className="h-3 w-3 text-[color-mix(in_oklab,var(--brand-lime)_78%,#5a6a3c)] dark:text-[color-mix(in_oklab,var(--brand-lime)_80%,#6a7a48)]"
+              aria-hidden
+              strokeWidth={2.1}
+            />
+          </span>
+        ) : null}
         <div
           className={postItFirstRowClassName(th.hairline, hasDetails, expanded)}
         >
@@ -299,7 +322,7 @@ function PinnedLine({
           ) : null}
           <button
             type="button"
-            className="shrink-0 cursor-default rounded p-0.5 text-foreground/65 hover:bg-black/10 hover:text-foreground/90 dark:text-foreground/60 dark:hover:bg-white/15 dark:hover:text-foreground/90"
+            className="shrink-0 cursor-default rounded p-0.5 text-brand-sky hover:bg-black/10 hover:text-brand-sky dark:hover:bg-white/15"
             onClick={(e) => {
               e.stopPropagation();
               returnStashToDesktop();

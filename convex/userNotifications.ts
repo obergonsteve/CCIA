@@ -1206,7 +1206,9 @@ export const adminSendInAppNotification = mutation({
       if (!userRow) {
         throw new ConvexError("User not found");
       }
-      const dedupeKey = `admin:u:${String(targetUserId)}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+      const dedupeKey = selfUserScope
+        ? `admin:self:u:${String(targetUserId)}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`
+        : `admin:u:${String(targetUserId)}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
       return tryCreateOrSkip(ctx, {
         userId: targetUserId,
         kind,
